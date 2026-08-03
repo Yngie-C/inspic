@@ -135,24 +135,6 @@ const SLASH_ITEMS: SlashMenuItem[] = [
     },
   },
   {
-    title: "토글/접기",
-    aliases: ["toggle", "접기", "펼치기", "accordion"],
-    icon: ChevronDown,
-    category: "인터랙티브",
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).insertContent({ type: "toggle" }).run();
-    },
-  },
-  {
-    title: "N열 리스트",
-    aliases: ["columns", "열", "컬럼", "column"],
-    icon: Columns,
-    category: "인터랙티브",
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).insertContent({ type: "columnList" }).run();
-    },
-  },
-  {
     title: "SMART 목표",
     aliases: ["smart", "goal", "목표"],
     icon: Target,
@@ -162,57 +144,12 @@ const SLASH_ITEMS: SlashMenuItem[] = [
     },
   },
   {
-    title: "Before / After",
-    aliases: ["before", "after", "전후", "비교"],
-    icon: ArrowLeftRight,
-    category: "인터랙티브",
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).insertContent({ type: "beforeAfter" }).run();
-    },
-  },
-  {
     title: "1-10 스케일",
     aliases: ["scale", "스케일", "척도", "점수"],
     icon: BarChart3,
     category: "인터랙티브",
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).insertContent({ type: "scale" }).run();
-    },
-  },
-  {
-    title: "2x2 사분면",
-    aliases: ["quadrant", "사분면", "매트릭스"],
-    icon: LayoutGrid,
-    category: "인터랙티브",
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).insertContent({ type: "quadrant" }).run();
-    },
-  },
-  {
-    title: "OKR",
-    aliases: ["okr", "목표관리"],
-    icon: Flag,
-    category: "인터랙티브",
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).insertContent({ type: "okr" }).run();
-    },
-  },
-  {
-    title: "습관 트래커",
-    aliases: ["habit", "습관", "tracker"],
-    icon: Calendar,
-    category: "인터랙티브",
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).insertContent({ type: "habitTracker" }).run();
-    },
-  },
-  {
-    title: "WOOP",
-    aliases: ["woop", "소원"],
-    icon: Star,
-    category: "인터랙티브",
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).insertContent({ type: "woop" }).run();
     },
   },
 ];

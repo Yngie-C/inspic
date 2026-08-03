@@ -20,20 +20,8 @@ interface BookWithAuthor {
   author_name: string | null;
 }
 
-interface ReviewWithBook {
-  id: string;
-  rating: number;
-  title: string | null;
-  content: string | null;
-  created_at: string;
-  book_title: string;
-  book_id: string;
-  user_name: string;
-  avatar_url: string | null;
-}
-
 const BOOK_SELECT =
-  "id, title, description, cover_image_url, language, status, visibility, total_chapters, total_words, published_at, price, owner_id, content_type";
+  "id, title, description, cover_image_url, language, status, visibility, total_chapters, total_words, published_at, price, owner_id";
 
 async function fetchAuthorMap(
   admin: ReturnType<typeof createAdminClient>,
@@ -75,10 +63,8 @@ export async function GET(): Promise<NextResponse> {
       purchasesResult,
       newestResult,
       freeResult,
-      reviewsResult,
       totalBooksResult,
       authorsResult,
-      totalReviewsResult,
     ] = await Promise.all([
       // 1. Purchase counts for featured
       admin.from("purchases").select("book_id").eq("status", "completed"),
@@ -99,26 +85,18 @@ export async function GET(): Promise<NextResponse> {
         .eq("price", 0)
         .order("published_at", { ascending: false })
         .limit(8),
-      // 4. Recent reviews
-      admin
-        .from("reviews")
-        .select("id, user_id, book_id, rating, title, content, created_at")
-        .order("created_at", { ascending: false })
-        .limit(4),
-      // 5a. Total published books count
+      // 4a. Total published books count
       admin
         .from("books")
         .select("id", { count: "exact", head: true })
         .eq("status", "published")
         .eq("visibility", "public"),
-      // 5b. All owner_ids for unique author count
+      // 4b. All owner_ids for unique author count
       admin
         .from("books")
         .select("owner_id")
         .eq("status", "published")
         .eq("visibility", "public"),
-      // 5c. Total reviews count
-      admin.from("reviews").select("id", { count: "exact", head: true }),
     ]);
 
     // --- Collect all books for batch author lookup ---
@@ -177,63 +155,18 @@ export async function GET(): Promise<NextResponse> {
       (b) => toBookWithAuthor(b, authorMap),
     );
 
-    // --- Recent reviews: fetch user profiles and book titles separately ---
-    const rawReviews = (reviewsResult.data ?? []) as Record<string, unknown>[];
-    let recentReviews: ReviewWithBook[] = [];
-
-    if (rawReviews.length > 0) {
-      const reviewUserIds = [...new Set(rawReviews.map((r) => r.user_id as string))];
-      const reviewBookIds = [...new Set(rawReviews.map((r) => r.book_id as string))];
-
-      const [reviewProfiles, reviewBooks] = await Promise.all([
-        admin.from("user_profiles").select("user_id, display_name, avatar_url").in("user_id", reviewUserIds),
-        admin.from("books").select("id, title").in("id", reviewBookIds),
-      ]);
-
-      const profileMap = new Map<string, { display_name: string | null; avatar_url: string | null }>();
-      for (const p of (reviewProfiles.data ?? [])) {
-        profileMap.set(p.user_id as string, {
-          display_name: p.display_name as string | null,
-          avatar_url: p.avatar_url as string | null,
-        });
-      }
-
-      const bookMap = new Map<string, { id: string; title: string }>();
-      for (const b of (reviewBooks.data ?? [])) {
-        bookMap.set(b.id as string, { id: b.id as string, title: b.title as string });
-      }
-
-      recentReviews = rawReviews.map((r) => {
-        const profile = profileMap.get(r.user_id as string);
-        const book = bookMap.get(r.book_id as string);
-        return {
-          id: r.id as string,
-          rating: r.rating as number,
-          title: r.title as string | null,
-          content: r.content as string | null,
-          created_at: r.created_at as string,
-          book_title: book?.title ?? "",
-          book_id: book?.id ?? "",
-          user_name: profile?.display_name ?? "익명",
-          avatar_url: profile?.avatar_url ?? null,
-        };
-      });
-    }
-
     // --- Stats ---
     const totalBooks = totalBooksResult.count ?? 0;
     const ownerIds = (authorsResult.data ?? []).map(
       (r) => (r as Record<string, unknown>).owner_id as string,
     );
     const totalAuthors = new Set(ownerIds).size;
-    const totalReviews = totalReviewsResult.count ?? 0;
 
     return apiSuccess({
       featured,
       newest,
       free,
-      recentReviews,
-      stats: { totalBooks, totalAuthors, totalReviews },
+      stats: { totalBooks, totalAuthors },
     });
   } catch (err) {
     console.error("[landing/route] error:", err);

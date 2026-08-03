@@ -44,14 +44,12 @@ function getGradient(title: string): string {
 async function fetchPublicBooks(
   filters: SearchFilters,
   page: number,
-  contentType: string,
 ): Promise<{ books: BookWithAuthor[]; total: number }> {
   const params = new URLSearchParams();
   if (filters.query) params.set("q", filters.query);
   if (filters.language) params.set("language", filters.language);
   params.set("sort", filters.sort);
   if (filters.priceRange) params.set("priceRange", filters.priceRange);
-  if (contentType && contentType !== "all") params.set("content_type", contentType);
   params.set("page", String(page));
   params.set("per_page", "24");
 
@@ -165,13 +163,6 @@ export default function ExplorePage() {
   );
 }
 
-// [SUN-68] 시리즈 기능 — 추후 활성화
-// const CONTENT_TYPE_TABS = [
-//   { key: "all", label: "전체" },
-//   { key: "book", label: "책" },
-//   { key: "series", label: "시리즈" },
-// ] as const;
-
 function ExploreContent() {
   const searchParams = useSearchParams();
 
@@ -182,15 +173,10 @@ function ExploreContent() {
     priceRange: searchParams.get("priceRange") ?? "",
   }));
   const [page, setPage] = useState(1);
-  // [SUN-68] 시리즈 기능 — 추후 활성화
-  // const [contentType, setContentType] = useState<string>(
-  //   searchParams.get("content_type") ?? "all",
-  // );
-  const contentType = "all";
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["explore", filters, page, contentType],
-    queryFn: () => fetchPublicBooks(filters, page, contentType),
+    queryKey: ["explore", filters, page],
+    queryFn: () => fetchPublicBooks(filters, page),
     staleTime: 30_000,
   });
 
@@ -198,12 +184,6 @@ function ExploreContent() {
     setFilters(newFilters);
     setPage(1);
   };
-
-  // [SUN-68] 시리즈 기능 — 추후 활성화
-  // const handleContentTypeChange = (type: string) => {
-  //   setContentType(type);
-  //   setPage(1);
-  // };
 
   const books = data?.books ?? [];
   const total = data?.total ?? 0;
@@ -223,24 +203,6 @@ function ExploreContent() {
 
       {/* Popular books */}
       <PopularBooksSection />
-
-      {/* [SUN-68] 시리즈 기능 — 추후 활성화 */}
-      {/* <div className="mb-4 flex gap-2">
-        {CONTENT_TYPE_TABS.map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => handleContentTypeChange(key)}
-            className={cn(
-              "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
-              contentType === key
-                ? "bg-gray-900 text-white"
-                : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50",
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div> */}
 
       {/* Search & filters */}
       <div className="mb-8">

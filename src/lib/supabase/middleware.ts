@@ -32,18 +32,18 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
+  // getUser()는 JWT를 Supabase 서버에서 검증한다.
+  // 실패 시 getSession()으로 폴백하지 않는다 — getSession()은 로컬 쿠키를 검증 없이 읽으므로
+  // 위조된 쿠키가 보호 라우트를 통과할 수 있다. 검증 실패는 미인증으로 취급한다.
   let user = null;
   try {
     const { data } = await supabase.auth.getUser();
     user = data.user;
   } catch {
-    // 동시 요청 시 lock 충돌 (AbortError) — getSession()으로 폴백
-    // getSession()은 JWT를 로컬에서 읽으므로 lock이 필요 없음
-    const { data: sessionData } = await supabase.auth.getSession();
-    user = sessionData.session?.user ?? null;
+    user = null;
   }
 
-  const protectedRoutes = ["/dashboard", "/create", "/settings", "/reader", "/listen", "/my", "/creator"];
+  const protectedRoutes = ["/create", "/reader", "/my", "/creator"];
   const isProtected = protectedRoutes.some((route) =>
     request.nextUrl.pathname.startsWith(route),
   );

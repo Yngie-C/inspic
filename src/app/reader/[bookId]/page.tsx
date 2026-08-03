@@ -3,14 +3,7 @@
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import {
-  ChevronLeft,
-  ChevronRight,
-  ArrowLeft,
-  List,
-  X,
-  Headphones,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, ArrowLeft, List, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import type { Book, Chapter } from "@/types";
@@ -67,7 +60,7 @@ export default function ReaderPage() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 text-gray-500">
         <p>읽을 수 있는 챕터가 없습니다.</p>
-        <Button variant="outline" onClick={() => router.push("/dashboard")}>
+        <Button variant="outline" onClick={() => router.push("/my/library")}>
           대시보드로
         </Button>
       </div>
@@ -80,7 +73,7 @@ export default function ReaderPage() {
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-gray-200 bg-white/90 px-4 py-3 backdrop-blur-sm sm:px-6">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => router.push("/dashboard")}
+            onClick={() => router.push("/my/library")}
             className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -92,14 +85,6 @@ export default function ReaderPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push(`/listen/${bookId}`)}
-          >
-            <Headphones className="h-4 w-4 mr-1.5" />
-            듣기
-          </Button>
           <button
             onClick={() => setTocOpen(!tocOpen)}
             className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"

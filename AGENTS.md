@@ -13,16 +13,27 @@
 
 ## 프로젝트 개요
 
-Publedge는 누구나 텍스트를 업로드하면 전자책과 오디오북을 만들 수 있는 출판 민주화 플랫폼입니다.
+Inspic은 **인터랙티브 워크북 출판 플랫폼**입니다. "읽는 책"이 아니라 "적용하는 책"을 지향합니다.
+
+크리에이터가 원고에 워크시트·체크리스트·성찰 질문을 끼워 넣어 출간하면, 독자는 읽으면서 직접 작성하고 그 결과를 자기 계정에 남깁니다.
+
+**현재 상태: MVP 재구성 중.** 2026-08-04에 M0(범위 밖 코드 삭제)를 완료했습니다. 상세 계획과 마일스톤은 `README.md`를 보세요.
 
 핵심 기능:
-- 텍스트/Markdown/DOCX 업로드
-- 챕터 구조화 및 전자책 변환
+- 텍스트/Markdown/DOCX 업로드 및 챕터 구조화
+- Tiptap 기반 리치 텍스트 에디터 + 워크북 블록 5종
 - 웹 전자책 리더
-- OpenAI TTS 기반 오디오북 생성
+- Toss Payments 기반 유료 판매 + 구매 기반 접근 제어
 - PDF/EPUB 내보내기
-- Tiptap 기반 리치 텍스트 에디터
-- Supabase Auth/DB/Storage/Edge Functions 기반 백엔드
+- Supabase Auth/DB/Storage 기반 백엔드
+
+### MVP 범위에서 제외됨 (M0에서 삭제)
+
+아래 기능은 저장소에 **없습니다**. 다시 추가하지 마세요. 필요하면 먼저 사용자와 범위를 합의하세요.
+
+TTS·오디오북 · 하이라이트/북마크/독서진행률/리더설정 · 시리즈 연재 · 알림 · 다국어(next-intl) · AI 보조(요약/교정/번역/커버) · 협업 저작 · 리뷰·팔로우 · 워크북 템플릿 7종(Toggle, N열, Before/After, 사분면, OKR, 습관 트래커, WOOP)
+
+삭제 이전 코드는 `pre-mvp-archive` 태그에 있습니다.
 
 ## 기술 스택
 
@@ -32,24 +43,22 @@ Publedge는 누구나 텍스트를 업로드하면 전자책과 오디오북을 
 - Styling: Tailwind CSS 4
 - State: Zustand 5
 - Data Fetching: TanStack Query
-- Backend: Supabase Auth, PostgreSQL, Storage, Realtime, Edge Functions
-- Editor: Tiptap
-- PDF: @react-pdf/renderer, pdf-lib
-- TTS: OpenAI TTS API
-- i18n: next-intl
+- Backend: Supabase Auth, PostgreSQL, Storage
+- Editor: Tiptap 3
+- PDF/EPUB: @react-pdf/renderer, pdf-lib, 자체 EPUB 생성기
+- Payments: Toss Payments
 - Package manager: npm
 
 ## 주요 디렉터리
 
 - `src/app/`: Next.js App Router 페이지와 API routes
 - `src/components/`: UI 및 기능별 컴포넌트
-- `src/hooks/`: 커스텀 React hooks
-- `src/i18n/`: next-intl 메시지와 요청 설정
-- `src/lib/`: Supabase, OpenAI, sanitize, PDF/EPUB/TTS 등 핵심 유틸리티
+  - `editor/extensions/templates/`: 워크북 블록의 Tiptap Node (저작 측)
+  - `reader/templates/`: 워크북 블록의 리더 컴포넌트 (독자 측)
+- `src/lib/`: Supabase, sanitize, access-control, PDF/EPUB, Toss 등 핵심 유틸리티
 - `src/stores/`: Zustand stores
 - `src/types/`: TypeScript 타입 정의
-- `supabase/migrations/`: Supabase DB 마이그레이션
-- `supabase/functions/`: Supabase Edge Functions
+- `supabase/migrations/`: Supabase DB 마이그레이션 (M1에서 재설계 예정)
 - `content/`: 전자책 원고 및 콘텐츠 문서
 - `creator-outreach/`: 크리에이터 아웃리치 관련 문서
 - `.claude/`: Claude Code 커스텀 커맨드/프로젝트 메모
@@ -100,18 +109,33 @@ Hermes, Codex, Claude Code 및 기타 코딩 에이전트는 프로젝트 맥락
 
 1. **우선 규칙**: `AGENTS.md`
    - 이 파일이 현재 프로젝트의 코딩 규칙, 보안 규칙, 검증 기준, Git 작업 규칙의 source of truth입니다.
-2. **Canonical 장기 지식**: `docs/agent-knowledge/`
+2. **MVP 재구성 계획**: `docs/agent-knowledge/mvp-rebuild-plan.md`
+   - 코드 감사 결과, 확정된 제품 결정, MVP 정의, M0~M6 마일스톤과 게이트가 들어 있습니다.
+   - 진행 상황과 다음 작업 목록은 `TODO.md`, 마일스톤 요약은 `README.md`를 보세요.
+   - **새 작업을 시작하기 전에 이 세 문서를 먼저 확인하세요.** 현재 마일스톤 범위 밖의 기능은 추가하지 않습니다.
+3. **Canonical 장기 지식**: `docs/agent-knowledge/`
    - 새로 발견한 컨벤션, 아키텍처 결정, 반복 워크플로, Hermes/Ollama-Cloud/OMX 운영 지식은 기본적으로 이 디렉터리에 저장하세요.
    - `.claude/`, `.omc/`, `.omx/`에 흩어진 기존 지식 중 앞으로도 유효한 내용은 이 디렉터리에 요약해 승격하세요.
-3. **Legacy 참고 자료**: `.claude/projects/`, `.claude/commands/`, `.omc/project-memory.json`, `.omc/plans/`, `.omc/specs/`
+4. **Legacy 참고 자료**: `.claude/projects/`, `.claude/commands/`, `.omc/project-memory.json`, `.omc/plans/`, `.omc/specs/`
    - Claude Code / OMC에서 넘어온 과거 기획, deep interview, 프로젝트 메모, 콘텐츠 리뷰 커맨드 등은 읽기 전용 historical context로 활용하세요.
    - 새 장기 지식은 여기에 추가하지 말고 `docs/agent-knowledge/`에 추가하세요.
-4. **OMX 런타임 및 임시 작업 지식**: `.omx/wiki/`, `.omx/project-memory.json`, `.omx/plans/`, `.omx/notepad.md`
+5. **OMX 런타임 및 임시 작업 지식**: `.omx/wiki/`, `.omx/project-memory.json`, `.omx/plans/`, `.omx/notepad.md`
    - 존재하는 경우 최신 작업 맥락, 계획, 위키, 노트를 참고할 수 있습니다.
    - 단, `.omx/`는 canonical 장기 지식 저장소가 아니라 런타임/스크래치 공간으로 취급하세요.
-5. **수정 금지 기본값**
+6. **수정 금지 기본값**
    - `.omc/`와 `.omx/`의 상태, 세션, 로그, 캐시 파일은 사용자가 명시적으로 요청하지 않는 한 수정하지 마세요.
    - 필요한 지식이 여러 곳에 흩어져 있으면, 임의로 상태 파일을 옮기거나 삭제하지 말고 `docs/agent-knowledge/`에 요약하세요.
+
+## 워크북 데이터 모델 (가장 중요)
+
+워크북은 이 제품의 핵심 베팅입니다. 관련 코드를 만질 때 아래를 반드시 지키세요.
+
+- **독자 응답의 진실의 원천은 DB입니다.** `localStorage`는 오프라인 캐시로만 쓰세요. (현재는 localStorage 전용 — M1~M3에서 전환)
+- **응답을 배열 인덱스나 길이로 매칭하지 마세요.** 크리에이터가 문항을 하나만 추가/삭제해도 독자 응답이 전부 사라집니다. 응답은 안정적인 `block_id` + 필드 키로 식별하세요.
+- **`block_id`는 블록 생성 시 한 번만 부여하고 절대 재생성하지 마세요.** `parseHTML`에서 `|| generateNodeId()` 같은 폴백을 두면 속성이 유실될 때 키가 바뀌어 응답이 사라집니다.
+- **블록 정의(문항)와 독자 응답을 분리 저장하세요.** 크리에이터의 원고 수정이 독자 데이터를 파괴하면 안 됩니다.
+- 템플릿 콘텐츠를 `data-*` 속성 안의 JSON 문자열로 인라인하지 마세요. 쿼리·집계·마이그레이션이 불가능해집니다.
+- 워크북 블록을 추가/변경하면 에디터 Node, 리더 컴포넌트, `lib/sanitize.ts` 허용 목록, `lib/template-fallback.ts`(EPUB/PDF 정적 폴백)를 **함께** 확인하세요.
 
 ## 코딩 규칙
 

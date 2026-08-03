@@ -7,7 +7,6 @@ import Image from "next/image";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   BookOpen,
-  Headphones,
   Share2,
   Edit,
   Globe,
@@ -15,7 +14,6 @@ import {
   FileText,
   Clock,
   List,
-  Star,
   ChevronDown,
   ChevronUp,
   Check,
@@ -25,30 +23,11 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuthStore } from "@/stores/auth-store";
 import { cn } from "@/lib/utils";
-// [SUN-68] 시리즈 기능 — 추후 활성화
-// import { SubscribeButton } from "@/components/series/SubscribeButton";
-// import { SeriesInfo } from "@/components/series/SeriesInfo";
-import type { Book, Chapter, Audiobook, SeriesMetadata } from "@/types";
+import type { Book, Chapter } from "@/types";
 
 interface BookDetailData {
   book: Book & { author_name?: string | null; price: number; is_free: boolean };
   chapters: Chapter[];
-  audiobook: Audiobook | null;
-  reviews: Review[];
-  series_metadata?: SeriesMetadata | null;
-  subscriber_count?: number;
-  published_chapter_count?: number;
-  is_subscribed?: boolean;
-}
-
-interface Review {
-  id: string;
-  user_id: string;
-  book_id: string;
-  rating: number;
-  content: string | null;
-  created_at: string;
-  reviewer_name?: string | null;
 }
 
 const LANGUAGE_LABELS: Record<string, string> = {
@@ -82,19 +61,6 @@ async function fetchBookDetail(bookId: string): Promise<BookDetailData> {
   return json.data;
 }
 
-async function submitReview(payload: {
-  bookId: string;
-  rating: number;
-  content: string;
-}): Promise<void> {
-  const res = await fetch(`/api/books/${payload.bookId}/reviews`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ rating: payload.rating, content: payload.content }),
-  });
-  if (!res.ok) throw new Error("리뷰 등록에 실패했습니다.");
-}
-
 async function togglePublish(bookId: string, publish: boolean): Promise<void> {
   const res = await fetch(`/api/books/${bookId}`, {
     method: "PUT",
@@ -107,45 +73,6 @@ async function togglePublish(bookId: string, publish: boolean): Promise<void> {
   if (!res.ok) throw new Error("상태 변경에 실패했습니다.");
 }
 
-function StarRating({
-  value,
-  onChange,
-  readonly = false,
-}: {
-  value: number;
-  onChange?: (v: number) => void;
-  readonly?: boolean;
-}) {
-  const [hover, setHover] = useState(0);
-  return (
-    <div className="flex gap-0.5">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <button
-          key={star}
-          type="button"
-          disabled={readonly}
-          onClick={() => !readonly && onChange?.(star)}
-          onMouseEnter={() => !readonly && setHover(star)}
-          onMouseLeave={() => !readonly && setHover(0)}
-          className={cn(
-            "transition-colors",
-            readonly ? "cursor-default" : "cursor-pointer",
-          )}
-        >
-          <Star
-            className={cn(
-              "h-5 w-5",
-              (hover || value) >= star
-                ? "fill-amber-400 text-amber-400"
-                : "text-gray-300",
-            )}
-          />
-        </button>
-      ))}
-    </div>
-  );
-}
-
 export function BookDetailClient() {
   const { bookId } = useParams<{ bookId: string }>();
   const router = useRouter();
@@ -156,8 +83,6 @@ export function BookDetailClient() {
 
   const [showAllChapters, setShowAllChapters] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [reviewRating, setReviewRating] = useState(5);
-  const [reviewComment, setReviewComment] = useState("");
   const [accessInfo, setAccessInfo] = useState<{
     hasAccess: boolean;
     reason: string;
@@ -167,15 +92,6 @@ export function BookDetailClient() {
     queryKey: ["book-detail", bookId],
     queryFn: () => fetchBookDetail(bookId),
     enabled: !!bookId,
-  });
-
-  const reviewMutation = useMutation({
-    mutationFn: submitReview,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["book-detail", bookId] });
-      setReviewComment("");
-      setReviewRating(5);
-    },
   });
 
   const publishMutation = useMutation({
@@ -225,19 +141,13 @@ export function BookDetailClient() {
     );
   }
 
-  const { book, chapters, audiobook, reviews, series_metadata, subscriber_count, published_chapter_count, is_subscribed } = data;
+  const { book, chapters } = data;
   const isOwner = viewAs === "customer" ? false : user?.id === book.owner_id;
-  // [SUN-68] 시리즈 기능 — 추후 활성화
-  const isSeries = false; // book.content_type === "series";
   const isPublished = book.status === "published";
   const readingMinutes = Math.max(1, Math.round(book.total_words / 200));
   const langLabel = LANGUAGE_LABELS[book.language] ?? book.language;
   const gradient = getGradient(book.title);
   const displayChapters = showAllChapters ? chapters : chapters.slice(0, 5);
-  const avgRating =
-    reviews.length > 0
-      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-      : 0;
 
   return (
     <div className="min-h-screen bg-white mx-auto max-w-5xl px-4 py-16 sm:px-6">
@@ -319,24 +229,7 @@ export function BookDetailClient() {
               <Clock className="h-4 w-4 text-gray-400" />
               약 {readingMinutes}분
             </span>
-            {reviews.length > 0 && (
-              <span className="flex items-center gap-1.5">
-                <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                {avgRating.toFixed(1)} ({reviews.length}개 리뷰)
-              </span>
-            )}
           </div>
-
-          {/* [SUN-68] 시리즈 기능 — 추후 활성화 */}
-          {/* {isSeries && series_metadata && (
-            <div className="mb-5">
-              <SeriesInfo
-                metadata={series_metadata}
-                publishedChapterCount={published_chapter_count ?? 0}
-                subscriberCount={subscriber_count}
-              />
-            </div>
-          )} */}
 
           {/* Price display */}
           {!isOwner && book.price > 0 && (
@@ -365,22 +258,12 @@ export function BookDetailClient() {
                     읽기
                   </Link>
                 </Button>
-                {/* [SUN-68] 시리즈 기능 — 추후 활성화 */}
-                {/* {isSeries ? (
-                  <Button variant="outline" asChild>
-                    <Link href={`/series/${book.id}/manage`} className="flex items-center gap-2">
-                      <Edit className="h-4 w-4" />
-                      시리즈 관리
-                    </Link>
-                  </Button>
-                ) : ( */}
-                  <Button variant="outline" asChild>
-                    <Link href={`/editor/${book.id}`} className="flex items-center gap-2">
-                      <Edit className="h-4 w-4" />
-                      편집
-                    </Link>
-                  </Button>
-                {/* )} */}
+                <Button variant="outline" asChild>
+                  <Link href={`/create/edit/${book.id}`} className="flex items-center gap-2">
+                    <Edit className="h-4 w-4" />
+                    편집
+                  </Link>
+                </Button>
                 <Button
                   variant={isPublished ? "secondary" : "default"}
                   isLoading={publishMutation.isPending}
@@ -390,14 +273,6 @@ export function BookDetailClient() {
                 </Button>
               </>
             )}
-
-            {/* [SUN-68] 시리즈 기능 — 추후 활성화 */}
-            {/* {!isOwner && isSeries && (
-              <SubscribeButton
-                seriesId={book.id}
-                initialSubscribed={is_subscribed ?? false}
-              />
-            )} */}
 
             {/* 비소유자 - 접근 가능 (무료 또는 구매 완료) */}
             {!isOwner && accessInfo?.hasAccess && (
@@ -425,16 +300,6 @@ export function BookDetailClient() {
                 <Link href={`/reader/${book.id}`} className="flex items-center gap-2">
                   <BookOpen className="h-4 w-4" />
                   읽기
-                </Link>
-              </Button>
-            )}
-
-            {/* 오디오북 */}
-            {audiobook && audiobook.status === "completed" && (isOwner || accessInfo?.hasAccess) && (
-              <Button variant="secondary" asChild>
-                <Link href={`/listen/${book.id}`} className="flex items-center gap-2">
-                  <Headphones className="h-4 w-4" />
-                  듣기
                 </Link>
               </Button>
             )}
@@ -507,95 +372,6 @@ export function BookDetailClient() {
                 </button>
               )}
             </div>
-          )}
-        </section>
-
-        {/* Reviews */}
-        <section>
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            리뷰 ({reviews.length})
-          </h2>
-
-          {/* Review list */}
-          {reviews.length > 0 ? (
-            <div className="mb-6 space-y-4">
-              {reviews.map((review) => (
-                <div
-                  key={review.id}
-                  className="rounded-2xl border border-gray-200 bg-white p-5"
-                >
-                  <div className="mb-2 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-800">
-                        {review.reviewer_name ?? "익명"}
-                      </span>
-                      <StarRating value={review.rating} readonly />
-                    </div>
-                    <span className="text-xs text-gray-400">
-                      {new Date(review.created_at).toLocaleDateString("ko-KR")}
-                    </span>
-                  </div>
-                  {review.content && (
-                    <p className="text-sm leading-relaxed text-gray-600">
-                      {review.content}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="mb-6 text-sm text-gray-400">아직 리뷰가 없습니다.</p>
-          )}
-
-          {/* Add review form */}
-          {user && !isOwner && (
-            <div className="rounded-xl border border-gray-200 bg-white p-5">
-              <h3 className="mb-4 text-sm font-semibold text-gray-900">
-                리뷰 작성
-              </h3>
-              <div className="mb-3">
-                <StarRating
-                  value={reviewRating}
-                  onChange={setReviewRating}
-                />
-              </div>
-              <textarea
-                value={reviewComment}
-                onChange={(e) => setReviewComment(e.target.value)}
-                placeholder="이 콘텐츠에 대한 생각을 공유해주세요..."
-                rows={3}
-                className="mb-3 w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/20"
-              />
-              <Button
-                size="sm"
-                isLoading={reviewMutation.isPending}
-                disabled={reviewMutation.isPending}
-                onClick={() =>
-                  reviewMutation.mutate({
-                    bookId: book.id,
-                    rating: reviewRating,
-                    content: reviewComment,
-                  })
-                }
-              >
-                리뷰 등록
-              </Button>
-              {reviewMutation.isError && (
-                <p className="mt-2 text-xs text-red-600">
-                  리뷰 등록에 실패했습니다. 다시 시도해주세요.
-                </p>
-              )}
-            </div>
-          )}
-
-          {!user && (
-            <p className="text-sm text-gray-400">
-              리뷰를 작성하려면{" "}
-              <Link href="/auth/login" className="text-gray-900 underline">
-                로그인
-              </Link>
-              하세요.
-            </p>
           )}
         </section>
 

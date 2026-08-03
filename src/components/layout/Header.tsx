@@ -103,7 +103,7 @@ export function Header() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem asChild>
-                  <Link href="/studio" className="flex items-center gap-2">
+                  <Link href="/creator" className="flex items-center gap-2">
                     스튜디오
                   </Link>
                 </DropdownMenuItem>

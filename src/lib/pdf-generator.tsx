@@ -251,9 +251,6 @@ export function stripHtmlForPdf(html: string): TextBlock[] {
   const blockRe =
     /<(h1|h2|h3|h4|h5|h6|p|blockquote|pre|li|ul|ol|div|br)[^>]*>([\s\S]*?)<\/\1>|<br\s*\/?>/gi;
 
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-
   // Reset regex
   blockRe.lastIndex = 0;
 

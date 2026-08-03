@@ -14,9 +14,7 @@ import { EditorToolbar } from "./EditorToolbar";
 import { EditorMenuBubble } from "./EditorMenuBubble";
 import { BlockExitOnEnter } from "./extensions/BlockExitOnEnter";
 import {
-  ChecklistNode, CalloutNode, ReflectionNode, ToggleNode,
-  ColumnListNode, SmartGoalNode, BeforeAfterNode, ScaleNode,
-  QuadrantNode, OkrNode, HabitTrackerNode, WoopNode,
+  ChecklistNode, CalloutNode, ReflectionNode, SmartGoalNode, ScaleNode,
 } from "./extensions/templates";
 import { cn } from "@/lib/utils";
 
@@ -66,15 +64,8 @@ export function RichTextEditor({
       ChecklistNode,
       CalloutNode,
       ReflectionNode,
-      ToggleNode,
-      ColumnListNode,
       SmartGoalNode,
-      BeforeAfterNode,
       ScaleNode,
-      QuadrantNode,
-      OkrNode,
-      HabitTrackerNode,
-      WoopNode,
     ],
     content,
     editorProps: {

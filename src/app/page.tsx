@@ -6,21 +6,8 @@ import { Footer } from "@/components/layout/Footer";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { BookSection } from "@/components/landing/BookSection";
 import { BookSectionSkeleton } from "@/components/landing/BookSectionSkeleton";
-import { SocialProofSection } from "@/components/landing/SocialProofSection";
 import { FeaturesSection } from "@/components/landing/FeaturesSection";
 import type { Book } from "@/types";
-
-interface ReviewWithBook {
-  id: string;
-  rating: number;
-  title: string | null;
-  content: string | null;
-  created_at: string;
-  book_title: string;
-  book_id: string;
-  user_name: string;
-  avatar_url: string | null;
-}
 
 interface BookWithAuthor extends Book {
   author_name?: string | null;
@@ -30,11 +17,9 @@ interface LandingData {
   featured: BookWithAuthor[];
   newest: BookWithAuthor[];
   free: BookWithAuthor[];
-  recentReviews: ReviewWithBook[];
   stats: {
     totalBooks: number;
     totalAuthors: number;
-    totalReviews: number;
   };
 }
 
@@ -110,14 +95,6 @@ export default function LandingPage() {
           </div>
         ) : null}
       </main>
-
-      {/* Social Proof */}
-      {/* {(data?.stats || data?.recentReviews) && (
-        <SocialProofSection
-          stats={data?.stats ?? { totalBooks: 0, totalAuthors: 0, totalReviews: 0 }}
-          reviews={data?.recentReviews ?? []}
-        />
-      )} */}
 
       <Footer />
     </div>

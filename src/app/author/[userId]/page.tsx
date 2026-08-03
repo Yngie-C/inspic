@@ -6,7 +6,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { BookOpen } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
-import { FollowButton } from "@/components/social/FollowButton";
 import { createClient } from "@/lib/supabase/client";
 
 interface AuthorProfile {
@@ -117,9 +116,6 @@ export default function AuthorPage() {
               {profile.bio}
             </p>
           )}
-          <div className="mt-2">
-            <FollowButton targetUserId={userId} />
-          </div>
         </div>
       </div>
 

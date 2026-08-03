@@ -1,17 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PlusCircle, BookOpen, DollarSign, TrendingUp } from "lucide-react";
-// [SUN-68] 시리즈 기능 — 추후 활성화
-// import { BookMarked } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 import { BookCard } from "@/components/dashboard/BookCard";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-// [SUN-68] 시리즈 기능 — 추후 활성화 (cn은 필터 탭에서만 사용됨)
-// import { cn } from "@/lib/utils";
 import type { Book } from "@/types";
 
 interface SalesData {
@@ -40,13 +35,8 @@ async function fetchSalesData(): Promise<SalesData> {
   return json.data;
 }
 
-// [SUN-68] 시리즈 기능 — 추후 활성화
-// type ContentFilter = "all" | "book" | "series";
-
 export default function CreatorPage() {
   const user = useAuthStore((s) => s.user);
-  // [SUN-68] 시리즈 기능 — 추후 활성화
-  // const [contentFilter, setContentFilter] = useState<ContentFilter>("all");
 
   const {
     data: books = [],
@@ -73,13 +63,6 @@ export default function CreatorPage() {
 
   const publishedBooks = books.filter((b) => b.status === "published");
   const totalRevenue = salesData?.totalRevenue ?? 0;
-  // [SUN-68] 시리즈 기능 — 추후 활성화
-  // const filteredBooks =
-  //   contentFilter === "all"
-  //     ? books
-  //     : books.filter((b) => b.content_type === contentFilter);
-  // const seriesCount = books.filter((b) => b.content_type === "series").length;
-  // const bookCount = books.filter((b) => b.content_type === "book").length;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
@@ -87,13 +70,6 @@ export default function CreatorPage() {
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">크리에이터 스튜디오</h1>
         <div className="flex items-center gap-2">
-          {/* [SUN-68] 시리즈 기능 — 추후 활성화 */}
-          {/* <Button asChild variant="outline">
-            <Link href="/create/series" className="flex items-center gap-2">
-              <BookMarked className="h-4 w-4" />
-              새 시리즈
-            </Link>
-          </Button> */}
           <Button asChild>
             <Link href="/create" className="flex items-center gap-2">
               <PlusCircle className="h-4 w-4" />
@@ -142,32 +118,6 @@ export default function CreatorPage() {
         </div>
       </div>
 
-      {/* [SUN-68] 시리즈 기능 — 추후 활성화 */}
-      {/* {books.length > 0 && (
-        <div className="mb-4 flex gap-2">
-          {(
-            [
-              { key: "all", label: `전체 (${books.length})` },
-              { key: "book", label: `책 (${bookCount})` },
-              { key: "series", label: `시리즈 (${seriesCount})` },
-            ] as { key: ContentFilter; label: string }[]
-          ).map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setContentFilter(key)}
-              className={cn(
-                "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
-                contentFilter === key
-                  ? "bg-gray-900 text-white"
-                  : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50",
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      )} */}
-
       {/* Book grid */}
       {isLoading ? (
         <div className="flex justify-center py-20">
@@ -195,8 +145,6 @@ export default function CreatorPage() {
           </Button>
         </div>
       ) : (
-        // [SUN-68] 시리즈 기능 — 추후 활성화 (filteredBooks → books, empty-filter fallback 제거)
-        // filteredBooks.length === 0 조건 블록 제거됨
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {books.map((book) => (
             <BookCard key={book.id} book={book} onDelete={handleDelete} />

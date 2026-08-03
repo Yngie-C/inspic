@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import Image from "next/image";
-import { BookOpen, Headphones, ShoppingBag } from "lucide-react";
+import { BookOpen, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuthStore } from "@/stores/auth-store";
@@ -153,11 +153,6 @@ export default function LibraryPage() {
                       <Link href={`/reader/${book.id}`}>
                         <BookOpen className="mr-1 h-3 w-3" />
                         읽기
-                      </Link>
-                    </Button>
-                    <Button size="sm" variant="outline" className="text-xs" asChild>
-                      <Link href={`/listen/${book.id}`}>
-                        <Headphones className="h-3 w-3" />
                       </Link>
                     </Button>
                   </div>
