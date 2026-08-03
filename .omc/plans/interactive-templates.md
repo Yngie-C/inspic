@@ -1,3 +1,9 @@
+> **[SUPERSEDED — 2026-08-04]** 이 문서는 MVP 재구성 이전의 계획입니다.
+> 인터랙티브 템플릿은 12종에서 **MVP 5종**(체크리스트, 콜아웃, 리플렉션, SMART, 스케일)으로 축소됐고,
+> 나머지 7종은 삭제됐습니다. 독자 응답 저장 방식(localStorage 전용)도 M1~M3에서 DB 기반으로 재설계됩니다.
+> 현행 계획은 `docs/agent-knowledge/mvp-rebuild-plan.md`, 진행 상황은 `TODO.md`를 보세요.
+> 이 문서는 historical context로만 참고하세요.
+
 # 인터랙티브 템플릿 12종 구현 계획 (v2 — Architect/Critic 피드백 반영)
 
 **날짜:** 2026-04-16
