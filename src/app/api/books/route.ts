@@ -10,7 +10,6 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status") as BookStatus | null;
   const visibility = searchParams.get("visibility") as BookVisibility | null;
-  const contentType = searchParams.get("content_type");
 
   const supabase = await createClient();
   let query = supabase
@@ -21,9 +20,6 @@ export async function GET(request: NextRequest) {
 
   if (status) query = query.eq("status", status);
   if (visibility) query = query.eq("visibility", visibility);
-  if (contentType && ["book", "series"].includes(contentType)) {
-    query = query.eq("content_type", contentType);
-  }
 
   const { data, error } = await query;
   if (error) return apiError(error.message, "SERVER_ERROR", 500);
@@ -41,7 +37,6 @@ export async function POST(request: NextRequest) {
     language?: string;
     source_type?: SourceType;
     price?: number;
-    content_type?: string;
   };
   try {
     body = await request.json();
@@ -49,7 +44,7 @@ export async function POST(request: NextRequest) {
     return apiError("Invalid JSON body", "VALIDATION_ERROR", 400);
   }
 
-  const { title, description, language, source_type, price, content_type } = body;
+  const { title, description, language, source_type, price } = body;
   if (!title || typeof title !== "string" || title.trim() === "") {
     return apiError("title is required", "VALIDATION_ERROR", 400);
   }
@@ -60,9 +55,6 @@ export async function POST(request: NextRequest) {
       400,
     );
   }
-
-  const resolvedContentType =
-    content_type && ["book", "series"].includes(content_type) ? content_type : "book";
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -76,7 +68,6 @@ export async function POST(request: NextRequest) {
       status: "draft",
       visibility: "private",
       price: typeof price === "number" && price >= 0 ? price : 0,
-      content_type: resolvedContentType,
     })
     .select()
     .single();

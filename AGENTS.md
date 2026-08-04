@@ -17,7 +17,7 @@ Inspic은 **인터랙티브 워크북 출판 플랫폼**입니다. "읽는 책"�
 
 크리에이터가 원고에 워크시트·체크리스트·성찰 질문을 끼워 넣어 출간하면, 독자는 읽으면서 직접 작성하고 그 결과를 자기 계정에 남깁니다.
 
-**현재 상태: MVP 재구성 중.** 2026-08-04에 M0(범위 밖 코드 삭제)를 완료했습니다. 상세 계획과 마일스톤은 `README.md`를 보세요.
+**현재 상태: MVP 재구성 중.** 2026-08-04에 M0(범위 밖 코드 삭제)과 M1(도메인 재설계)을 완료했습니다. 상세 계획과 마일스톤은 `README.md`, 진행 중인 작업은 `TODO.md`를 보세요.
 
 핵심 기능:
 - 텍스트/Markdown/DOCX 업로드 및 챕터 구조화
@@ -56,9 +56,10 @@ TTS·오디오북 · 하이라이트/북마크/독서진행률/리더설정 · �
   - `editor/extensions/templates/`: 워크북 블록의 Tiptap Node (저작 측)
   - `reader/templates/`: 워크북 블록의 리더 컴포넌트 (독자 측)
 - `src/lib/`: Supabase, sanitize, access-control, PDF/EPUB, Toss 등 핵심 유틸리티
+  - `workbook/`: 워크북 도메인 — 블록 정의 추출, 응답 병합·복원, 공유 타입
 - `src/stores/`: Zustand stores
 - `src/types/`: TypeScript 타입 정의
-- `supabase/migrations/`: Supabase DB 마이그레이션 (M1에서 재설계 예정)
+- `supabase/migrations/`: Supabase DB 마이그레이션. `00001_initial_schema.sql`이 현재 스키마 전체입니다
 - `content/`: 전자책 원고 및 콘텐츠 문서
 - `creator-outreach/`: 크리에이터 아웃리치 관련 문서
 - `.claude/`: Claude Code 커스텀 커맨드/프로젝트 메모
@@ -88,6 +89,12 @@ TypeScript typecheck:
 
 ```bash
 npm run typecheck
+```
+
+테스트 (Vitest):
+
+```bash
+npm test
 ```
 
 ## 작업 전 체크리스트
@@ -128,14 +135,26 @@ Hermes, Codex, Claude Code 및 기타 코딩 에이전트는 프로젝트 맥락
 
 ## 워크북 데이터 모델 (가장 중요)
 
-워크북은 이 제품의 핵심 베팅입니다. 관련 코드를 만질 때 아래를 반드시 지키세요.
+워크북은 이 제품의 핵심 베팅입니다. M1(2026-08-04)에서 아래 구조로 확정했습니다.
 
-- **독자 응답의 진실의 원천은 DB입니다.** `localStorage`는 오프라인 캐시로만 쓰세요. (현재는 localStorage 전용 — M1~M3에서 전환)
-- **응답을 배열 인덱스나 길이로 매칭하지 마세요.** 크리에이터가 문항을 하나만 추가/삭제해도 독자 응답이 전부 사라집니다. 응답은 안정적인 `block_id` + 필드 키로 식별하세요.
-- **`block_id`는 블록 생성 시 한 번만 부여하고 절대 재생성하지 마세요.** `parseHTML`에서 `|| generateNodeId()` 같은 폴백을 두면 속성이 유실될 때 키가 바뀌어 응답이 사라집니다.
-- **블록 정의(문항)와 독자 응답을 분리 저장하세요.** 크리에이터의 원고 수정이 독자 데이터를 파괴하면 안 됩니다.
-- 템플릿 콘텐츠를 `data-*` 속성 안의 JSON 문자열로 인라인하지 마세요. 쿼리·집계·마이그레이션이 불가능해집니다.
-- 워크북 블록을 추가/변경하면 에디터 Node, 리더 컴포넌트, `lib/sanitize.ts` 허용 목록, `lib/template-fallback.ts`(EPUB/PDF 정적 폴백)를 **함께** 확인하세요.
+```
+workbook_blocks            블록 정의. id = 에디터의 data-node-id
+  └ workbook_block_fields    블록 안의 문항. (block_id, field_key) 유일
+
+workbook_responses         독자 응답. (user_id, block_id, field_key) 유일
+```
+
+도메인 코드는 `src/lib/workbook/`에 있습니다. 관련 코드를 만질 때 아래를 반드시 지키세요.
+
+- **응답과 정의는 오직 `(block_id, field_key)`로만 만납니다.** 배열 인덱스나 길이로 매칭하지 마세요. 크리에이터가 문항을 하나만 추가/삭제해도 독자 응답이 전부 밀리거나 사라집니다. 복원은 `restoreBlockAnswers()`를 쓰세요.
+- **`block_id`는 블록이 문서에 들어올 때 1회 부여하고 절대 재생성하지 마세요.** `parseHTML`에서 `|| generateNodeId()` 같은 폴백을 두면 속성이 유실될 때 키가 바뀌어 응답이 끊깁니다. 부여는 `BaseTemplateNode.ts`의 ProseMirror 플러그인이 담당합니다. ID가 없는 블록은 만들어 붙이지 말고 건너뛰세요.
+- **`data-*` 속성에 독자 응답을 담지 마세요.** 챕터 HTML은 문항만 싣습니다. 체크 여부·스케일 선택값·SMART 답변은 전부 `workbook_responses`에 있습니다. 저작 화면에서 답변처럼 보이는 입력을 만들지 마세요.
+- **문항은 `data-*` 안의 JSON이 아니라 `workbook_block_fields` 행으로 저장하세요.** 크리에이터 지표는 이 테이블을 조인해 냅니다.
+- **`workbook_responses.block_id`에는 FK가 없습니다. 의도적입니다.** 크리에이터가 문항을 지워도 독자가 쓴 내용은 남아야 합니다. 정의가 사라진 응답은 `orphanedResponses()`로 분리해 다루세요. `book_id`/`chapter_id`에는 FK CASCADE가 있습니다 — 책·챕터 삭제는 소유자의 명시적 파기로 봅니다.
+- **크리에이터에게 응답 원문을 보여주지 마세요.** RLS상 작성자 본인만 행을 읽습니다. 집계는 `workbook_response_stats()` 함수로만 조회합니다.
+- **`localStorage`는 오프라인 캐시입니다.** 진실의 원천은 DB입니다. (M3에서 `useBlockAnswers` 훅 내부가 DB 호출로 교체됩니다. 호출부는 그대로 두세요.)
+- **파싱된 노드에 `instanceof Element`를 쓰지 마세요.** `html-dom-parser`가 ESM 경로에서 자체 `domhandler` 사본을 끌어와 클래스 정체성이 어긋납니다. `lib/workbook/dom.ts`의 `isElementNode()`를 쓰세요.
+- 워크북 블록을 추가/변경하면 에디터 Node, 리더 컴포넌트, `lib/sanitize.ts` 허용 목록, `lib/template-fallback.ts`(EPUB/PDF 정적 폴백), `lib/workbook/extract-blocks.ts`의 `BLOCK_TYPE_BY_TEMPLATE` 표를 **함께** 확인하세요. `data-template-type` 문자열은 이 네 곳이 공유합니다.
 
 ## 코딩 규칙
 
@@ -146,15 +165,15 @@ Hermes, Codex, Claude Code 및 기타 코딩 에이전트는 프로젝트 맥락
 - 클라이언트 컴포넌트와 서버 컴포넌트 경계를 명확히 하세요.
 - 브라우저 API, localStorage, window, document 사용이 필요하면 Client Component에서만 사용하세요.
 - 기존 UI 스타일과 Tailwind 유틸리티 패턴을 따르세요.
-- 다국어 사용자 노출 문구는 가능하면 next-intl 메시지 구조를 따르세요.
-- 새 타입은 기존 `src/types/` 구조와 가까운 위치에 두세요.
+- 사용자 노출 문구는 한국어로 직접 씁니다. 다국어(next-intl)는 M0에서 삭제했습니다.
+- 새 타입은 기존 `src/types/` 구조와 가까운 위치에 두세요. 워크북 관련 타입은 `src/lib/workbook/types.ts`에 있습니다.
 - 중복 로직은 `src/lib/` 또는 커스텀 hook으로 분리하세요.
 
 ## 보안 및 데이터 주의사항
 
 - `.env.local` 및 실제 secret 값을 읽거나 출력하거나 커밋하지 마세요.
 - `.env*` 파일은 gitignore 대상입니다. 예시가 필요하면 실제 값 없는 `.env.example`만 작성하세요.
-- `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`, 결제 관련 secret은 서버 전용으로만 사용하세요.
+- `SUPABASE_SECRET_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, 결제 관련 secret은 서버 전용으로만 사용하세요.
 - 클라이언트에 노출 가능한 값은 `NEXT_PUBLIC_` 접두사가 있는 값으로 제한하세요.
 - 파일 업로드, HTML 렌더링, EPUB/PDF 생성 경로에서는 XSS와 악성 파일 입력을 고려하세요.
 - DB schema 변경 시 migration 파일을 추가하고, 기존 migration을 수정하는 방식은 피하세요.
@@ -162,7 +181,10 @@ Hermes, Codex, Claude Code 및 기타 코딩 에이전트는 프로젝트 맥락
 ## Supabase 지침
 
 - DB 변경은 `supabase/migrations/`에 새 migration으로 추가하세요.
-- 기존 migration은 이미 적용되었을 수 있으므로 가급적 수정하지 마세요.
+- 기존 migration은 이미 적용되었을 수 있으므로 수정하지 마세요. M1의 통합 리셋은 보존할 실사용 데이터가 없다고 확정한 뒤 한 번만 한 예외입니다. 다시 하지 마세요.
+- 스키마를 바꾸면 `src/lib/supabase/__tests__/`의 테스트도 함께 갱신하세요. `schema.test.ts`가 임베디드 Postgres에 마이그레이션을 실제로 적용해 구조·제약·트리거를 확인하고, `rls.test.ts`가 `SET ROLE`로 롤을 갈아타며 정책이 실제로 무엇을 막는지 확인합니다.
+- **RLS 정책을 추가하거나 고치면 반드시 `rls.test.ts`에 통과 케이스와 차단 케이스를 함께 넣으세요.** RLS 버그는 조용히 새는 종류라 테스트 없이는 드러나지 않습니다.
+- RLS 테스트를 쓸 때는 반드시 `asUser` / `asAnon` 헬퍼를 거치세요. 기본 연결은 테이블 소유자라 RLS를 통째로 우회하고, 그 상태로 쓴 테스트는 아무것도 검증하지 않으면서 초록불만 냅니다.
 - 새 테이블에는 RLS 활성화와 필요한 policy를 포함하세요.
 - 사용자별 데이터는 `auth.uid()` 기준 접근 제어를 명확히 하세요.
 - Storage path 설계 시 사용자 ID/책 ID/챕터 ID 등 충돌 방지 키를 사용하세요.
@@ -185,11 +207,14 @@ npm run lint
 npm run build
 ```
 
-Typecheck을 함께 실행하세요.
+Typecheck과 테스트를 함께 실행하세요.
 
 ```bash
 npm run typecheck
+npm test
 ```
+
+`npm run lint`는 현재 에러 11개가 남아 있습니다. 전부 재구성 이전부터 있던 React Compiler 부채이니, 새로 늘리지만 않으면 됩니다.
 
 검증을 실행하지 못했다면, 최종 응답에 그 이유와 사용자가 직접 실행할 명령어를 명시하세요.
 

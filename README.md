@@ -4,7 +4,7 @@
 
 크리에이터가 원고에 워크시트·체크리스트·성찰 질문을 끼워 넣어 출간하면, 독자는 읽으면서 직접 작성하고 그 결과를 계정에 남긴다.
 
-> **현재 상태: MVP 재구성 중 (M0 완료)**
+> **현재 상태: MVP 재구성 중 (M1 완료)**
 > 이 저장소는 2026-08-04부터 MVP 재정의 작업 중입니다. 범위 밖 기능을 삭제하고 핵심 루프 하나에 집중합니다.
 > 재구성 이전 코드는 `pre-mvp-archive` 태그에 보존돼 있습니다.
 
@@ -17,7 +17,7 @@
 > → 작성 내용이 계정에 남고 내보낼 수 있다
 > → 크리에이터가 참여 반응을 본다
 
-이 루프의 심장은 **독자 응답 데이터**다. 현재 응답은 `localStorage`에만 저장되며, DB 기반 저장은 M1~M3에서 구현한다.
+이 루프의 심장은 **독자 응답 데이터**다. M1에서 스키마와 도메인 모델을 세웠고(`workbook_blocks` / `workbook_block_fields` / `workbook_responses`), 실제 DB 읽기·쓰기는 M2~M3에서 붙인다. 그때까지 응답은 `localStorage`에 머문다 — 다만 식별 구조는 이미 DB와 같다.
 
 ---
 
@@ -26,7 +26,7 @@
 | | 내용 | 상태 |
 |---|---|---|
 | **M0** | 범위 밖 코드 삭제, 중복 라우트 통합, 문서 정합화 | **완료** |
-| **M1** | 도메인 재설계 — 워크북 응답 스키마, 인증 트리거 이관 | 예정 |
+| **M1** | 도메인 재설계 — 워크북 응답 스키마, 인증 트리거 이관, 테스트 도입 | **완료** |
 | **M2** | 워크북 저작 (크리에이터 루프) | 예정 |
 | **M3** | 워크북 독서 (독자 루프) — 여기서 처음으로 제품이 존재 | 예정 |
 | **M4** | 판매·접근 제어 — 결제 보상 트랜잭션, webhook | 예정 |
@@ -39,7 +39,7 @@
 
 ## 현재 구현된 기능
 
-- **인증**: Supabase Auth (이메일 + OAuth), Zustand `auth-store`
+- **인증**: Supabase Auth (이메일 + OAuth), Zustand `auth-store`. 프로필 행은 `auth.users` INSERT 트리거가 만듭니다
 - **콘텐츠 생성**: 직접 작성 또는 파일 업로드 (txt / Markdown / DOCX)
 - **에디터**: Tiptap 리치 텍스트 + 슬래시 커맨드
 - **워크북 템플릿 5종**: 체크리스트, 콜아웃, 리플렉션, SMART 목표, 1–10 스케일
@@ -102,12 +102,29 @@ src/
 │   ├── editor/           # Tiptap 에디터 + 워크북 노드 5종
 │   ├── reader/           # HtmlContentRenderer + 워크북 리더 템플릿 5종
 │   ├── landing/ explore/ dashboard/ analytics/ preview/ wizard/ upload/ layout/ ui/
-├── lib/                  # supabase, sanitize, access-control, epub, pdf, toss
+├── lib/
+│   ├── workbook/         # 워크북 도메인 — 블록 추출, 응답 병합·복원, 타입
+│   └── …                 # supabase, sanitize, access-control, epub, pdf, toss
 ├── stores/               # Zustand (auth)
 └── types/                # 공통 타입
 
-supabase/migrations/      # M1에서 재설계 예정
+supabase/migrations/      # 00001_initial_schema.sql (M1 통합 리셋)
 ```
+
+### 워크북 데이터 모델
+
+```
+workbook_blocks          블록 정의. id = 에디터의 data-node-id (생성 시 1회 부여, 불변)
+  └ workbook_block_fields  블록 안의 문항. (block_id, field_key) 유일
+
+workbook_responses       독자 응답. (user_id, block_id, field_key) 유일
+```
+
+응답은 **오직 `(block_id, field_key)`로만** 정의와 만난다. 배열 인덱스나 순서는 정체성에 들어가지 않으므로, 크리에이터가 문항을 추가·삭제·이동해도 남은 응답은 제자리에 붙는다.
+
+`workbook_responses.block_id`에는 FK가 없다. 크리에이터가 문항을 지웠다고 독자가 쓴 내용까지 지워지면 안 되기 때문이다. 정의가 사라진 응답은 `orphanedResponses()`로 따로 다룬다.
+
+**`data-*` 속성에는 독자 응답을 담지 않는다.** 챕터 HTML은 문항만 싣고, 답은 전부 `workbook_responses`에 있다.
 
 ---
 
@@ -134,27 +151,25 @@ npm run dev
 ```bash
 npm run typecheck   # 통과 (에러 0)
 npm run build       # 통과
-npm run lint        # 13개 에러 — 재구성 이전부터 존재하는 부채 (아래 참조)
+npm test            # 통과 (119개)
+npm run lint        # 11개 에러 — 재구성 이전부터 존재하는 부채 (아래 참조)
 ```
 
 ---
 
 ## 알려진 부채
 
-M0 시점에 남아 있는 것으로, 재구성 이전부터 존재했습니다.
-
 | 항목 | 위치 | 해소 시점 |
 |---|---|---|
-| 워크북 응답이 localStorage 전용 (기기 간 유실, 크리에이터 조회 불가, 서버 내보내기 불가) | `lib/template-storage.ts` | M1–M3 |
-| 응답을 배열 인덱스·길이로 매칭 — 문항 추가/삭제 시 응답 전량 폐기 | `reader/templates/*Reader.tsx` | M1–M3 |
-| `data-node-id` 부재 시 파싱마다 새 UUID 생성 — 키 불안정 | `editor/extensions/templates/BaseTemplateNode.ts` | M1 |
+| 워크북 응답이 아직 localStorage에 있음 (기기 간 유실, 크리에이터 조회 불가). 스키마와 도메인 모델은 M1에서 완성 | `lib/template-storage.ts`, `reader/templates/useBlockAnswers.ts` | M3 |
+| 챕터 저장 시 블록 정의를 DB에 반영하는 경로가 아직 없음 (`extractWorkbookBlocks()`는 준비됨) | `api/chapters/**` | M2 |
 | 결제 승인 후 `purchases` INSERT 실패 시 보상 트랜잭션 없음, webhook 없음 | `api/payments/confirm/route.ts` | M4 |
-| `user_profiles` 생성이 클라이언트 두 경로에 중복 (DB 트리거로 이관 필요) | `stores/auth-store.ts` | M1 |
 | 페이지 대부분이 `"use client"` — 공개 콘텐츠 SEO 부재 | `app/**` | M3 이후 |
-| React Compiler lint 에러 13개 (setState-in-effect 등) | 아래 파일들 | 별도 정리 |
-| 테스트 0개 | — | M1부터 도입 |
+| React Compiler lint 에러 11개 (setState-in-effect, `any` 5개 등) | 아래 파일들 | 별도 정리 |
 
-React Compiler 에러 위치: `analytics/StatsCard`, `editor/SlashCommandMenu`, `editor/RichTextEditor`, `editor/extensions/SlashCommand`(any 5개), `explore/SearchBar`, `preview/PreviewFrame`, `reader/templates/{Scale,SmartGoal}Reader`, `upload/FileDropzone`
+M1에서 해소됨: 응답의 배열 인덱스 매칭 · `data-node-id` 재생성 · 클라이언트 프로필 생성 이중 경로 · 테스트 0개 · SMART 블록의 `data-template-type` 불일치.
+
+React Compiler 에러 위치: `analytics/StatsCard`, `editor/SlashCommandMenu`, `editor/RichTextEditor`, `editor/extensions/SlashCommand`(any 5개), `explore/SearchBar`, `preview/PreviewFrame`, `upload/FileDropzone`
 
 ---
 
@@ -164,6 +179,8 @@ React Compiler 에러 위치: `analytics/StatsCard`, `editor/SlashCommandMenu`, 
 - **인증**: Supabase Auth + RLS. 미들웨어는 `getUser()`로 JWT를 서버 검증하며, 실패 시 미인증 처리 (검증 없는 `getSession()` 폴백 없음)
 - **파일 업로드**: MIME 타입 검증, 크기 제한 (txt/md 5MB, docx 20MB)
 - **결제**: 가격은 항상 서버에서 `books.price`를 읽어 결정 (클라이언트 금액 신뢰 안 함)
+- **독자 응답**: 작성자 본인만 읽고 씁니다. 크리에이터는 행을 볼 수 없고 `workbook_response_stats()` 집계 함수로만 조회합니다
+- **RLS 검증**: 정책이 실제로 무엇을 막는지 임베디드 Postgres에서 롤을 갈아타며 테스트합니다 (`src/lib/supabase/__tests__/rls.test.ts`). 유료 콘텐츠 차단과 응답 격리가 여기서 고정됩니다
 
 ---
 

@@ -1,41 +1,24 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import type { Element } from "html-react-parser";
-import { getTemplateState, setTemplateState } from "@/lib/template-storage";
+import { SCALE_FIELD_KEY } from "@/lib/workbook/types";
 import { registerTemplate } from "./TemplateRenderer";
+import { numberAnswer, useBlockAnswers } from "./useBlockAnswers";
 
 interface Props {
   element: Element;
   chapterId: string;
 }
 
-interface ScaleState {
-  value: number | null;
-}
-
 function ScaleReader({ element, chapterId }: Props) {
-  const nodeId = element.attribs["data-node-id"] || "";
+  const blockId = element.attribs["data-node-id"] || "";
   const min = parseInt(element.attribs["data-min"] || "1", 10);
   const max = parseInt(element.attribs["data-max"] || "10", 10);
   const labelMin = element.attribs["data-label-min"] || "";
   const labelMax = element.attribs["data-label-max"] || "";
-  const defaultValue = element.attribs["data-value"]
-    ? parseInt(element.attribs["data-value"], 10)
-    : null;
 
-  const [selected, setSelected] = useState<number | null>(defaultValue);
-
-  useEffect(() => {
-    const saved = getTemplateState<ScaleState>(chapterId, nodeId);
-    if (saved && saved.value !== undefined) setSelected(saved.value);
-  }, [chapterId, nodeId]);
-
-  function handleSelect(val: number) {
-    const next = val === selected ? null : val;
-    setSelected(next);
-    setTemplateState<ScaleState>(chapterId, nodeId, { value: next });
-  }
+  const { answers, setAnswer } = useBlockAnswers(chapterId, blockId);
+  const selected = numberAnswer(answers, SCALE_FIELD_KEY);
 
   const steps: number[] = [];
   for (let i = min; i <= max; i++) steps.push(i);
@@ -50,7 +33,7 @@ function ScaleReader({ element, chapterId }: Props) {
           {steps.map((val) => (
             <button
               key={val}
-              onClick={() => handleSelect(val)}
+              onClick={() => setAnswer(SCALE_FIELD_KEY, val === selected ? null : val)}
               className={`w-8 h-8 rounded text-sm font-medium border transition-colors ${
                 selected === val
                   ? "bg-blue-500 text-white border-blue-500"

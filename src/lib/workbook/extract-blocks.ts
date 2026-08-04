@@ -1,0 +1,184 @@
+import { htmlToDOM } from "html-react-parser";
+import type { DOMNode, Element } from "html-react-parser";
+import { isElementNode } from "./dom";
+import {
+  REFLECTION_FIELD_KEY,
+  SCALE_FIELD_KEY,
+  SMART_GOAL_FIELDS,
+  type ChecklistItem,
+  type WorkbookBlock,
+  type WorkbookBlockField,
+  type WorkbookBlockType,
+} from "./types";
+
+/**
+ * 챕터 HTML에 박힌 `data-template-type` 값 → `workbook_blocks.block_type`.
+ *
+ * 왼쪽은 에디터 Node·리더 컴포넌트·EPUB/PDF 폴백이 공유하는 문자열이고,
+ * 오른쪽은 DB의 값입니다. 블록을 추가할 때 이 표에 함께 넣으세요.
+ */
+const BLOCK_TYPE_BY_TEMPLATE: Readonly<Record<string, WorkbookBlockType>> = {
+  checklist: "checklist",
+  callout: "callout",
+  reflection: "reflection",
+  "smart-goal": "smart_goal",
+  scale: "scale",
+};
+
+/**
+ * 챕터 HTML에서 워크북 블록 정의를 뽑아냅니다.
+ *
+ * 크리에이터가 챕터를 저장할 때 이 결과를 `workbook_blocks` /
+ * `workbook_block_fields`에 반영합니다. 독자 응답은 여기서 나오지
+ * 않습니다 — 정의와 응답은 (block_id, field_key)로만 만납니다.
+ *
+ * `data-node-id`가 없는 블록은 건너뜁니다. 응답을 매달 키가 없어서
+ * 저장해도 아무것도 가리키지 못하기 때문입니다. 여기서 ID를 새로
+ * 만들면 저장할 때마다 키가 달라져 응답이 끊깁니다.
+ */
+export function extractWorkbookBlocks(html: string): WorkbookBlock[] {
+  const blocks: WorkbookBlock[] = [];
+
+  for (const element of walkElements(htmlToDOM(html) as DOMNode[])) {
+    const templateType = element.attribs?.["data-template-type"];
+    if (!templateType) continue;
+
+    const blockType = BLOCK_TYPE_BY_TEMPLATE[templateType];
+    if (!blockType) continue;
+
+    const id = element.attribs["data-node-id"];
+    if (!id) continue;
+
+    blocks.push({
+      id,
+      block_type: blockType,
+      order_index: blocks.length,
+      config: readConfig(blockType, element),
+      fields: readFields(blockType, element),
+    });
+  }
+
+  return blocks;
+}
+
+function* walkElements(nodes: readonly DOMNode[]): Generator<Element> {
+  for (const node of nodes) {
+    if (!isElementNode(node)) continue;
+    yield node;
+    yield* walkElements(node.children as DOMNode[]);
+  }
+}
+
+function readConfig(
+  blockType: WorkbookBlockType,
+  element: Element,
+): WorkbookBlock["config"] {
+  const attr = (name: string) => element.attribs[name] ?? "";
+
+  switch (blockType) {
+    case "callout":
+      return {
+        callout_type: attr("data-callout-type") || "note",
+        content: attr("data-content"),
+      };
+
+    case "reflection":
+      return { placeholder: attr("data-placeholder") };
+
+    case "scale":
+      return {
+        min: parseIntOr(attr("data-min"), 1),
+        max: parseIntOr(attr("data-max"), 10),
+        label_min: attr("data-label-min"),
+        label_max: attr("data-label-max"),
+      };
+
+    case "checklist":
+    case "smart_goal":
+      return {};
+  }
+}
+
+function readFields(
+  blockType: WorkbookBlockType,
+  element: Element,
+): WorkbookBlockField[] {
+  switch (blockType) {
+    // 콜아웃은 독자가 쓸 칸이 없습니다.
+    case "callout":
+      return [];
+
+    case "checklist":
+      return parseChecklistItems(element.attribs["data-items"]).map(
+        (item, index) => ({
+          field_key: item.id,
+          label: item.text,
+          input_type: "boolean" as const,
+          order_index: index,
+        }),
+      );
+
+    case "reflection":
+      return [
+        {
+          field_key: REFLECTION_FIELD_KEY,
+          label: element.attribs["data-prompt"] ?? "",
+          input_type: "longtext",
+          order_index: 0,
+        },
+      ];
+
+    case "smart_goal":
+      return SMART_GOAL_FIELDS.map((field, index) => ({
+        field_key: field.key,
+        label: field.label,
+        input_type: "longtext" as const,
+        order_index: index,
+      }));
+
+    case "scale":
+      return [
+        {
+          field_key: SCALE_FIELD_KEY,
+          label: [
+            element.attribs["data-label-min"],
+            element.attribs["data-label-max"],
+          ]
+            .filter(Boolean)
+            .join(" — "),
+          input_type: "integer",
+          order_index: 0,
+        },
+      ];
+  }
+}
+
+/**
+ * 체크리스트 항목을 읽습니다.
+ *
+ * `id`가 없는 항목은 버립니다. 항목의 `id`가 곧 `field_key`이고,
+ * 여기서 임의로 만들어 붙이면 저장할 때마다 키가 바뀌어 그 항목의
+ * 체크 상태가 매번 사라집니다.
+ */
+export function parseChecklistItems(raw: string | undefined): ChecklistItem[] {
+  if (!raw) return [];
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+
+  return parsed.filter((item): item is ChecklistItem => {
+    if (typeof item !== "object" || item === null) return false;
+    const candidate = item as Partial<ChecklistItem>;
+    return typeof candidate.id === "string" && candidate.id.length > 0;
+  });
+}
+
+function parseIntOr(raw: string, fallback: number): number {
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isNaN(parsed) ? fallback : parsed;
+}

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BookOpen, Users, FileText, BookMarked, Highlighter } from "lucide-react";
+import { BookOpen, Users, FileText, BookMarked } from "lucide-react";
 import { StatsCard } from "@/components/analytics/StatsCard";
 import { SimpleBarChart } from "@/components/analytics/SimpleBarChart";
 import { BookStatsTable } from "@/components/analytics/BookStatsTable";
@@ -26,13 +26,6 @@ interface AnalyticsData {
     total_chapters: number;
     total_words: number;
     readers: number;
-    views: number;
-    avg_completion: number;
-  }>;
-  highlights: Array<{
-    text: string;
-    book_id: string;
-    created_at: string;
   }>;
   timeline: Array<{ date: string; readers: number }>;
   period: Period;
@@ -138,7 +131,7 @@ export default function AnalyticsPage() {
           {chartData.length > 0 && (
             <div>
               <h2 className="mb-4 text-base font-semibold text-gray-900">
-                독자 활동
+                신규 독자
               </h2>
               <SimpleBarChart
                 data={chartData}
@@ -155,28 +148,6 @@ export default function AnalyticsPage() {
             </h2>
             <BookStatsTable books={data.books} />
           </div>
-
-          {/* Popular highlights */}
-          {data.highlights.length > 0 && (
-            <div>
-              <h2 className="mb-4 text-base font-semibold text-gray-900">
-                인기 하이라이트
-              </h2>
-              <div className="space-y-3">
-                {data.highlights.map((h, i) => (
-                  <div
-                    key={i}
-                    className="flex gap-3 rounded-2xl border border-gray-200 bg-white p-4"
-                  >
-                    <Highlighter className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-400" />
-                    <p className="text-sm leading-relaxed text-gray-700 line-clamp-3">
-                      {h.text}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       ) : null}
     </div>

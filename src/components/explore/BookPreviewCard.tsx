@@ -4,21 +4,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import type { Book } from "@/types";
-// [SUN-68] 시리즈 기능 — 추후 활성화
-// import type { SeriesMetadata } from "@/types";
 
 interface BookWithAuthor extends Book {
   author_name?: string | null;
-  // [SUN-68] 시리즈 기능 — 추후 활성화
-  // series_metadata?: SeriesMetadata | null;
 }
-
-// [SUN-68] 시리즈 기능 — 추후 활성화
-// const SERIES_STATUS_LABELS: Record<string, { label: string; className: string }> = {
-//   ongoing: { label: "연재중", className: "bg-green-100/90 text-green-700" },
-//   hiatus: { label: "휴재", className: "bg-amber-100/90 text-amber-700" },
-//   completed: { label: "완결", className: "bg-blue-100/90 text-blue-700" },
-// };
 
 interface BookPreviewCardProps {
   book: BookWithAuthor;
@@ -46,11 +35,6 @@ function getGradient(title: string): string {
 
 export function BookPreviewCard({ book, className }: BookPreviewCardProps) {
   const gradient = getGradient(book.title);
-  // [SUN-68] 시리즈 기능 — 추후 활성화
-  // const isSeries = book.content_type === "series";
-  // const seriesStatus = book.series_metadata?.series_status;
-  // const seriesStatusInfo = seriesStatus ? SERIES_STATUS_LABELS[seriesStatus] : null;
-  // const href = isSeries ? `/series/${book.id}` : `/book/${book.id}`;
   const href = `/book/${book.id}`;
 
   return (

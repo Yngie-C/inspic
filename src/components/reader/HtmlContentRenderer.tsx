@@ -3,7 +3,8 @@
 import { sanitizeForRender } from "@/lib/sanitize";
 import type { ReaderTheme } from "@/types";
 import { useMemo } from "react";
-import parse, { type DOMNode, Element } from "html-react-parser";
+import parse, { type DOMNode } from "html-react-parser";
+import { isElementNode } from "@/lib/workbook/dom";
 import { getTemplateComponent } from "./templates";
 
 interface HtmlContentRendererProps {
@@ -35,7 +36,7 @@ export function HtmlContentRenderer({
     () =>
       parse(sanitized, {
         replace(domNode: DOMNode) {
-          if (!(domNode instanceof Element)) return;
+          if (!isElementNode(domNode)) return;
           const templateType = domNode.attribs?.["data-template-type"];
           if (!templateType) return;
 

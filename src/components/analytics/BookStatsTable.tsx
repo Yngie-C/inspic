@@ -11,8 +11,6 @@ interface BookStat {
   total_chapters: number;
   total_words: number;
   readers: number;
-  views: number;
-  avg_completion: number;
 }
 
 interface BookStatsTableProps {
@@ -22,7 +20,7 @@ interface BookStatsTableProps {
 
 type SortKey = keyof Pick<
   BookStat,
-  "title" | "total_chapters" | "total_words" | "readers" | "avg_completion"
+  "title" | "total_chapters" | "total_words" | "readers"
 >;
 
 type SortDir = "asc" | "desc";
@@ -93,24 +91,6 @@ const COLUMNS: Column[] = [
     align: "right",
     render: (book) => (
       <span className="text-gray-700">{book.readers.toLocaleString()}</span>
-    ),
-  },
-  {
-    key: "avg_completion",
-    label: "완독률",
-    align: "right",
-    render: (book) => (
-      <div className="flex items-center justify-end gap-2">
-        <div className="w-16 overflow-hidden rounded-full bg-gray-100 h-1.5">
-          <div
-            className="h-full rounded-full bg-gray-900 transition-all duration-500"
-            style={{ width: `${Math.min(100, book.avg_completion)}%` }}
-          />
-        </div>
-        <span className="text-gray-700 tabular-nums w-8 text-right">
-          {book.avg_completion}%
-        </span>
-      </div>
     ),
   },
 ];

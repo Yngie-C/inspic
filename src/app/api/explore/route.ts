@@ -9,7 +9,6 @@ export async function GET(request: NextRequest) {
   const sort = searchParams.get("sort") ?? "newest";
   const priceRange = searchParams.get("priceRange") ?? "";
   const authorId = searchParams.get("author_id") ?? "";
-  const contentType = searchParams.get("content_type") ?? "all";
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
   const perPage = Math.min(
     48,
@@ -33,10 +32,6 @@ export async function GET(request: NextRequest) {
 
   if (authorId) {
     dbQuery = dbQuery.eq("owner_id", authorId);
-  }
-
-  if (contentType && contentType !== "all" && ["book", "series"].includes(contentType)) {
-    dbQuery = dbQuery.eq("content_type", contentType);
   }
 
   if (query.trim()) {

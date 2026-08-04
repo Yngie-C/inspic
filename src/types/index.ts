@@ -17,7 +17,6 @@ export interface UserProfile {
 export type BookStatus = "draft" | "processing" | "published" | "archived";
 export type BookVisibility = "private" | "unlisted" | "public";
 export type SourceType = "text" | "markdown" | "docx";
-export type ContentType = "book" | "series";
 
 export interface Book {
   id: string;
@@ -35,7 +34,6 @@ export interface Book {
   published_at: string | null;
   price: number;
   is_free: boolean;
-  content_type: ContentType;
   created_at: string;
   updated_at: string;
 }

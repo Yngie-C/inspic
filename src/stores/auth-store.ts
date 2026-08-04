@@ -41,28 +41,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       // auth 상태 변경 리스너
+      // 프로필 행은 auth.users INSERT 트리거가 만듭니다. 여기서는 읽기만 합니다.
       supabase.auth.onAuthStateChange(async (event, session) => {
         if (event === "SIGNED_IN" && session?.user) {
           set({ user: session.user });
-          const { data } = await supabase
-            .from("user_profiles")
-            .select("*")
-            .eq("user_id", session.user.id)
-            .maybeSingle();
-          if (data) {
-            set({ profile: data as UserProfile });
-          } else {
-            const displayName =
-              session.user.user_metadata?.full_name ||
-              session.user.user_metadata?.name ||
-              session.user.email?.split("@")[0] ||
-              "";
-            await supabase.from("user_profiles").insert({
-              user_id: session.user.id,
-              display_name: displayName,
-            });
-            await get().fetchProfile();
-          }
+          await get().fetchProfile();
         } else if (event === "SIGNED_OUT") {
           set({ user: null, profile: null });
         }
@@ -75,7 +58,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signUp: async ({ email, password, displayName }) => {
     const supabase = createClient();
 
-    const { data, error } = await supabase.auth.signUp({
+    // display_name은 user_metadata로만 넘깁니다.
+    // user_profiles 행은 auth.users INSERT 트리거가 이 값을 읽어 생성합니다.
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -84,14 +69,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
 
     if (error) return { error: error.message };
-
-    if (data.user) {
-      // user_profiles 생성
-      await supabase.from("user_profiles").insert({
-        user_id: data.user.id,
-        display_name: displayName || null,
-      });
-    }
 
     return {};
   },

@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
   // Verify book ownership
   const { data: book, error: bookError } = await supabase
     .from("books")
-    .select("owner_id, total_chapters, total_words, content_type")
+    .select("owner_id, total_chapters, total_words")
     .eq("id", book_id)
     .single();
 
@@ -98,13 +98,8 @@ export async function POST(request: NextRequest) {
   const word_count = countWords(sanitized);
   const slug = `chapter-${order_index + 1}-${Date.now()}`;
 
-  // Default status: 'published' for books, 'draft' for series (unless caller specifies)
   const resolvedStatus =
-    status && ["draft", "published"].includes(status)
-      ? status
-      : book.content_type === "series"
-        ? "draft"
-        : "published";
+    status && ["draft", "published"].includes(status) ? status : "published";
 
   const { data: chapter, error: insertError } = await supabase
     .from("chapters")

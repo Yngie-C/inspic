@@ -23,11 +23,8 @@ export const ScaleNode = createTemplateNode("scale", "scale", {
     parseHTML: (el) => el.getAttribute("data-label-max") || "높음",
     renderHTML: (attrs) => ({ "data-label-max": attrs.labelMax as string }),
   },
-  value: {
-    default: "5",
-    parseHTML: (el) => el.getAttribute("data-value") || "5",
-    renderHTML: (attrs) => ({ "data-value": attrs.value as string }),
-  },
+  // 선택값(data-value)은 두지 않습니다. 스케일의 값은 독자의 응답이고,
+  // 응답은 블록 정의가 아니라 workbook_responses에 삽니다.
 }).extend({
   addNodeView() {
     return ReactNodeViewRenderer(ScaleNodeView);
