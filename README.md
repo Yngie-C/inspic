@@ -4,7 +4,7 @@
 
 크리에이터가 원고에 워크시트·체크리스트·성찰 질문을 끼워 넣어 출간하면, 독자는 읽으면서 직접 작성하고 그 결과를 계정에 남긴다.
 
-> **현재 상태: MVP 재구성 중 (M1 완료)**
+> **현재 상태: MVP 재구성 중 (M2 완료)**
 > 이 저장소는 2026-08-04부터 MVP 재정의 작업 중입니다. 범위 밖 기능을 삭제하고 핵심 루프 하나에 집중합니다.
 > 재구성 이전 코드는 `pre-mvp-archive` 태그에 보존돼 있습니다.
 
@@ -17,7 +17,7 @@
 > → 작성 내용이 계정에 남고 내보낼 수 있다
 > → 크리에이터가 참여 반응을 본다
 
-이 루프의 심장은 **독자 응답 데이터**다. M1에서 스키마와 도메인 모델을 세웠고(`workbook_blocks` / `workbook_block_fields` / `workbook_responses`), 실제 DB 읽기·쓰기는 M2~M3에서 붙인다. 그때까지 응답은 `localStorage`에 머문다 — 다만 식별 구조는 이미 DB와 같다.
+이 루프의 심장은 **독자 응답 데이터**다. M1에서 스키마와 도메인 모델을 세웠고(`workbook_blocks` / `workbook_block_fields` / `workbook_responses`), M2에서 저작 측 쓰기 경로를 붙였다 — 챕터를 저장하면 블록 정의가 DB에 반영된다. 독자 응답의 DB 읽기·쓰기는 M3에서 붙는다. 그때까지 응답은 `localStorage`에 머문다 — 다만 식별 구조는 이미 DB와 같다.
 
 ---
 
@@ -27,7 +27,7 @@
 |---|---|---|
 | **M0** | 범위 밖 코드 삭제, 중복 라우트 통합, 문서 정합화 | **완료** |
 | **M1** | 도메인 재설계 — 워크북 응답 스키마, 인증 트리거 이관, 테스트 도입 | **완료** |
-| **M2** | 워크북 저작 (크리에이터 루프) | 예정 |
+| **M2** | 워크북 저작 — 블록 정의 동기화, 이미지 저장소, 공개 전 검수 | **완료** |
 | **M3** | 워크북 독서 (독자 루프) — 여기서 처음으로 제품이 존재 | 예정 |
 | **M4** | 판매·접근 제어 — 결제 보상 트랜잭션, webhook | 예정 |
 | **M5** | 응답 회수 — 내 워크북, 내보내기, 크리에이터 지표 | 예정 |
@@ -41,13 +41,14 @@
 
 - **인증**: Supabase Auth (이메일 + OAuth), Zustand `auth-store`. 프로필 행은 `auth.users` INSERT 트리거가 만듭니다
 - **콘텐츠 생성**: 직접 작성 또는 파일 업로드 (txt / Markdown / DOCX)
-- **에디터**: Tiptap 리치 텍스트 + 슬래시 커맨드
+- **에디터**: Tiptap 리치 텍스트 + 슬래시 커맨드, 본문 이미지는 Supabase Storage(`chapter-images`)에 업로드
 - **워크북 템플릿 5종**: 체크리스트, 콜아웃, 리플렉션, SMART 목표, 1–10 스케일
 - **리더**: 챕터 단위 읽기 (M3에서 재작성 예정)
 - **판매**: Toss Payments 결제, 구매 기반 접근 제어
 - **내보내기**: PDF (`@react-pdf/renderer`), EPUB (자체 생성기)
 - **탐색**: 검색, 언어/가격 필터, 정렬
 - **크리에이터 스튜디오**: 내 작품 관리, 판매 현황, 기본 분석
+- **공개 전 검수**: `/create/preview/[bookId]`에서 차단·경고 항목을 확인한 뒤 공개. 차단 항목은 서버(`PUT /api/books/[bookId]`)도 다시 검사합니다
 
 ## MVP 범위에서 제외된 것
 
@@ -82,7 +83,7 @@ src/
 ├── app/
 │   ├── api/              # API 라우트 17개
 │   │   ├── analytics/    #   분석 + 판매
-│   │   ├── books/        #   책 CRUD, 접근 권한, 커버, 상세
+│   │   ├── books/        #   책 CRUD, 접근 권한, 커버, 본문 이미지, 상세, 공개 전 검수
 │   │   ├── chapters/     #   챕터 CRUD
 │   │   ├── epub/ pdf/    #   내보내기
 │   │   ├── explore/      #   탐색
@@ -103,12 +104,14 @@ src/
 │   ├── reader/           # HtmlContentRenderer + 워크북 리더 템플릿 5종
 │   ├── landing/ explore/ dashboard/ analytics/ preview/ wizard/ upload/ layout/ ui/
 ├── lib/
-│   ├── workbook/         # 워크북 도메인 — 블록 추출, 응답 병합·복원, 타입
+│   ├── workbook/         # 워크북 도메인 — 블록 추출·동기화, 응답 병합·복원, 타입
+│   ├── publish-checks*   # 공개 전 검수 (순수 판정 + DB 로더)
+│   ├── upload-parser.ts  # 원고 → 챕터 파싱 (txt/md/docx)
 │   └── …                 # supabase, sanitize, access-control, epub, pdf, toss
 ├── stores/               # Zustand (auth)
 └── types/                # 공통 타입
 
-supabase/migrations/      # 00001_initial_schema.sql (M1 통합 리셋)
+supabase/migrations/      # 00001 초기 스키마(M1 통합 리셋) + 00002 블록 동기화·이미지 버킷(M2)
 ```
 
 ### 워크북 데이터 모델
@@ -125,6 +128,8 @@ workbook_responses       독자 응답. (user_id, block_id, field_key) 유일
 `workbook_responses.block_id`에는 FK가 없다. 크리에이터가 문항을 지웠다고 독자가 쓴 내용까지 지워지면 안 되기 때문이다. 정의가 사라진 응답은 `orphanedResponses()`로 따로 다룬다.
 
 **`data-*` 속성에는 독자 응답을 담지 않는다.** 챕터 HTML은 문항만 싣고, 답은 전부 `workbook_responses`에 있다.
+
+블록 정의를 DB에 쓰는 경로는 하나뿐이다. 챕터를 저장하면 `syncChapterWorkbookBlocks()`가 저장된 HTML에서 정의를 뽑아 `sync_chapter_workbook_blocks` RPC에 넘기고, RPC가 upsert와 삭제를 **한 트랜잭션**으로 처리한다. 응답 테이블은 건드리지 않는다.
 
 ---
 
@@ -144,6 +149,8 @@ cp .env.example .env.local   # 로컬 값 입력
 npm run dev
 ```
 
+Supabase 프로젝트에는 `supabase/migrations/`를 파일명 순서대로 적용합니다 (`supabase db push` 또는 SQL 에디터). `00002`는 블록 동기화 RPC와 `chapter-images` 버킷을 만듭니다 — 적용하지 않으면 챕터 저장 시 블록 정의가 반영되지 않고 본문 이미지 업로드가 실패합니다.
+
 [http://localhost:3000](http://localhost:3000)
 
 ### 검증
@@ -151,8 +158,8 @@ npm run dev
 ```bash
 npm run typecheck   # 통과 (에러 0)
 npm run build       # 통과
-npm test            # 통과 (119개)
-npm run lint        # 11개 에러 — 재구성 이전부터 존재하는 부채 (아래 참조)
+npm test            # 통과 (182개)
+npm run lint        # 10개 에러 — 재구성 이전부터 존재하는 부채 (아래 참조)
 ```
 
 ---
@@ -162,14 +169,15 @@ npm run lint        # 11개 에러 — 재구성 이전부터 존재하는 부�
 | 항목 | 위치 | 해소 시점 |
 |---|---|---|
 | 워크북 응답이 아직 localStorage에 있음 (기기 간 유실, 크리에이터 조회 불가). 스키마와 도메인 모델은 M1에서 완성 | `lib/template-storage.ts`, `reader/templates/useBlockAnswers.ts` | M3 |
-| 챕터 저장 시 블록 정의를 DB에 반영하는 경로가 아직 없음 (`extractWorkbookBlocks()`는 준비됨) | `api/chapters/**` | M2 |
 | 결제 승인 후 `purchases` INSERT 실패 시 보상 트랜잭션 없음, webhook 없음 | `api/payments/confirm/route.ts` | M4 |
 | 페이지 대부분이 `"use client"` — 공개 콘텐츠 SEO 부재 | `app/**` | M3 이후 |
-| React Compiler lint 에러 11개 (setState-in-effect, `any` 5개 등) | 아래 파일들 | 별도 정리 |
+| React Compiler lint 에러 10개 (setState-in-effect, `any` 5개 등) | 아래 파일들 | 별도 정리 |
 
 M1에서 해소됨: 응답의 배열 인덱스 매칭 · `data-node-id` 재생성 · 클라이언트 프로필 생성 이중 경로 · 테스트 0개 · SMART 블록의 `data-template-type` 불일치.
 
-React Compiler 에러 위치: `analytics/StatsCard`, `editor/SlashCommandMenu`, `editor/RichTextEditor`, `editor/extensions/SlashCommand`(any 5개), `explore/SearchBar`, `preview/PreviewFrame`, `upload/FileDropzone`
+M2에서 해소됨: 블록 정의가 DB에 반영되지 않던 것 · 본문 이미지 base64 인라인 · 업로드 파서가 라우트에 묶여 있던 것 · 출간해도 `visibility`가 `private`이라 아무에게도 보이지 않던 것.
+
+React Compiler 에러 위치: `analytics/StatsCard`, `editor/SlashCommandMenu`, `editor/extensions/SlashCommand`(any 5개), `explore/SearchBar`, `preview/PreviewFrame`, `upload/FileDropzone`
 
 ---
 

@@ -20,7 +20,7 @@ export default async function PreviewPage({ params }: Props) {
 
   const { data: book } = await supabase
     .from("books")
-    .select("id, title, owner_id")
+    .select("id, title, owner_id, status")
     .eq("id", bookId)
     .single();
 
@@ -28,5 +28,11 @@ export default async function PreviewPage({ params }: Props) {
     redirect("/creator");
   }
 
-  return <PreviewClient bookId={bookId} bookTitle={book.title} />;
+  return (
+    <PreviewClient
+      bookId={bookId}
+      bookTitle={book.title}
+      isPublished={book.status === "published"}
+    />
+  );
 }

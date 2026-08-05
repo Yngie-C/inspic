@@ -61,6 +61,26 @@ export function extractWorkbookBlocks(html: string): WorkbookBlock[] {
   return blocks;
 }
 
+/**
+ * 챕터 HTML에 들어 있는 워크북 블록 엘리먼트의 수.
+ *
+ * {@link extractWorkbookBlocks}와 달리 `data-node-id`가 없는 블록도
+ * 셉니다. 그 차이가 곧 "화면에는 보이지만 응답을 받을 수 없는 블록"의
+ * 수이고, 공개 전 검수가 그것을 차단 사유로 씁니다. 세는 것과 뽑는 것을
+ * 나눈 이유는, 추출 쪽에서 ID를 만들어 채우면 저장할 때마다 키가 바뀌어
+ * 응답이 끊기기 때문입니다.
+ */
+export function countWorkbookBlockElements(html: string): number {
+  let count = 0;
+
+  for (const element of walkElements(htmlToDOM(html) as DOMNode[])) {
+    const templateType = element.attribs?.["data-template-type"];
+    if (templateType && BLOCK_TYPE_BY_TEMPLATE[templateType]) count += 1;
+  }
+
+  return count;
+}
+
 function* walkElements(nodes: readonly DOMNode[]): Generator<Element> {
   for (const node of nodes) {
     if (!isElementNode(node)) continue;

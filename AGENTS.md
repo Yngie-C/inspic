@@ -17,7 +17,7 @@ Inspic은 **인터랙티브 워크북 출판 플랫폼**입니다. "읽는 책"�
 
 크리에이터가 원고에 워크시트·체크리스트·성찰 질문을 끼워 넣어 출간하면, 독자는 읽으면서 직접 작성하고 그 결과를 자기 계정에 남깁니다.
 
-**현재 상태: MVP 재구성 중.** 2026-08-04에 M0(범위 밖 코드 삭제)과 M1(도메인 재설계)을 완료했습니다. 상세 계획과 마일스톤은 `README.md`, 진행 중인 작업은 `TODO.md`를 보세요.
+**현재 상태: MVP 재구성 중.** 2026-08-04에 M0(범위 밖 코드 삭제)과 M1(도메인 재설계)을, 2026-08-05에 M2(워크북 저작)를 완료했습니다. 상세 계획과 마일스톤은 `README.md`, 진행 중인 작업은 `TODO.md`를 보세요.
 
 핵심 기능:
 - 텍스트/Markdown/DOCX 업로드 및 챕터 구조화
@@ -59,7 +59,7 @@ TTS·오디오북 · 하이라이트/북마크/독서진행률/리더설정 · �
   - `workbook/`: 워크북 도메인 — 블록 정의 추출, 응답 병합·복원, 공유 타입
 - `src/stores/`: Zustand stores
 - `src/types/`: TypeScript 타입 정의
-- `supabase/migrations/`: Supabase DB 마이그레이션. `00001_initial_schema.sql`이 현재 스키마 전체입니다
+- `supabase/migrations/`: Supabase DB 마이그레이션. `00001_initial_schema.sql`(초기 스키마) + `00002_workbook_block_sync.sql`(블록 동기화 RPC, `chapter-images` 버킷)
 - `content/`: 전자책 원고 및 콘텐츠 문서
 - `creator-outreach/`: 크리에이터 아웃리치 관련 문서
 - `.claude/`: Claude Code 커스텀 커맨드/프로젝트 메모
@@ -144,6 +144,13 @@ workbook_blocks            블록 정의. id = 에디터의 data-node-id
 workbook_responses         독자 응답. (user_id, block_id, field_key) 유일
 ```
 
+쓰기 경로는 방향마다 하나뿐입니다.
+
+```
+저작:  챕터 저장 → syncChapterWorkbookBlocks() → sync_chapter_workbook_blocks RPC
+독자:  (M3에서 추가) useBlockAnswers → workbook_responses
+```
+
 도메인 코드는 `src/lib/workbook/`에 있습니다. 관련 코드를 만질 때 아래를 반드시 지키세요.
 
 - **응답과 정의는 오직 `(block_id, field_key)`로만 만납니다.** 배열 인덱스나 길이로 매칭하지 마세요. 크리에이터가 문항을 하나만 추가/삭제해도 독자 응답이 전부 밀리거나 사라집니다. 복원은 `restoreBlockAnswers()`를 쓰세요.
@@ -154,7 +161,24 @@ workbook_responses         독자 응답. (user_id, block_id, field_key) 유일
 - **크리에이터에게 응답 원문을 보여주지 마세요.** RLS상 작성자 본인만 행을 읽습니다. 집계는 `workbook_response_stats()` 함수로만 조회합니다.
 - **`localStorage`는 오프라인 캐시입니다.** 진실의 원천은 DB입니다. (M3에서 `useBlockAnswers` 훅 내부가 DB 호출로 교체됩니다. 호출부는 그대로 두세요.)
 - **파싱된 노드에 `instanceof Element`를 쓰지 마세요.** `html-dom-parser`가 ESM 경로에서 자체 `domhandler` 사본을 끌어와 클래스 정체성이 어긋납니다. `lib/workbook/dom.ts`의 `isElementNode()`를 쓰세요.
-- 워크북 블록을 추가/변경하면 에디터 Node, 리더 컴포넌트, `lib/sanitize.ts` 허용 목록, `lib/template-fallback.ts`(EPUB/PDF 정적 폴백), `lib/workbook/extract-blocks.ts`의 `BLOCK_TYPE_BY_TEMPLATE` 표를 **함께** 확인하세요. `data-template-type` 문자열은 이 네 곳이 공유합니다.
+- **블록 정의를 DB에 쓸 때는 `syncChapterWorkbookBlocks()`만 쓰세요.** `workbook_blocks` / `workbook_block_fields`에 직접 INSERT/UPDATE 하지 마세요. 실제 쓰기는 `sync_chapter_workbook_blocks` RPC가 upsert와 삭제를 **한 트랜잭션**으로 처리합니다(마이그레이션 00002). 여러 왕복으로 나누면 중간 실패 시 블록은 새 정의, 문항은 옛 정의로 남고 다음 저장 전까지 복구되지 않습니다.
+- **동기화가 실패해도 챕터 저장을 실패시키지 마세요.** 본문은 이미 저장된 뒤라 여기서 던지면 크리에이터에게는 글이 날아간 것처럼 보입니다. 결과를 응답의 `workbook_sync`에 싣고, 공개 전 검수(`lib/publish-checks.ts`)가 본문과 DB가 어긋난 상태를 차단합니다.
+- **`data-node-id`가 없는 블록에 ID를 만들어 붙이지 마세요.** `extractWorkbookBlocks()`는 그런 블록을 건너뜁니다. 세어야 할 때는 `countWorkbookBlockElements()`를 쓰세요 — 두 수의 차이가 곧 "화면에는 보이지만 응답을 받을 수 없는 블록"이고, 검수가 그것을 차단 사유로 씁니다.
+- 워크북 블록을 추가/변경하면 에디터 Node, 리더 컴포넌트, `lib/sanitize.ts` 허용 목록, `lib/template-fallback.ts`(EPUB/PDF 정적 폴백), `lib/workbook/extract-blocks.ts`의 `BLOCK_TYPE_BY_TEMPLATE` 표, `00001` 스키마의 `block_type` CHECK 제약을 **함께** 확인하세요. `data-template-type` 문자열은 앞의 네 곳이 공유합니다.
+
+## 출간 경로
+
+크리에이터가 책을 공개하는 경로는 하나입니다.
+
+```
+편집 화면 "검수 후 공개"  →  /create/preview/[bookId]  →  공개하기
+                              (검수 패널)                (PUT /api/books/[bookId])
+```
+
+- **판정 로직을 두 벌 만들지 마세요.** 화면과 API가 모두 `loadPublishChecks()`를 씁니다. 갈라지면 "미리보기는 통과했는데 출간은 막히는" 상태가 됩니다.
+- **차단(blocker)은 조용한 실패에만 씁니다.** 크리에이터가 자기 화면에서 확인할 수 없는 것 — 응답을 받을 수 없는 블록, DB에 저장되지 않은 블록 — 만 막습니다. 표지·소개글 같은 완성도 항목은 경고입니다.
+- **공개는 `status`와 `visibility`를 함께 바꿔야 합니다.** `status: published`만 보내면 `visibility`가 `private`으로 남아 아무에게도 보이지 않습니다.
+- `published_at`은 서버가 찍습니다. 비어 있을 때만 채워서, 내렸다 다시 올려도 최초 출간일이 밀리지 않게 합니다.
 
 ## 코딩 규칙
 
@@ -182,7 +206,8 @@ workbook_responses         독자 응답. (user_id, block_id, field_key) 유일
 
 - DB 변경은 `supabase/migrations/`에 새 migration으로 추가하세요.
 - 기존 migration은 이미 적용되었을 수 있으므로 수정하지 마세요. M1의 통합 리셋은 보존할 실사용 데이터가 없다고 확정한 뒤 한 번만 한 예외입니다. 다시 하지 마세요.
-- 스키마를 바꾸면 `src/lib/supabase/__tests__/`의 테스트도 함께 갱신하세요. `schema.test.ts`가 임베디드 Postgres에 마이그레이션을 실제로 적용해 구조·제약·트리거를 확인하고, `rls.test.ts`가 `SET ROLE`로 롤을 갈아타며 정책이 실제로 무엇을 막는지 확인합니다.
+- 스키마를 바꾸면 `src/lib/supabase/__tests__/`의 테스트도 함께 갱신하세요. 하네스가 `supabase/migrations/`의 모든 파일을 파일명 순서대로 적용하므로, 새 마이그레이션은 파일만 추가하면 테스트에 자동으로 들어옵니다. `schema.test.ts`가 구조·제약·트리거를, `rls.test.ts`가 `SET ROLE`로 정책을, `workbook-sync.test.ts`가 블록 동기화 RPC를 확인합니다.
+- 하네스의 `auth` / `storage` 스키마는 Supabase가 미리 만들어 두는 것의 **스텁**입니다. 마이그레이션이 storage를 건드리면 스텁도 함께 늘리세요.
 - **RLS 정책을 추가하거나 고치면 반드시 `rls.test.ts`에 통과 케이스와 차단 케이스를 함께 넣으세요.** RLS 버그는 조용히 새는 종류라 테스트 없이는 드러나지 않습니다.
 - RLS 테스트를 쓸 때는 반드시 `asUser` / `asAnon` 헬퍼를 거치세요. 기본 연결은 테이블 소유자라 RLS를 통째로 우회하고, 그 상태로 쓴 테스트는 아무것도 검증하지 않으면서 초록불만 냅니다.
 - 새 테이블에는 RLS 활성화와 필요한 policy를 포함하세요.

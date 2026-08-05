@@ -1,89 +1,24 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthUser, apiError, apiSuccess } from "@/lib/api-utils";
-import { sanitizeContent } from "@/lib/sanitize";
-import { marked } from "marked";
-import mammoth from "mammoth";
+import { countWords } from "@/lib/content-stats";
+import { syncChapterWorkbookBlocks } from "@/lib/workbook/sync-blocks";
+import { countWorkbookBlockElements } from "@/lib/workbook/extract-blocks";
+import {
+  SIZE_LIMITS,
+  SOURCE_TYPE_BY_EXTENSION,
+  parseUpload,
+  resolveExtension,
+  titleFromFileName,
+  type ParsedChapter,
+} from "@/lib/upload-parser";
 
-const ALLOWED_MIME_TYPES: Record<string, string> = {
-  "text/plain": "txt",
-  "text/markdown": "md",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
-};
-
-const SIZE_LIMITS: Record<string, number> = {
-  txt: 5 * 1024 * 1024,  // 5MB
-  md: 5 * 1024 * 1024,   // 5MB
-  docx: 20 * 1024 * 1024, // 20MB
-};
-
-// Chapter split patterns
-const CHAPTER_SPLIT_RE =
-  /(?=<h[12][^>]*>)|(?=제\s*\d+\s*장)|(?=Chapter\s+\d+)/i;
-
-interface ParsedChapter {
-  title: string;
-  content_html: string;
-  content_raw: string;
-}
-
-function countWords(html: string): number {
-  const text = html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-  return text ? text.split(" ").length : 0;
-}
-
-function extractTitleFromHtml(html: string, index: number): string {
-  const headingMatch = html.match(/<h[12][^>]*>(.*?)<\/h[12]>/i);
-  if (headingMatch) {
-    return headingMatch[1].replace(/<[^>]*>/g, "").trim();
-  }
-  const koreanMatch = html.match(/(제\s*\d+\s*장[^\n<]*)/);
-  if (koreanMatch) return koreanMatch[1].trim();
-  const englishMatch = html.match(/(Chapter\s+\d+[^\n<]*)/i);
-  if (englishMatch) return englishMatch[1].trim();
-  return `Chapter ${index + 1}`;
-}
-
-async function parseTxtToChapters(text: string): Promise<ParsedChapter[]> {
-  const blocks = text.split(/\n\n+/);
-  const htmlChunks: string[] = blocks
-    .filter((b) => b.trim() !== "")
-    .map((b) => `<p>${b.replace(/\n/g, "<br>")}</p>`);
-
-  const fullHtml = htmlChunks.join("\n");
-  return splitHtmlIntoChapters(fullHtml, text);
-}
-
-async function parseMdToChapters(text: string): Promise<ParsedChapter[]> {
-  const html = await marked(text);
-  return splitHtmlIntoChapters(html, text);
-}
-
-async function parseDocxToChapters(arrayBuffer: ArrayBuffer): Promise<ParsedChapter[]> {
-  const result = await mammoth.convertToHtml({ buffer: Buffer.from(arrayBuffer) });
-  return splitHtmlIntoChapters(result.value, "");
-}
-
-function splitHtmlIntoChapters(html: string, rawText: string): ParsedChapter[] {
-  const parts = html.split(CHAPTER_SPLIT_RE).filter((p) => p.trim() !== "");
-
-  if (parts.length <= 1) {
-    // No chapter splits found — treat as single chapter
-    return [
-      {
-        title: "Chapter 1",
-        content_html: sanitizeContent(html),
-        content_raw: rawText,
-      },
-    ];
-  }
-
-  return parts.map((part, i) => ({
-    title: extractTitleFromHtml(part, i),
-    content_html: sanitizeContent(part),
-    content_raw: part.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim(),
-  }));
-}
+/**
+ * 원고 업로드 → 책 1권 + 챕터 N개.
+ *
+ * 파싱은 `lib/upload-parser.ts`에 있습니다. 이 라우트가 하는 일은
+ * 입력 검증과 저장입니다.
+ */
 
 export async function POST(request: NextRequest) {
   const user = await getAuthUser();
@@ -102,28 +37,20 @@ export async function POST(request: NextRequest) {
   }
 
   const fileName =
-    file instanceof File ? file.name : (formData.get("filename") as string) ?? "upload";
-  const mimeType = file.type || "application/octet-stream";
+    file instanceof File
+      ? file.name
+      : ((formData.get("filename") as string) ?? "upload");
 
-  // MIME type validation
-  if (!Object.keys(ALLOWED_MIME_TYPES).includes(mimeType)) {
-    // Fallback: check extension
-    const ext = fileName.split(".").pop()?.toLowerCase();
-    if (!ext || !["txt", "md", "docx"].includes(ext)) {
-      return apiError(
-        "Unsupported file type. Allowed: .txt, .md, .docx",
-        "UPLOAD_ERROR",
-        415,
-      );
-    }
+  const ext = resolveExtension(file.type || "", fileName);
+  if (!ext) {
+    return apiError(
+      "Unsupported file type. Allowed: .txt, .md, .docx",
+      "UPLOAD_ERROR",
+      415,
+    );
   }
 
-  const ext =
-    ALLOWED_MIME_TYPES[mimeType] ??
-    (fileName.split(".").pop()?.toLowerCase() as string);
-
-  // Size validation
-  const limit = SIZE_LIMITS[ext] ?? SIZE_LIMITS["txt"];
+  const limit = SIZE_LIMITS[ext];
   if (file.size > limit) {
     return apiError(
       `File too large. Limit for .${ext} is ${limit / (1024 * 1024)}MB`,
@@ -132,29 +59,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Title from form or filename
   const bookTitle =
     (formData.get("title") as string | null)?.trim() ||
-    fileName.replace(/\.[^.]+$/, "").replace(/[-_]/g, " ");
-
+    titleFromFileName(fileName);
   const description = (formData.get("description") as string | null)?.trim() ?? null;
   const language = (formData.get("language") as string | null)?.trim() ?? "ko";
 
-  // Parse file
   let chapters: ParsedChapter[];
   try {
-    if (ext === "txt") {
-      const text = await file.text();
-      chapters = await parseTxtToChapters(text);
-    } else if (ext === "md") {
-      const text = await file.text();
-      chapters = await parseMdToChapters(text);
-    } else if (ext === "docx") {
-      const arrayBuffer = await file.arrayBuffer();
-      chapters = await parseDocxToChapters(arrayBuffer);
-    } else {
-      return apiError("Unsupported file extension", "UPLOAD_ERROR", 415);
-    }
+    chapters = await parseUpload(file, ext);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to parse file";
     return apiError(`File parsing failed: ${message}`, "UPLOAD_ERROR", 422);
@@ -164,12 +77,13 @@ export async function POST(request: NextRequest) {
     return apiError("No content found in file", "UPLOAD_ERROR", 422);
   }
 
-  const totalWords = chapters.reduce((sum, c) => sum + countWords(c.content_html), 0);
-  const sourceType = ext === "txt" ? "text" : ext === "md" ? "markdown" : "docx";
+  const totalWords = chapters.reduce(
+    (sum, chapter) => sum + countWords(chapter.content_html),
+    0,
+  );
 
   const supabase = await createClient();
 
-  // Create book
   const { data: book, error: bookError } = await supabase
     .from("books")
     .insert({
@@ -177,7 +91,7 @@ export async function POST(request: NextRequest) {
       title: bookTitle,
       description,
       language,
-      source_type: sourceType,
+      source_type: SOURCE_TYPE_BY_EXTENSION[ext],
       status: "draft",
       visibility: "private",
       total_chapters: chapters.length,
@@ -188,15 +102,15 @@ export async function POST(request: NextRequest) {
 
   if (bookError) return apiError(bookError.message, "SERVER_ERROR", 500);
 
-  // Create chapters
-  const chapterRows = chapters.map((c, i) => ({
+  const uploadedAt = Date.now();
+  const chapterRows = chapters.map((chapter, index) => ({
     book_id: book.id,
-    title: c.title,
-    slug: `chapter-${i + 1}-${Date.now()}-${i}`,
-    order_index: i,
-    content_html: c.content_html,
-    content_raw: c.content_raw || null,
-    word_count: countWords(c.content_html),
+    title: chapter.title,
+    slug: `chapter-${index + 1}-${uploadedAt}-${index}`,
+    order_index: index,
+    content_html: chapter.content_html,
+    content_raw: chapter.content_raw || null,
+    word_count: countWords(chapter.content_html),
   }));
 
   const { data: createdChapters, error: chaptersError } = await supabase
@@ -208,6 +122,15 @@ export async function POST(request: NextRequest) {
     // Rollback book creation
     await supabase.from("books").delete().eq("id", book.id);
     return apiError(chaptersError.message, "SERVER_ERROR", 500);
+  }
+
+  // 원고에 워크북 블록이 인라인 HTML로 들어 있을 수 있습니다 (마크다운의
+  // <section data-template-type=...>). 갓 만든 챕터라 지울 정의가 없으므로
+  // 블록이 있는 챕터만 부릅니다 — 챕터 수만큼 RPC를 동시에 던지면 원고가
+  // 길 때 커넥션이 몰립니다.
+  for (const chapter of createdChapters ?? []) {
+    if (countWorkbookBlockElements(chapter.content_html) === 0) continue;
+    await syncChapterWorkbookBlocks(supabase, chapter.id, chapter.content_html);
   }
 
   return apiSuccess({ book, chapters: createdChapters }, 201);

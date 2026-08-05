@@ -2,11 +2,8 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthUser, apiError, apiSuccess } from "@/lib/api-utils";
 import { sanitizeContent } from "@/lib/sanitize";
-
-function countWords(html: string): number {
-  const text = html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-  return text ? text.split(" ").length : 0;
-}
+import { countWords } from "@/lib/content-stats";
+import { syncChapterWorkbookBlocks } from "@/lib/workbook/sync-blocks";
 
 export async function GET(request: NextRequest) {
   const user = await getAuthUser();
@@ -118,6 +115,12 @@ export async function POST(request: NextRequest) {
 
   if (insertError) return apiError(insertError.message, "SERVER_ERROR", 500);
 
+  const workbookSync = await syncChapterWorkbookBlocks(
+    supabase,
+    chapter.id,
+    sanitized,
+  );
+
   // Update book totals
   await supabase
     .from("books")
@@ -127,5 +130,5 @@ export async function POST(request: NextRequest) {
     })
     .eq("id", book_id);
 
-  return apiSuccess(chapter, 201);
+  return apiSuccess({ ...chapter, workbook_sync: workbookSync }, 201);
 }

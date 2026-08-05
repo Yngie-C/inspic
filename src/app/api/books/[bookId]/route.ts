@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthUser, apiError, apiSuccess } from "@/lib/api-utils";
+import { loadPublishChecks } from "@/lib/publish-checks-loader";
+import { blockers } from "@/lib/publish-checks";
 import type { BookStatus, BookVisibility } from "@/types";
 
 type Params = { params: Promise<{ bookId: string }> };
@@ -50,7 +52,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
   const { data: existing, error: fetchError } = await supabase
     .from("books")
-    .select("owner_id")
+    .select("owner_id, status, published_at")
     .eq("id", bookId)
     .single();
 
@@ -86,6 +88,32 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
   if (Object.keys(updates).length === 0) {
     return apiError("No valid fields to update", "VALIDATION_ERROR", 400);
+  }
+
+  // 출간으로 넘어가는 순간에만 검수합니다. 이미 출간된 책의 제목을
+  // 고치는 것까지 막으면 크리에이터가 오탈자를 못 고칩니다.
+  const isPublishing =
+    body.status === "published" && existing.status !== "published";
+
+  if (isPublishing) {
+    const result = await loadPublishChecks(supabase, bookId);
+    if (!result.ok) return apiError("Book not found", "NOT_FOUND", 404);
+
+    const failed = blockers(result.checks);
+    if (failed.length > 0) {
+      return apiError(
+        `공개할 수 없습니다: ${failed.map((check) => check.title).join(", ")}`,
+        "PUBLISH_BLOCKED",
+        422,
+        { blockers: failed },
+      );
+    }
+
+    // 출간 시각은 서버가 찍습니다. 한 번 출간한 책을 내렸다 다시 올릴 때
+    // 최초 출간일이 밀리지 않도록 비어 있을 때만 채웁니다.
+    if (!existing.published_at) {
+      updates.published_at = new Date().toISOString();
+    }
   }
 
   const { data, error } = await supabase

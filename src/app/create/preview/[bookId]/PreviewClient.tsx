@@ -2,6 +2,7 @@
 
 import { PreviewToolbar } from "@/components/preview/PreviewToolbar";
 import { PreviewFrame } from "@/components/preview/PreviewFrame";
+import { PublishChecklist } from "@/components/preview/PublishChecklist";
 import { useState, useEffect } from "react";
 import { Monitor, HelpCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,9 +15,10 @@ const MIN_WIDTH = 1024;
 interface Props {
   bookId: string;
   bookTitle: string;
+  isPublished: boolean;
 }
 
-export function PreviewClient({ bookId, bookTitle }: Props) {
+export function PreviewClient({ bookId, bookTitle, isPublished }: Props) {
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [isTooNarrow, setIsTooNarrow] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
@@ -93,14 +95,19 @@ export function PreviewClient({ bookId, bookTitle }: Props) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-100">
+    <div className="flex h-screen flex-col bg-gray-100">
       <PreviewToolbar
         bookId={bookId}
         bookTitle={bookTitle}
         viewport={viewport}
         onViewportChange={setViewport}
       />
-      <PreviewFrame bookId={bookId} viewport={viewport} />
+      <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 overflow-y-auto">
+          <PreviewFrame bookId={bookId} viewport={viewport} />
+        </div>
+        <PublishChecklist bookId={bookId} isPublished={isPublished} />
+      </div>
     </div>
   );
 }

@@ -93,17 +93,75 @@
 
 **결과**: 테스트 119개 통과. typecheck 0 에러, build 통과. lint 에러 13 → 11 (남은 것은 전부 재구성 이전 부채).
 
-**남은 확인**: 실제 Supabase 프로젝트 적용은 아직입니다. `supabase db reset` 또는 SQL 에디터로 `00001_initial_schema.sql`을 리셋한 프로젝트에 한 번 적용해야 M1이 완전히 닫힙니다. PGlite는 Supabase의 기본 롤·권한을 흉내 낼 뿐이라 실제 `auth.users` 트리거 권한까지는 대신하지 못합니다.
+**실제 Supabase 적용**: 2026-08-05 완료. `00001_initial_schema.sql`을 SQL 에디터로 적용했습니다.
+
+---
+
+## M2 — 워크북 저작 (크리에이터 루프) ✅ 완료 (2026-08-05)
+
+**게이트**: 원고 업로드 → 워크북 블록 5종 삽입 → 미리보기 → 공개까지 막힘 없이 완주
+
+### 블록 정의 동기화 — M2의 핵심
+
+M1에서 만든 `extractWorkbookBlocks()`가 어디에도 연결돼 있지 않았습니다. 이제 챕터를 저장하면 정의가 DB에 반영됩니다.
+
+- [x] `sync_chapter_workbook_blocks(chapter_id, blocks)` RPC — 마이그레이션 `00002`
+- [x] upsert + 삭제를 **한 트랜잭션**으로 처리 (여러 왕복으로 나누면 중간 실패 시 블록은 새 정의, 문항은 옛 정의로 남음)
+- [x] `SECURITY INVOKER` — 권한 판정은 RLS가. 소유자 확인은 조용한 0행 대신 분명한 에러를 내기 위한 것
+- [x] `src/lib/workbook/sync-blocks.ts` — 추출 → 저장 가능한 블록만 걸러 RPC 호출
+- [x] `POST /api/chapters` · `PUT /api/chapters/[chapterId]` · `POST /api/upload`에 연결
+- [x] 동기화 실패해도 던지지 않음 — 챕터 본문은 이미 저장된 뒤라 여기서 던지면 글이 날아간 것처럼 보임. 대신 응답에 `workbook_sync`를 싣고 공개 전 검수가 차단
+
+### 이미지 저장소
+
+- [x] `chapter-images` 버킷 + Storage RLS 정책 (마이그레이션 `00002`)
+- [x] `POST /api/books/[bookId]/images` — 경로 `{bookId}/{chapterId}/{임의값}.{확장자}`
+- [x] `RichTextEditor`의 base64 인라인 제거 → URL만 본문에 삽입
+- [x] 업로드 중·실패 상태를 에디터 하단에 표시 (이전에는 조용히 실패)
+
+### 업로드 파서 분리
+
+- [x] `src/lib/upload-parser.ts`로 분리 — 라우트는 검증과 저장만
+- [x] 테스트 20개 — 확장자 판정, 챕터 경계, 제목 추출, 워크북 블록의 `data-*` 보존
+
+### 공개 전 검수
+
+- [x] `src/lib/publish-checks.ts` (순수 판정) + `publish-checks-loader.ts` (DB 조회)
+- [x] 차단: 제목 없음 · 챕터 없음 · 빈 챕터 · **응답을 받을 수 없는 블록** · **DB에 저장되지 않은 블록**
+- [x] 경고: 워크북 블록 없음 · 미발행 챕터 · base64 인라인 이미지 · 표지 없음 · 소개글 없음
+- [x] `GET /api/books/[bookId]/publish-checks` + 미리보기 화면의 검수 패널
+- [x] `PUT /api/books/[bookId]`가 출간 전환 시 차단 항목을 서버에서 재검사 (422)
+- [x] 편집 화면의 "출판" → "검수 후 공개" — 미리보기를 거쳐야 공개됨
+
+### 함께 고친 것
+
+- [x] **출간해도 아무도 볼 수 없던 문제** — `handlePublish`가 `status`만 바꾸고 `visibility`는 `private`으로 남겼습니다. 이제 공개 시 `visibility: public`을 함께 보냅니다
+- [x] `published_at`을 서버가 찍습니다 (비어 있을 때만 — 내렸다 다시 올려도 최초 출간일이 밀리지 않게)
+- [x] `countWorkbookBlockElements()` 추가 — `data-node-id`가 없는 블록은 추출 단계에서 버려져 검수가 볼 수 없었습니다
+- [x] 워크북 블록만 있는 챕터를 "빈 챕터"로 오판하던 것
+- [x] `countWords` 중복 3곳 → `src/lib/content-stats.ts`
+- [x] 테스트 하네스가 마이그레이션을 파일명 순서대로 전부 적용 + `storage` 스키마 스텁
+
+### 테스트
+
+- [x] `workbook-sync.test.ts` 16개 — 실제 Postgres에서 RLS를 켠 채로. **정의가 어떻게 바뀌어도 응답은 지워지지 않는다**를 문항 추가/삭제/부활/블록 삭제/순서 변경/챕터 이동으로 확인
+- [x] `sync-blocks.test.ts` 10개 — node 환경 (API 라우트가 도는 곳). HTML 파싱은 브라우저와 서버가 다른 구현을 씀
+- [x] `publish-checks.test.ts` 15개 · `upload-parser.test.ts` 20개
+
+**결과**: 테스트 121 → 182개 통과. typecheck 0 에러, build 통과. lint 에러 11 → 10 (전부 재구성 이전 부채).
+
+**적용 필요**: `supabase/migrations/00002_workbook_block_sync.sql`을 Supabase에 적용해야 동작합니다. 적용 전에는 챕터 저장 시 블록 정의가 반영되지 않고(응답에 `workbook_sync.ok: false`), 본문 이미지 업로드가 실패합니다.
 
 ---
 
 ## 이후 마일스톤
 
-M2(워크북 저작) · M3(워크북 독서) · M4(판매·접근제어) · M5(응답 회수) · M6(실사용 검증)
+M3(워크북 독서) · M4(판매·접근제어) · M5(응답 회수) · M6(실사용 검증)
 
-M2에서 이어받을 것:
-- 챕터 저장 시 `extractWorkbookBlocks()` 결과를 `workbook_blocks` / `workbook_block_fields`에 반영하는 경로
-- M3에서 `useBlockAnswers` 훅 내부를 localStorage에서 `workbook_responses`로 교체 (호출부는 그대로)
+M3에서 이어받을 것:
+- `useBlockAnswers` 훅 내부를 localStorage에서 `workbook_responses`로 교체 (호출부는 그대로)
+- 리더 하드코딩(`fontSize`/`theme`) 제거, 저장 상태 표시
+- 블록 정의를 `content_html` 파싱 대신 `workbook_blocks`에서 읽을지 결정 (지금은 리더도 HTML에서 뽑음)
 
 각 마일스톤의 범위와 게이트는 `README.md` 참조.
 

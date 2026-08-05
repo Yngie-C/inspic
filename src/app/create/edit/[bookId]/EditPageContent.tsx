@@ -143,16 +143,23 @@ export function EditPageContent() {
     }
   };
 
-  const handlePublish = async () => {
-    if (!confirm("콘텐츠를 출판하시겠습니까? 출판 후에도 수정할 수 있습니다.")) return;
+  /**
+   * 공개는 미리보기 화면에서 합니다.
+   *
+   * 여기서 바로 출간하면 크리에이터는 독자에게 어떻게 보이는지 한 번도
+   * 보지 않은 채로 공개하게 됩니다. 워크북 블록이 응답을 받을 수 없는
+   * 상태인지도 그 화면에서만 드러납니다.
+   *
+   * 저장이 3초 디바운스라 이동 전에 대기 중인 변경을 먼저 밀어 넣습니다.
+   */
+  const goToReview = async () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
     setPublishing(true);
     try {
-      await fetch(`/api/books/${bookId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "published" }),
-      });
-      router.push("/dashboard");
+      if (selectedId && !saved) {
+        await saveChapter(selectedId, editTitle, editContent);
+      }
+      router.push(`/create/preview/${bookId}`);
     } finally {
       setPublishing(false);
     }
@@ -212,17 +219,6 @@ export function EditPageContent() {
         <div className="flex items-center gap-2">
           {book && <ExportMenu bookId={bookId} bookTitle={book.title} />}
 
-          <a
-            href={`/create/preview/${bookId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex h-9 items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 hover:border-gray-400 hover:bg-gray-50"
-            title="미리보기"
-          >
-            <Eye className="h-4 w-4" />
-            <span className="hidden sm:inline">미리보기</span>
-          </a>
-
           <button
             type="button"
             onClick={() => setMetaOpen(true)}
@@ -233,9 +229,9 @@ export function EditPageContent() {
             <span className="hidden sm:inline">설정</span>
           </button>
 
-          <Button onClick={handlePublish} isLoading={publishing}>
-            <BookOpen className="h-4 w-4 mr-1.5" />
-            출판
+          <Button onClick={goToReview} isLoading={publishing}>
+            <Eye className="h-4 w-4 mr-1.5" />
+            검수 후 공개
           </Button>
         </div>
       </div>
