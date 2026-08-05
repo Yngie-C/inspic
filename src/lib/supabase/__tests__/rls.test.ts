@@ -31,7 +31,10 @@ let paidBook: string;
 let freeBook: string;
 let privateBook: string;
 
+/** 유료 책의 두 번째 published 챕터 — 미리보기에 걸리지 않습니다. */
 let paidChapter: string;
+/** 유료 책의 맨 앞 published 챕터 — 누구에게나 열립니다. */
+let previewChapter: string;
 let freeChapter: string;
 /** 발행된 유료 책 안의 미발행 챕터. */
 let draftChapter: string;
@@ -60,15 +63,21 @@ async function seedBook(
   return result.rows[0].id;
 }
 
+/**
+ * order_index를 반드시 받습니다. 미리보기 정책이 "published 챕터 중
+ * 맨 앞"을 고르므로, 순서가 애매하면 어느 챕터가 열리는지도 애매해집니다.
+ * 실제 저작 경로도 항상 순서를 명시합니다.
+ */
 async function seedChapter(
   bookId: string,
   slug: string,
   status: "draft" | "published",
+  orderIndex: number,
 ): Promise<string> {
   const result = await db.query<{ id: string }>(
-    `INSERT INTO chapters (book_id, title, slug, content_html, status)
-     VALUES ($1, $2, $3, '<p>본문</p>', $4) RETURNING id`,
-    [bookId, slug, slug, status],
+    `INSERT INTO chapters (book_id, title, slug, content_html, status, order_index)
+     VALUES ($1, $2, $3, '<p>본문</p>', $4, $5) RETURNING id`,
+    [bookId, slug, slug, status, orderIndex],
   );
   return result.rows[0].id;
 }
@@ -114,10 +123,13 @@ beforeAll(async () => {
     visibility: "private",
   });
 
-  paidChapter = await seedChapter(paidBook, "paid-ch-1", "published");
-  freeChapter = await seedChapter(freeBook, "free-ch-1", "published");
-  draftChapter = await seedChapter(paidBook, "paid-ch-2", "draft");
-  await seedChapter(privateBook, "private-ch-1", "published");
+  // 유료 책의 맨 앞 published 챕터는 미리보기로 열립니다(00003).
+  // 유료 차단을 확인하려면 그 뒤의 챕터를 봐야 합니다.
+  previewChapter = await seedChapter(paidBook, "paid-ch-1", "published", 0);
+  paidChapter = await seedChapter(paidBook, "paid-ch-2", "published", 1);
+  freeChapter = await seedChapter(freeBook, "free-ch-1", "published", 0);
+  draftChapter = await seedChapter(paidBook, "paid-ch-3", "draft", 2);
+  await seedChapter(privateBook, "private-ch-1", "published", 0);
 
   await seedBlock(PAID_BLOCK, paidBook, paidChapter);
   await seedBlock(FREE_BLOCK, freeBook, freeChapter);
@@ -286,6 +298,59 @@ describe("챕터 접근", () => {
       countRows(`SELECT 1 FROM chapters WHERE id = $1`, [draftChapter]),
     );
     expect(found).toBe(1);
+  });
+});
+
+/**
+ * 유료 책의 첫 챕터 미리보기 (마이그레이션 00003).
+ *
+ * 열리는 것은 **맨 앞 published 챕터 하나뿐**입니다. 여기서 한 칸이라도
+ * 더 새면 유료 콘텐츠가 공짜가 됩니다.
+ */
+describe("첫 챕터 미리보기", () => {
+  it("비로그인도 유료 책의 첫 챕터를 읽는다", async () => {
+    const found = await asAnon(() =>
+      countRows(`SELECT 1 FROM chapters WHERE id = $1`, [previewChapter]),
+    );
+    expect(found).toBe(1);
+  });
+
+  it("첫 챕터 하나만 열린다 — 나머지는 그대로 막힌다", async () => {
+    const found = await asAnon(() =>
+      countRows(`SELECT 1 FROM chapters WHERE book_id = $1`, [paidBook]),
+    );
+    expect(found).toBe(1);
+  });
+
+  it("미발행 챕터는 맨 앞이어도 미리보기가 되지 않는다", async () => {
+    const draftOnly = await seedBook(creator, "초안만 있는 유료 책", {
+      price: 9900,
+      status: "published",
+      visibility: "public",
+    });
+    await seedChapter(draftOnly, "draft-first", "draft", 0);
+
+    const found = await asAnon(() =>
+      countRows(`SELECT 1 FROM chapters WHERE book_id = $1`, [draftOnly]),
+    );
+    expect(found).toBe(0);
+  });
+
+  it("비공개 책은 미리보기도 열리지 않는다", async () => {
+    const found = await asAnon(() =>
+      countRows(`SELECT 1 FROM chapters WHERE book_id = $1`, [privateBook]),
+    );
+    expect(found).toBe(0);
+  });
+
+  it("미리보기 챕터의 워크북 문항은 열리지 않는다 — 응답을 받을 곳이 아니다", async () => {
+    const previewBlock = "33333333-3333-4333-8333-333333333333";
+    await seedBlock(previewBlock, paidBook, previewChapter);
+
+    const found = await asAnon(() =>
+      countRows(`SELECT 1 FROM workbook_blocks WHERE id = $1`, [previewBlock]),
+    );
+    expect(found).toBe(0);
   });
 
   it("남의 책에 챕터를 넣을 수 없다", async () => {

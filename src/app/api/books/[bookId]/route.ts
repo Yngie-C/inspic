@@ -7,9 +7,19 @@ import type { BookStatus, BookVisibility } from "@/types";
 
 type Params = { params: Promise<{ bookId: string }> };
 
+/**
+ * 리더와 편집 화면이 함께 쓰는 조회.
+ *
+ * 로그인을 요구하지 않습니다. 무료 책은 비로그인도 읽고, 유료 책은
+ * 첫 챕터가 미리보기로 열려 있기 때문입니다.
+ *
+ * **무엇이 보이는지는 RLS가 정합니다.** 여기서 다시 판정하지 않습니다.
+ * `books_select_*`가 남의 비공개·미발행 책을 아예 안 돌려주고,
+ * `chapters_select*`가 챕터 단위로 거릅니다 — 접근 권한이 있으면
+ * published 챕터 전부, 없으면 미리보기 챕터 하나입니다.
+ */
 export async function GET(_request: NextRequest, { params }: Params) {
   const user = await getAuthUser();
-  if (!user) return apiError("Authentication required", "UNAUTHORIZED", 401);
 
   const { bookId } = await params;
   const supabase = await createClient();
@@ -21,11 +31,8 @@ export async function GET(_request: NextRequest, { params }: Params) {
     .single();
 
   if (bookError || !book) return apiError("Book not found", "NOT_FOUND", 404);
-  if (book.owner_id !== user.id && book.visibility === "private") {
-    return apiError("Access denied", "FORBIDDEN", 403);
-  }
 
-  const isOwner = book.owner_id === user.id;
+  const isOwner = !!user && book.owner_id === user.id;
   let chaptersQuery = supabase
     .from("chapters")
     .select("*")

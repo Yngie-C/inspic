@@ -15,6 +15,12 @@ import type { WorkbookAnswer } from "./types";
  * 키 구조는 DB와 같습니다: 책 안에서 (block_id, field_key). 챕터는 들어가지
  * 않습니다. 크리에이터가 블록을 다른 챕터로 옮겨도 응답은 따라가야 하고,
  * 응답의 정체성에 챕터가 들어가면 그때 캐시가 어긋납니다.
+ *
+ * **보는 사람마다 칸이 다릅니다.** 무료 책과 유료 책 첫 챕터는 비로그인도
+ * 읽으므로, 한 기기에서 익명 → 로그인 순으로 같은 책을 열게 됩니다. 칸을
+ * 나누지 않으면 익명일 때 쓴 답이 로그인 화면에 그대로 뜨는데, 그 값은
+ * 서버에 보낼 큐에는 없습니다 — 저장된 것처럼 보이지만 아무 데도
+ * 저장되지 않은 상태이고, 이 화면에서 가장 나쁜 실패입니다.
  */
 
 const PREFIX = "inspic_workbook";
@@ -25,15 +31,21 @@ export type BlockAnswers = Record<string, WorkbookAnswer>;
 /** 책 한 권의 응답 전부. 키는 block_id. */
 export type BookAnswers = Record<string, BlockAnswers>;
 
-function cacheKey(bookId: string): string {
-  return `${PREFIX}:${bookId}`;
+/** 비로그인 방문자의 칸. 로그인 사용자의 칸과 절대 섞이지 않습니다. */
+const ANONYMOUS = "anon";
+
+function cacheKey(bookId: string, viewerId: string | null): string {
+  return `${PREFIX}:${viewerId ?? ANONYMOUS}:${bookId}`;
 }
 
-export function readResponseCache(bookId: string): BookAnswers {
+export function readResponseCache(
+  bookId: string,
+  viewerId: string | null,
+): BookAnswers {
   if (typeof window === "undefined") return {};
 
   try {
-    const raw = localStorage.getItem(cacheKey(bookId));
+    const raw = localStorage.getItem(cacheKey(bookId, viewerId));
     if (!raw) return {};
     return sanitizeCache(JSON.parse(raw));
   } catch {
@@ -41,20 +53,30 @@ export function readResponseCache(bookId: string): BookAnswers {
   }
 }
 
-export function writeResponseCache(bookId: string, answers: BookAnswers): void {
+export function writeResponseCache(
+  bookId: string,
+  viewerId: string | null,
+  answers: BookAnswers,
+): void {
   if (typeof window === "undefined") return;
 
   try {
-    localStorage.setItem(cacheKey(bookId), JSON.stringify(answers));
+    localStorage.setItem(
+      cacheKey(bookId, viewerId),
+      JSON.stringify(answers),
+    );
   } catch {
     // quota exceeded — 캐시일 뿐이므로 조용히 넘어갑니다. 저장은 서버가
     // 맡고, 실패하면 리더가 저장 상태로 알립니다.
   }
 }
 
-export function clearResponseCache(bookId: string): void {
+export function clearResponseCache(
+  bookId: string,
+  viewerId: string | null,
+): void {
   if (typeof window === "undefined") return;
-  localStorage.removeItem(cacheKey(bookId));
+  localStorage.removeItem(cacheKey(bookId, viewerId));
 }
 
 /**

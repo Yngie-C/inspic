@@ -75,6 +75,14 @@ interface Props {
    * 상태를 분리했습니다.
    */
   canSave: boolean;
+  /**
+   * 지금 보고 있는 사람. 비로그인이면 null.
+   *
+   * 오프라인 캐시의 칸을 나누는 데 씁니다. 한 기기에서 익명으로 읽다가
+   * 로그인하는 경로가 정상이므로, 나누지 않으면 익명일 때 쓴 답이
+   * 로그인 화면에 저장된 것처럼 떠오릅니다.
+   */
+  viewerId: string | null;
   client?: WorkbookResponseClient;
   /** 배치를 모으는 시간. 테스트에서 0으로 줄입니다. */
   debounceMs?: number;
@@ -84,6 +92,7 @@ interface Props {
 export function WorkbookResponsesProvider({
   bookId,
   canSave,
+  viewerId,
   client = httpResponseClient,
   debounceMs = DEBOUNCE_MS,
   children,
@@ -103,7 +112,7 @@ export function WorkbookResponsesProvider({
   function commit(next: BookAnswers) {
     answersRef.current = next;
     setAnswers(next);
-    writeResponseCache(bookId, next);
+    writeResponseCache(bookId, viewerId, next);
   }
 
   // 최초 로드: 캐시를 먼저 그리고, 서버 값이 오면 그쪽으로 덮습니다.
@@ -112,7 +121,7 @@ export function WorkbookResponsesProvider({
     let cancelled = false;
 
     async function hydrate() {
-      const cached = readResponseCache(bookId);
+      const cached = readResponseCache(bookId, viewerId);
       // canSave가 false여도 await를 거칩니다. 이펙트 본문에서 곧바로
       // setState 하면 첫 렌더가 서버 렌더와 어긋납니다.
       const loaded = await loadOrNull(canSave ? client : null, bookId);
@@ -138,7 +147,7 @@ export function WorkbookResponsesProvider({
 
       answersRef.current = merged;
       setAnswers(merged);
-      writeResponseCache(bookId, merged);
+      writeResponseCache(bookId, viewerId, merged);
       setSaveState(pendingRef.current.size > 0 ? "saving" : "idle");
     }
 
@@ -146,7 +155,7 @@ export function WorkbookResponsesProvider({
     return () => {
       cancelled = true;
     };
-  }, [bookId, canSave, client]);
+  }, [bookId, canSave, viewerId, client]);
 
   async function flush(options?: { keepalive?: boolean }) {
     if (!canSave) return;
@@ -235,7 +244,7 @@ export function WorkbookResponsesProvider({
     // flush는 매 렌더 새로 만들어지지만 pendingRef/answersRef를 통해
     // 최신 상태를 읽으므로, 책이 바뀔 때만 다시 붙이면 됩니다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookId, canSave]);
+  }, [bookId, canSave, viewerId]);
 
   const value: WorkbookResponsesValue = {
     answers,

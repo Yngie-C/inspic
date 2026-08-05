@@ -286,12 +286,24 @@ export function BookDetailClient() {
 
             {/* 비소유자 - 유료 미구매 */}
             {!isOwner && !accessInfo?.hasAccess && book.price > 0 && (
-              <Button asChild>
-                <Link href={`/payments/checkout/${book.id}`} className="flex items-center gap-2">
-                  <ShoppingCart className="h-4 w-4" />
-                  구매하기
-                </Link>
-              </Button>
+              <>
+                <Button asChild>
+                  <Link href={`/payments/checkout/${book.id}`} className="flex items-center gap-2">
+                    <ShoppingCart className="h-4 w-4" />
+                    구매하기
+                  </Link>
+                </Button>
+                {/* 첫 챕터는 열려 있습니다. 소개글만 보고 결제를
+                    결정하게 두면 대부분 결제하지 않습니다. */}
+                {accessInfo?.reason === "preview" && (
+                  <Button variant="outline" asChild>
+                    <Link href={`/reader/${book.id}`} className="flex items-center gap-2">
+                      <BookOpen className="h-4 w-4" />
+                      첫 챕터 미리보기
+                    </Link>
+                  </Button>
+                )}
+              </>
             )}
 
             {/* 비소유자 - 무료 (accessInfo 로딩 전 fallback) */}

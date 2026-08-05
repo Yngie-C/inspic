@@ -64,6 +64,7 @@ function renderChecklist(
     <WorkbookResponsesProvider
       bookId={BOOK}
       canSave
+      viewerId="reader-1"
       client={client}
       debounceMs={0}
     >

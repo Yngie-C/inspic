@@ -4,7 +4,7 @@
 
 크리에이터가 원고에 워크시트·체크리스트·성찰 질문을 끼워 넣어 출간하면, 독자는 읽으면서 직접 작성하고 그 결과를 계정에 남긴다.
 
-> **현재 상태: MVP 재구성 중 (M3 완료)**
+> **현재 상태: MVP 재구성 중 (M4 완료)**
 > 이 저장소는 2026-08-04부터 MVP 재정의 작업 중입니다. 범위 밖 기능을 삭제하고 핵심 루프 하나에 집중합니다.
 > 재구성 이전 코드는 `pre-mvp-archive` 태그에 보존돼 있습니다.
 
@@ -19,6 +19,8 @@
 
 이 루프의 심장은 **독자 응답 데이터**다. M1에서 스키마와 도메인 모델을 세웠고(`workbook_blocks` / `workbook_block_fields` / `workbook_responses`), M2에서 저작 측 쓰기 경로를, M3에서 독자 측 쓰기 경로를 붙였다. 이제 독자가 쓴 답은 계정에 남고, 다른 기기에서 이어서 쓸 수 있다. `localStorage`는 오프라인 캐시로 강등됐다 — 진실의 원천은 DB다.
 
+M4에서 그 앞단인 **판매**를 닫았다. 결제 승인 뒤 어디서 끊겨도 구매가 생기거나 돈이 돌아간다. 구매 기록을 만들 수 있는 것은 승인을 확인한 서버뿐이고(클라이언트 INSERT 경로를 없앴다), 유료 책의 첫 챕터는 누구나 읽을 수 있다.
+
 ---
 
 ## 마일스톤
@@ -29,7 +31,7 @@
 | **M1** | 도메인 재설계 — 워크북 응답 스키마, 인증 트리거 이관, 테스트 도입 | **완료** |
 | **M2** | 워크북 저작 — 블록 정의 동기화, 이미지 저장소, 공개 전 검수 | **완료** |
 | **M3** | 워크북 독서 (독자 루프) — 응답이 DB에 저장, 리더 재작성 | **완료** |
-| **M4** | 판매·접근 제어 — 결제 보상 트랜잭션, webhook | 예정 |
+| **M4** | 판매·접근 제어 — 결제 보상 트랜잭션, webhook, 첫 챕터 미리보기 | **완료** |
 | **M5** | 응답 회수 — 내 워크북, 내보내기, 크리에이터 지표 | 예정 |
 | **M6** | 실사용 검증 — 본인 콘텐츠 1권 + 저자 2~3명 | 예정 |
 
@@ -43,8 +45,9 @@
 - **콘텐츠 생성**: 직접 작성 또는 파일 업로드 (txt / Markdown / DOCX)
 - **에디터**: Tiptap 리치 텍스트 + 슬래시 커맨드, 본문 이미지는 Supabase Storage(`chapter-images`)에 업로드
 - **워크북 템플릿 5종**: 체크리스트, 콜아웃, 리플렉션, SMART 목표, 1–10 스케일
-- **리더**: 챕터 단위 읽기 + 워크북 작성. 답은 `workbook_responses`에 저장되고 다른 기기에서 이어집니다. 저장 상태를 화면에 표시합니다
-- **판매**: Toss Payments 결제, 구매 기반 접근 제어
+- **리더**: 챕터 단위 읽기 + 워크북 작성. 답은 `workbook_responses`에 저장되고 다른 기기에서 이어집니다. 저장 상태를 화면에 표시합니다. 로그인 없이도 열리며, 답이 계정에 남지 않는 동안에는 화면이 그렇게 말합니다
+- **판매**: Toss Payments 결제. 승인 → 구매 반영은 한 트랜잭션이고 멱등하며, 반영하지 못하면 결제를 자동 취소합니다. webhook이 창을 닫은 경우를 메웁니다
+- **접근 제어**: 소유자 / 구매자 / 무료 공개 / **첫 챕터 미리보기** 네 갈래. 구매 기록은 서버만 만들 수 있습니다
 - **내보내기**: PDF (`@react-pdf/renderer`), EPUB (자체 생성기)
 - **탐색**: 검색, 언어/가격 필터, 정렬
 - **크리에이터 스튜디오**: 내 작품 관리, 판매 현황, 기본 분석
@@ -81,7 +84,7 @@ XSS 방지      DOMPurify (isomorphic-dompurify)
 ```
 src/
 ├── app/
-│   ├── api/              # API 라우트 17개
+│   ├── api/              # API 라우트 21개
 │   │   ├── analytics/    #   분석 + 판매
 │   │   ├── books/        #   책 CRUD, 접근 권한, 커버, 본문 이미지, 상세,
 │   │   │                 #   공개 전 검수, 독자 응답
@@ -89,7 +92,7 @@ src/
 │   │   ├── epub/ pdf/    #   내보내기
 │   │   ├── explore/      #   탐색
 │   │   ├── landing/      #   랜딩 데이터
-│   │   ├── payments/     #   결제 요청/승인
+│   │   ├── payments/     #   결제 요청/승인/webhook
 │   │   ├── purchases/    #   구매 내역
 │   │   └── upload/       #   파일 업로드
 │   ├── auth/             # 로그인/회원가입/콜백
@@ -114,6 +117,7 @@ src/
 └── types/                # 공통 타입
 
 supabase/migrations/      # 00001 초기 스키마(M1 통합 리셋) + 00002 블록 동기화·이미지 버킷(M2)
+                          # + 00003 결제 이행 RPC·구매 INSERT 봉인·첫 챕터 미리보기(M4)
 ```
 
 ### 워크북 데이터 모델
@@ -160,7 +164,9 @@ cp .env.example .env.local   # 로컬 값 입력
 npm run dev
 ```
 
-Supabase 프로젝트에는 `supabase/migrations/`를 파일명 순서대로 적용합니다 (`supabase db push` 또는 SQL 에디터). `00002`는 블록 동기화 RPC와 `chapter-images` 버킷을 만듭니다 — 적용하지 않으면 챕터 저장 시 블록 정의가 반영되지 않고 본문 이미지 업로드가 실패합니다.
+Supabase 프로젝트에는 `supabase/migrations/`를 파일명 순서대로 적용합니다 (`supabase db push` 또는 SQL 에디터). `00002`는 블록 동기화 RPC와 `chapter-images` 버킷을, `00003`은 결제 이행 RPC와 첫 챕터 미리보기 정책을 만듭니다 — 적용하지 않으면 챕터 저장 시 블록 정의가 반영되지 않고, 본문 이미지 업로드와 결제 승인 반영이 실패합니다.
+
+Toss webhook은 상점 관리자에서 `https://<도메인>/api/payments/webhook`을 등록하세요. 등록하지 않아도 결제는 되지만, 승인 직후 창을 닫은 경우를 메우지 못합니다.
 
 [http://localhost:3000](http://localhost:3000)
 
@@ -169,7 +175,7 @@ Supabase 프로젝트에는 `supabase/migrations/`를 파일명 순서대로 적
 ```bash
 npm run typecheck   # 통과 (에러 0)
 npm run build       # 통과
-npm test            # 통과 (220개)
+npm test            # 통과 (275개)
 npm run lint        # 10개 에러 — 재구성 이전부터 존재하는 부채 (아래 참조)
 ```
 
@@ -179,10 +185,10 @@ npm run lint        # 10개 에러 — 재구성 이전부터 존재하는 부�
 
 | 항목 | 위치 | 해소 시점 |
 |---|---|---|
-| 결제 승인 후 `purchases` INSERT 실패 시 보상 트랜잭션 없음, webhook 없음 | `api/payments/confirm/route.ts` | M4 |
-| 리더가 로그인을 요구함 — 무료 책의 비로그인 열람 정책 미정 | `app/reader/[bookId]/page.tsx` | M4 |
 | 크리에이터가 미리보기에서 입력하면 자기 응답으로 저장됨. 집계에서 소유자를 뺄지 미정 | `workbook_response_stats()` | M5 |
-| 페이지 대부분이 `"use client"` — 공개 콘텐츠 SEO 부재 | `app/**` | M4 이후 |
+| 미리보기에서 쓴 답(익명 캐시)을 구매·로그인 후 옮겨 주지 않음 | `lib/workbook/response-cache.ts` | M5 |
+| 실제 Toss 테스트 결제로 4개 시나리오를 밟아 보지 않음 (DB·보상 로직은 테스트가 덮음) | — | 키 확보 시 |
+| 페이지 대부분이 `"use client"` — 공개 콘텐츠 SEO 부재 | `app/**` | M5 이후 |
 | React Compiler lint 에러 10개 (setState-in-effect, `any` 5개 등) | 아래 파일들 | 별도 정리 |
 
 M1에서 해소됨: 응답의 배열 인덱스 매칭 · `data-node-id` 재생성 · 클라이언트 프로필 생성 이중 경로 · 테스트 0개 · SMART 블록의 `data-template-type` 불일치.
@@ -190,6 +196,8 @@ M1에서 해소됨: 응답의 배열 인덱스 매칭 · `data-node-id` 재생�
 M2에서 해소됨: 블록 정의가 DB에 반영되지 않던 것 · 본문 이미지 base64 인라인 · 업로드 파서가 라우트에 묶여 있던 것 · 출간해도 `visibility`가 `private`이라 아무에게도 보이지 않던 것.
 
 M3에서 해소됨: 워크북 응답이 localStorage에만 있던 것(기기 간 유실, 크리에이터 조회 불가) · 리더의 하드코딩된 `fontSize`/`theme` · 로그인 후 원래 보던 화면으로 돌아오지 못하던 것.
+
+M4에서 해소됨: **로그인 사용자가 자기 이름으로 `purchases` 행을 넣어 유료 책을 열 수 있던 것** · 승인 후 구매 기록 생성 실패 시 보상 없던 것 · 재확인(`ALREADY_PROCESSED_PAYMENT`)을 승인 실패로 보고 끝난 결제를 `aborted`로 덮던 것 · 창을 닫으면 결제가 유실되던 것(webhook 없음) · `UNIQUE(user_id, book_id)`가 재구매를 막던 것 · 응답 캐시가 사용자별로 나뉘지 않던 것 · `.env.example`의 Toss 클라이언트 키 이름이 코드와 달랐던 것.
 
 React Compiler 에러 위치: `analytics/StatsCard`, `editor/SlashCommandMenu`, `editor/extensions/SlashCommand`(any 5개), `explore/SearchBar`, `preview/PreviewFrame`, `upload/FileDropzone`
 
@@ -200,7 +208,7 @@ React Compiler 에러 위치: `analytics/StatsCard`, `editor/SlashCommandMenu`, 
 - **XSS 방지**: DOMPurify 이중 방어 (서버 저장 시 + 클라이언트 렌더링 시). 워크북 템플릿을 위해 `data-*` 속성과 `input[type=checkbox]`만 선별 허용
 - **인증**: Supabase Auth + RLS. 미들웨어는 `getUser()`로 JWT를 서버 검증하며, 실패 시 미인증 처리 (검증 없는 `getSession()` 폴백 없음)
 - **파일 업로드**: MIME 타입 검증, 크기 제한 (txt/md 5MB, docx 20MB)
-- **결제**: 가격은 항상 서버에서 `books.price`를 읽어 결정 (클라이언트 금액 신뢰 안 함)
+- **결제**: 가격은 항상 서버에서 `books.price`를 읽어 결정하고, 반영할 금액은 Toss가 승인한 값을 씁니다. **구매 기록에는 INSERT 정책이 없습니다** — 승인을 확인한 서버가 `fulfill_payment()`로만 만듭니다. webhook은 본문을 믿지 않고 Toss에 다시 물어 확인합니다
 - **독자 응답**: 작성자 본인만 읽고 씁니다. 크리에이터는 행을 볼 수 없고 `workbook_response_stats()` 집계 함수로만 조회합니다
 - **RLS 검증**: 정책이 실제로 무엇을 막는지 임베디드 Postgres에서 롤을 갈아타며 테스트합니다 (`src/lib/supabase/__tests__/rls.test.ts`). 유료 콘텐츠 차단과 응답 격리가 여기서 고정됩니다
 

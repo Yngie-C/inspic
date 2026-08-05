@@ -21,13 +21,22 @@ import { useAuthStore } from "@/stores/auth-store";
  * `WorkbookResponsesProvider` 하나이며, 블록 컴포넌트는 자기 응답만
  * 읽고 씁니다.
  *
- * 로그인을 요구하는 것은 응답이 계정에 남아야 하기 때문입니다. 답을 다
- * 쓴 뒤에 "로그인해야 저장됩니다"를 만나는 것보다, 들어올 때 한 번 막는
- * 편이 낫습니다.
+ * 로그인은 요구하지 않습니다. 무료 책은 누구나 읽고, 유료 책은 첫
+ * 챕터가 미리보기로 열립니다. 대신 **저장되지 않는 상태를 숨기지
+ * 않습니다** — 답이 이 기기에만 남는 동안에는 화면이 계속 그렇게
+ * 말합니다. "저장되는 줄 알았는데 아니었다"가 이 화면에서 가장 나쁜
+ * 실패입니다.
  */
 
 interface ReaderBook extends Book {
   chapters: Chapter[];
+}
+
+interface AccessInfo {
+  hasAccess: boolean;
+  reason: AccessReason;
+  canRead: boolean;
+  canSaveResponses: boolean;
 }
 
 class ReaderLoadError extends Error {
@@ -42,9 +51,7 @@ async function fetchReaderBook(bookId: string): Promise<ReaderBook> {
   return (await res.json()).data;
 }
 
-async function fetchAccess(
-  bookId: string,
-): Promise<{ hasAccess: boolean; reason: AccessReason }> {
+async function fetchAccess(bookId: string): Promise<AccessInfo> {
   const res = await fetch(`/api/books/${bookId}/access`);
   if (!res.ok) throw new Error("접근 권한을 확인하지 못했습니다.");
   return (await res.json()).data;
@@ -62,32 +69,24 @@ export default function ReaderPage() {
   } = useQuery<ReaderBook>({
     queryKey: ["reader-book", bookId],
     queryFn: () => fetchReaderBook(bookId),
-    enabled: isInitialized && !!user,
+    enabled: isInitialized,
     retry: false,
   });
 
-  const { data: access, isLoading: accessLoading } = useQuery({
-    queryKey: ["book-access", bookId],
+  const { data: access, isLoading: accessLoading } = useQuery<AccessInfo>({
+    // 로그인 여부가 판정을 바꾸므로 키에 넣습니다. 없으면 로그인하고
+    // 돌아왔을 때 비로그인 시절의 판정이 그대로 쓰입니다.
+    queryKey: ["book-access", bookId, user?.id ?? null],
     queryFn: () => fetchAccess(bookId),
-    enabled: isInitialized && !!user,
+    enabled: isInitialized,
     retry: false,
   });
 
-  if (!isInitialized || ((bookLoading || accessLoading) && user)) {
+  if (!isInitialized || bookLoading || accessLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Spinner size="lg" />
       </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <ReaderNotice
-        title="로그인하고 읽어 주세요"
-        description="워크북에 쓴 답은 계정에 저장됩니다. 로그인하면 다른 기기에서도 이어서 쓸 수 있습니다."
-        action={{ href: `/auth/login?redirect=/reader/${bookId}`, label: "로그인" }}
-      />
     );
   }
 
@@ -106,9 +105,9 @@ export default function ReaderPage() {
     );
   }
 
-  if (!book) return null;
+  if (!book || !access) return null;
 
-  if (access && !access.hasAccess) {
+  if (!access.canRead) {
     return (
       <ReaderNotice
         title="아직 구매하지 않은 책입니다"
@@ -123,7 +122,7 @@ export default function ReaderPage() {
       <ReaderNotice
         title="아직 공개된 챕터가 없습니다"
         description="저자가 챕터를 공개하면 여기에서 읽을 수 있습니다."
-        action={{ href: "/my/library", label: "내 서재로" }}
+        action={{ href: `/book/${bookId}`, label: "책 정보 보기" }}
       />
     );
   }
@@ -131,14 +130,23 @@ export default function ReaderPage() {
   return (
     <WorkbookResponsesProvider
       bookId={bookId}
-      canSave={access?.hasAccess ?? false}
+      canSave={access.canSaveResponses}
+      viewerId={user?.id ?? null}
     >
-      <ReaderView book={book} />
+      <ReaderView book={book} access={access} isLoggedIn={!!user} />
     </WorkbookResponsesProvider>
   );
 }
 
-function ReaderView({ book }: { book: ReaderBook }) {
+function ReaderView({
+  book,
+  access,
+  isLoggedIn,
+}: {
+  book: ReaderBook;
+  access: AccessInfo;
+  isLoggedIn: boolean;
+}) {
   const router = useRouter();
   const chapters = book.chapters;
 
@@ -148,6 +156,8 @@ function ReaderView({ book }: { book: ReaderBook }) {
   const currentChapter = chapters[currentIndex];
   const isFirst = currentIndex === 0;
   const isLast = currentIndex === chapters.length - 1;
+  const isPreview = access.reason === "preview";
+  const backHref = isLoggedIn ? "/my/library" : "/explore";
 
   const goTo = (index: number) => {
     setCurrentIndex(Math.max(0, Math.min(index, chapters.length - 1)));
@@ -160,9 +170,9 @@ function ReaderView({ book }: { book: ReaderBook }) {
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-gray-200 bg-white/90 px-4 py-3 backdrop-blur-sm sm:px-6">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => router.push("/my/library")}
+            onClick={() => router.push(backHref)}
             className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
-            aria-label="내 서재로"
+            aria-label={isLoggedIn ? "내 서재로" : "둘러보기로"}
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
@@ -217,6 +227,14 @@ function ReaderView({ book }: { book: ReaderBook }) {
         )}
 
         <main className="mx-auto max-w-2xl flex-1 px-6 py-10 sm:px-8">
+          {!access.canSaveResponses && (
+            <UnsavedNotice
+              bookId={book.id}
+              isPreview={isPreview}
+              isLoggedIn={isLoggedIn}
+            />
+          )}
+
           {currentChapter && (
             <>
               <h1 className="mb-8 text-2xl font-bold text-gray-900">
@@ -229,29 +247,95 @@ function ReaderView({ book }: { book: ReaderBook }) {
             </>
           )}
 
-          <div className="mt-16 flex items-center justify-between border-t border-gray-100 pt-8">
-            <Button
-              variant="outline"
-              onClick={() => goTo(currentIndex - 1)}
-              disabled={isFirst}
-            >
-              <ChevronLeft className="mr-1 h-4 w-4" />
-              이전 챕터
-            </Button>
-            <span className="text-sm text-gray-400">
-              {currentIndex + 1} / {chapters.length}
-            </span>
-            <Button
-              variant="outline"
-              onClick={() => goTo(currentIndex + 1)}
-              disabled={isLast}
-            >
-              다음 챕터
-              <ChevronRight className="ml-1 h-4 w-4" />
-            </Button>
-          </div>
+          {isPreview ? (
+            <PreviewEnd bookId={book.id} price={book.price} />
+          ) : (
+            <div className="mt-16 flex items-center justify-between border-t border-gray-100 pt-8">
+              <Button
+                variant="outline"
+                onClick={() => goTo(currentIndex - 1)}
+                disabled={isFirst}
+              >
+                <ChevronLeft className="mr-1 h-4 w-4" />
+                이전 챕터
+              </Button>
+              <span className="text-sm text-gray-400">
+                {currentIndex + 1} / {chapters.length}
+              </span>
+              <Button
+                variant="outline"
+                onClick={() => goTo(currentIndex + 1)}
+                disabled={isLast}
+              >
+                다음 챕터
+                <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </main>
       </div>
+    </div>
+  );
+}
+
+/**
+ * 답이 서버에 저장되지 않는 동안 띄우는 안내.
+ *
+ * 워크북 블록은 이 상태에서도 그려지고 입력도 됩니다 (값은 이 기기에
+ * 남습니다). 그래서 쓰기 **전에** 말해 줘야 합니다 — 다 쓴 뒤에
+ * 알게 되는 것이 최악입니다.
+ */
+function UnsavedNotice({
+  bookId,
+  isPreview,
+  isLoggedIn,
+}: {
+  bookId: string;
+  isPreview: boolean;
+  isLoggedIn: boolean;
+}) {
+  const { title, description, href, label } = isPreview
+    ? {
+        title: "미리보기로 읽고 있습니다",
+        description:
+          "여기에 쓴 답은 이 기기에만 남습니다. 구매하면 계정에 저장되고 다른 기기에서 이어서 쓸 수 있습니다.",
+        href: `/book/${bookId}`,
+        label: "구매하기",
+      }
+    : {
+        title: "답이 이 기기에만 저장됩니다",
+        description:
+          "로그인하면 지금까지 쓴 답이 계정에 저장되고, 다른 기기에서 이어서 쓸 수 있습니다.",
+        href: `/auth/login?redirect=/reader/${bookId}`,
+        label: isLoggedIn ? "책 정보 보기" : "로그인",
+      };
+
+  return (
+    <div className="mb-8 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+      <p className="text-sm font-medium text-amber-900">{title}</p>
+      <p className="mt-1 text-sm text-amber-800">{description}</p>
+      <Button asChild variant="outline" size="sm" className="mt-3 bg-white">
+        <Link href={href}>{label}</Link>
+      </Button>
+    </div>
+  );
+}
+
+/** 미리보기 챕터의 끝. 다음 챕터 대신 구매로 이어집니다. */
+function PreviewEnd({ bookId, price }: { bookId: string; price: number }) {
+  return (
+    <div className="mt-16 rounded-2xl border border-gray-200 bg-gray-50 px-6 py-8 text-center">
+      <p className="text-base font-semibold text-gray-900">
+        미리보기는 여기까지입니다
+      </p>
+      <p className="mt-2 text-sm text-gray-600">
+        나머지 챕터와 워크북 저장은 구매 후에 열립니다.
+      </p>
+      <Button asChild className="mt-5 rounded-full">
+        <Link href={`/book/${bookId}`}>
+          {price.toLocaleString("ko-KR")}원 — 책 정보 보기
+        </Link>
+      </Button>
     </div>
   );
 }

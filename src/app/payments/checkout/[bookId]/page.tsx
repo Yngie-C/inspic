@@ -30,7 +30,9 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (!user) {
-      router.push("/auth/login");
+      // 로그인 뒤 결제 화면으로 돌아와야 합니다. 홈으로 떨어뜨리면
+      // 사려던 책을 다시 찾아 들어와야 합니다.
+      router.push(`/auth/login?redirect=/payments/checkout/${bookId}`);
       return;
     }
 

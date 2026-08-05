@@ -43,7 +43,10 @@ export async function updateSession(request: NextRequest) {
     user = null;
   }
 
-  const protectedRoutes = ["/create", "/reader", "/my", "/creator"];
+  // `/reader`는 여기 없습니다. 무료 책과 유료 책의 첫 챕터는
+  // 비로그인도 읽기 때문입니다. 무엇을 보여 줄지는 리더가 접근
+  // 판정을 받아 정하고, 실제 차단은 RLS가 합니다.
+  const protectedRoutes = ["/create", "/my", "/creator"];
   const isProtected = protectedRoutes.some((route) =>
     request.nextUrl.pathname.startsWith(route),
   );

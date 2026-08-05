@@ -10,6 +10,7 @@ import type {
   SaveResponsesResult,
   WorkbookResponseClient,
 } from "@/lib/workbook/response-client";
+import { writeResponseCache } from "@/lib/workbook/response-cache";
 import type { ResponseWrite } from "@/lib/workbook/response-payload";
 import type { WorkbookResponse } from "@/lib/workbook/types";
 
@@ -27,6 +28,17 @@ import type { WorkbookResponse } from "@/lib/workbook/types";
 
 const BOOK = "book-1";
 const BLOCK = "11111111-1111-4111-8111-111111111111";
+const VIEWER = "reader-1";
+
+/**
+ * 캐시는 프로덕션 코드로 심습니다.
+ *
+ * 키를 테스트에서 손으로 만들면 프로덕션의 키 규칙이 바뀌어도 서로
+ * 만나지 않아, 캐시가 아예 안 읽히는데 테스트는 초록불이 됩니다.
+ */
+function seedCache(viewerId: string | null, answer: string) {
+  writeResponseCache(BOOK, viewerId, { [BLOCK]: { answer } });
+}
 
 function reflectionElement(blockId = BLOCK): Element {
   const [node] = htmlToDOM(
@@ -70,11 +82,16 @@ function fakeClient(options?: {
   };
 }
 
-function renderReflection(client: WorkbookResponseClient, canSave = true) {
+function renderReflection(
+  client: WorkbookResponseClient,
+  canSave = true,
+  viewerId: string | null = VIEWER,
+) {
   return render(
     <WorkbookResponsesProvider
       bookId={BOOK}
       canSave={canSave}
+      viewerId={viewerId}
       client={client}
       debounceMs={0}
     >
@@ -93,15 +110,37 @@ describe("워크북 응답 저장", () => {
   });
 
   it("서버 값이 이 기기의 캐시를 이긴다", async () => {
-    localStorage.setItem(
-      `inspic_workbook:${BOOK}`,
-      JSON.stringify({ [BLOCK]: { answer: "이 기기의 옛 답" } }),
-    );
+    seedCache(VIEWER, "이 기기의 옛 답");
 
     renderReflection(fakeClient({ stored: [textResponse("다른 기기의 새 답")] }));
 
     expect(
       await screen.findByDisplayValue("다른 기기의 새 답"),
+    ).toBeInTheDocument();
+  });
+
+  it("비로그인일 때 쓴 답이 로그인 화면으로 넘어오지 않는다", async () => {
+    // 무료 책과 유료 책 첫 챕터는 비로그인도 읽습니다. 같은 기기에서
+    // 익명으로 쓰다가 로그인하는 것이 정상 경로인데, 캐시 칸을 나누지
+    // 않으면 익명일 때 쓴 답이 로그인 화면에 그대로 떠오릅니다.
+    // 그 값은 서버로 보낼 큐에 없으므로 "저장된 것처럼 보이지만
+    // 아무 데도 저장되지 않은" 상태가 됩니다.
+    seedCache(null, "익명일 때 쓴 답");
+
+    renderReflection(fakeClient({ stored: [] }), true, VIEWER);
+
+    const textarea = await screen.findByRole("textbox");
+    expect(textarea).toHaveValue("");
+  });
+
+  it("비로그인 방문자에게는 자기 칸의 캐시를 돌려준다", async () => {
+    seedCache(null, "익명일 때 쓴 답");
+
+    // 저장할 수 없는 상태이므로 서버를 부르지 않습니다.
+    renderReflection(fakeClient(), false, null);
+
+    expect(
+      await screen.findByDisplayValue("익명일 때 쓴 답"),
     ).toBeInTheDocument();
   });
 

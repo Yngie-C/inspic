@@ -17,7 +17,7 @@ Inspic은 **인터랙티브 워크북 출판 플랫폼**입니다. "읽는 책"�
 
 크리에이터가 원고에 워크시트·체크리스트·성찰 질문을 끼워 넣어 출간하면, 독자는 읽으면서 직접 작성하고 그 결과를 자기 계정에 남깁니다.
 
-**현재 상태: MVP 재구성 중.** 2026-08-04에 M0(범위 밖 코드 삭제)과 M1(도메인 재설계)을, 2026-08-05에 M2(워크북 저작)와 M3(워크북 독서)을 완료했습니다. 상세 계획과 마일스톤은 `README.md`, 진행 중인 작업은 `TODO.md`를 보세요.
+**현재 상태: MVP 재구성 중.** 2026-08-04에 M0(범위 밖 코드 삭제)과 M1(도메인 재설계)을, 2026-08-05에 M2(워크북 저작)·M3(워크북 독서)·M4(판매와 접근 제어)를 완료했습니다. 상세 계획과 마일스톤은 `README.md`, 진행 중인 작업은 `TODO.md`를 보세요.
 
 핵심 기능:
 - 텍스트/Markdown/DOCX 업로드 및 챕터 구조화
@@ -58,9 +58,10 @@ TTS·오디오북 · 하이라이트/북마크/독서진행률/리더설정 · �
   - `reader/templates/`: 워크북 블록의 리더 컴포넌트 (독자 측)
 - `src/lib/`: Supabase, sanitize, access-control, PDF/EPUB, Toss 등 핵심 유틸리티
   - `workbook/`: 워크북 도메인 — 블록 정의 추출·동기화, 응답 검증·병합·복원, 오프라인 캐시, 공유 타입
+  - `payments/`: 결제 이행 — Toss 상태 매핑(순수), 이행·보상 절차, 서버 포트
 - `src/stores/`: Zustand stores
 - `src/types/`: TypeScript 타입 정의
-- `supabase/migrations/`: Supabase DB 마이그레이션. `00001_initial_schema.sql`(초기 스키마) + `00002_workbook_block_sync.sql`(블록 동기화 RPC, `chapter-images` 버킷)
+- `supabase/migrations/`: Supabase DB 마이그레이션. `00001_initial_schema.sql`(초기 스키마) + `00002_workbook_block_sync.sql`(블록 동기화 RPC, `chapter-images` 버킷) + `00003_payment_integrity.sql`(결제 이행 RPC, 구매 INSERT 봉인, 첫 챕터 미리보기)
 - `content/`: 전자책 원고 및 콘텐츠 문서
 - `creator-outreach/`: 크리에이터 아웃리치 관련 문서
 - `.claude/`: Claude Code 커스텀 커맨드/프로젝트 메모
@@ -173,6 +174,32 @@ workbook_responses         독자 응답. (user_id, block_id, field_key) 유일
 - **`data-node-id`가 없는 블록에 ID를 만들어 붙이지 마세요.** `extractWorkbookBlocks()`는 그런 블록을 건너뜁니다. 세어야 할 때는 `countWorkbookBlockElements()`를 쓰세요 — 두 수의 차이가 곧 "화면에는 보이지만 응답을 받을 수 없는 블록"이고, 검수가 그것을 차단 사유로 씁니다.
 - 워크북 블록을 추가/변경하면 에디터 Node, 리더 컴포넌트, `lib/sanitize.ts` 허용 목록, `lib/template-fallback.ts`(EPUB/PDF 정적 폴백), `lib/workbook/extract-blocks.ts`의 `BLOCK_TYPE_BY_TEMPLATE` 표, `00001` 스키마의 `block_type` CHECK 제약을 **함께** 확인하세요. `data-template-type` 문자열은 앞의 네 곳이 공유합니다.
 
+## 결제와 접근 제어
+
+M4(2026-08-05)에서 확정했습니다. 여기서 지키는 규칙은 하나입니다. **돈이 나갔으면 책이 열리거나, 책이 열리지 않으면 돈이 돌아간다.**
+
+```
+승인:  성공 화면 confirm  ┐
+                          ├→ fulfillApprovedPayment() → fulfill_payment RPC
+       Toss webhook       ┘        (실패·중복이면 Toss 결제 취소)
+
+취소:  Toss webhook → reconcilePayment() → void_payment RPC
+```
+
+- **구매 기록을 직접 INSERT 하지 마세요.** `purchases`에는 INSERT 정책이 없습니다. 만드는 경로는 `fulfill_payment()` RPC 하나뿐이고, 그 함수는 `service_role`만 실행합니다. 예전에 `auth.uid() = user_id`만 보는 정책이 있었는데, 자기 이름으로 행을 하나 넣으면 유료 책이 그대로 열렸습니다 — `has_book_access()`가 `purchases`를 보고 판정하기 때문입니다.
+- **이행 로직을 confirm과 webhook에 두 벌 만들지 마세요.** 둘 다 `lib/payments/fulfillment.ts`를 씁니다. 갈라지면 한쪽만 고쳐진 상태가 되고, 그때 생기는 어긋남이 정확히 "승인은 됐는데 구매 기록이 없는" 상태입니다.
+- **이행은 한 트랜잭션입니다.** 구매 upsert · 결제 행 갱신 · 둘의 연결을 나눠서 왕복하지 마세요. 중간에 끊기면 복구되지 않습니다.
+- **멱등해야 합니다.** 같은 주문이 두 번 들어오는 것은 정상 경로입니다(새로고침, webhook 겹침). 이미 이행된 주문은 `already_fulfilled`로 돌려주고 아무것도 바꾸지 마세요.
+- **`ALREADY_PROCESSED_PAYMENT`를 실패로 다루지 마세요.** "네가 아까 승인했다"는 대답이고, 여기까지 왔다면 이행이 안 끝났다는 뜻입니다. 결제를 다시 조회해 이행을 이어 가세요. 이것을 실패로 보면 멀쩡히 끝난 결제가 `aborted`로 덮입니다.
+- **반영할 금액은 Toss가 승인한 값입니다.** 클라이언트가 보낸 `amount`는 요청 시점에 잠근 값과 맞는지 보는 용도이고, RPC에 넘기는 것은 `payment.totalAmount`입니다.
+- **중복 결제를 조용히 덮지 마세요.** 다른 결제가 이미 그 책을 열어 줬다면 독자는 두 번 낸 것입니다. `duplicate_purchase`를 받으면 이번 결제를 취소하고 "이미 보유한 책"으로 안내하세요 — 붉은 실패 화면으로 보여 주면 돈이 묶인 줄 알고 또 결제합니다.
+- **취소까지 실패하면 성공인 척하지 마세요.** `stranded`로 돌려 로그에 남기고 사람이 보게 하세요. 여기서 조용히 넘어가면 돈이 나간 것을 아무도 모릅니다.
+- **webhook 본문을 믿지 마세요.** 그 주소는 누구나 부를 수 있습니다. 꺼내는 것은 주문번호뿐이고, 상태와 금액은 `getPaymentByOrderId()`로 Toss에 다시 물어 확인합니다. `TOSS_WEBHOOK_SECRET`은 보조 수단입니다.
+- **모르는 Toss 상태를 승인이나 취소로 넘겨짚지 마세요.** `paymentPhase()`가 `pending`을 돌려주면 아무것도 하지 않고 다음 webhook을 기다립니다.
+- **접근 판정은 `checkBookAccess()` 하나입니다.** `hasAccess`(전체 열람) · `canRead`(미리보기 포함) · `canSaveResponses`(로그인까지 필요)는 각각 다른 질문이니 섞어 쓰지 마세요. 응답 저장을 가로막는 것은 `hasAccess`입니다.
+- **미리보기는 맨 앞 published 챕터 하나뿐입니다.** 정책은 `chapters_select_preview`이고 판정은 `book_preview_chapter_id()`가 합니다. 여기를 한 칸이라도 넓히면 유료 콘텐츠가 공짜가 됩니다. 미리보기 챕터의 `workbook_blocks`는 열지 않습니다 — 리더가 블록을 본문 HTML에서 뽑으므로 화면은 그려지고, 응답은 `has_book_access`가 막습니다.
+- **응답 캐시 키에는 보는 사람이 들어갑니다.** 한 기기에서 익명 → 로그인 순으로 같은 책을 여는 것이 정상 경로입니다. 칸을 합치면 익명일 때 쓴 답이 로그인 화면에 뜨는데, 그 값은 서버로 보낼 큐에 없어 저장된 것처럼 보이기만 합니다.
+
 ## 출간 경로
 
 크리에이터가 책을 공개하는 경로는 하나입니다.
@@ -213,10 +240,12 @@ workbook_responses         독자 응답. (user_id, block_id, field_key) 유일
 
 - DB 변경은 `supabase/migrations/`에 새 migration으로 추가하세요.
 - 기존 migration은 이미 적용되었을 수 있으므로 수정하지 마세요. M1의 통합 리셋은 보존할 실사용 데이터가 없다고 확정한 뒤 한 번만 한 예외입니다. 다시 하지 마세요.
-- 스키마를 바꾸면 `src/lib/supabase/__tests__/`의 테스트도 함께 갱신하세요. 하네스가 `supabase/migrations/`의 모든 파일을 파일명 순서대로 적용하므로, 새 마이그레이션은 파일만 추가하면 테스트에 자동으로 들어옵니다. `schema.test.ts`가 구조·제약·트리거를, `rls.test.ts`가 `SET ROLE`로 정책을, `workbook-sync.test.ts`가 저작 측 블록 동기화 RPC를, `workbook-responses.test.ts`가 독자 측 응답 왕복을 확인합니다.
+- 스키마를 바꾸면 `src/lib/supabase/__tests__/`의 테스트도 함께 갱신하세요. 하네스가 `supabase/migrations/`의 모든 파일을 파일명 순서대로 적용하므로, 새 마이그레이션은 파일만 추가하면 테스트에 자동으로 들어옵니다. `schema.test.ts`가 구조·제약·트리거를, `rls.test.ts`가 `SET ROLE`로 정책을, `workbook-sync.test.ts`가 저작 측 블록 동기화 RPC를, `workbook-responses.test.ts`가 독자 측 응답 왕복을, `payments.test.ts`가 결제 이행·취소와 구매 생성 권한을 확인합니다.
+- `service_role`에 권한을 줄 때는 롤 존재를 확인하고 거세요. 테스트 하네스에는 `service_role`이 없어서 무조건 `GRANT`하면 마이그레이션 적용 자체가 실패합니다 (`00003`의 `DO $$ ... pg_roles ... $$` 참고).
 - 하네스의 `auth` / `storage` 스키마는 Supabase가 미리 만들어 두는 것의 **스텁**입니다. 마이그레이션이 storage를 건드리면 스텁도 함께 늘리세요.
 - **RLS 정책을 추가하거나 고치면 반드시 `rls.test.ts`에 통과 케이스와 차단 케이스를 함께 넣으세요.** RLS 버그는 조용히 새는 종류라 테스트 없이는 드러나지 않습니다.
 - RLS 테스트를 쓸 때는 반드시 `asUser` / `asAnon` 헬퍼를 거치세요. 기본 연결은 테이블 소유자라 RLS를 통째로 우회하고, 그 상태로 쓴 테스트는 아무것도 검증하지 않으면서 초록불만 냅니다.
+- **테스트에서 저장소 키나 쿼리를 손으로 다시 만들지 마세요.** 프로덕션 함수를 거쳐 심으세요. 키 규칙이 바뀌면 테스트가 심은 곳과 코드가 읽는 곳이 어긋나는데, 그때 테스트는 깨지지 않고 조용히 헛돕니다 (M4에서 응답 캐시 테스트가 실제로 그랬습니다).
 - 새 테이블에는 RLS 활성화와 필요한 policy를 포함하세요.
 - 사용자별 데이터는 `auth.uid()` 기준 접근 제어를 명확히 하세요.
 - Storage path 설계 시 사용자 ID/책 ID/챕터 ID 등 충돌 방지 키를 사용하세요.
