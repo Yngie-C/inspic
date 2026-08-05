@@ -65,6 +65,30 @@ export function restoreBlockAnswers(
   return restored;
 }
 
+/**
+ * 정의 없이 응답만으로 block_id → (field_key → 값)을 만듭니다.
+ *
+ * {@link restoreChapterAnswers}와 나뉜 이유는 리더가 블록 정의를 들고 있지
+ * 않기 때문입니다. 리더는 챕터 HTML을 파싱해 문항을 그리므로, 화면에 무엇이
+ * 있는지는 이미 HTML이 정하고 여기서는 값만 얹으면 됩니다. 정의 기준으로
+ * 걸러야 하는 곳(내보내기, 집계)은 {@link restoreChapterAnswers}를 쓰세요.
+ *
+ * 정의가 사라진 문항의 응답도 그대로 들어 있습니다. HTML에 그 문항이 없으면
+ * 화면에 뜨지 않을 뿐이고, 값은 DB에 남습니다.
+ */
+export function groupAnswersByBlock(
+  responses: readonly WorkbookResponse[],
+): Record<string, Record<string, WorkbookAnswer>> {
+  const byBlock: Record<string, Record<string, WorkbookAnswer>> = {};
+
+  for (const response of responses) {
+    const block = (byBlock[response.block_id] ??= {});
+    block[response.field_key] = answerFromResponse(response);
+  }
+
+  return byBlock;
+}
+
 /** 챕터 단위로 복원합니다. block_id → (field_key → 값). */
 export function restoreChapterAnswers(
   blocks: readonly WorkbookBlock[],
@@ -101,10 +125,13 @@ export function orphanedResponses(
  * 값 컬럼은 문항의 input_type이 결정합니다. 타입이 맞지 않으면 조용히
  * 변환하지 않고 던집니다 — 잘못된 컬럼에 들어간 응답은 나중에 집계에서
  * 사라지고, 그때는 원인을 찾을 수 없습니다.
+ *
+ * 정의는 키와 타입만 봅니다. 라벨·순서는 값이 어디로 갈지에 관여하지
+ * 않으므로, DB에서 필요한 두 컬럼만 읽어 온 정의도 그대로 넘길 수 있습니다.
  */
 export function toResponseRow(
   blockId: string,
-  field: WorkbookBlockField,
+  field: Pick<WorkbookBlockField, "field_key" | "input_type">,
   answer: WorkbookAnswer,
 ): WorkbookResponse {
   const row: WorkbookResponse = {

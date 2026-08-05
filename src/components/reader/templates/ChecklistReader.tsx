@@ -7,13 +7,12 @@ import { boolAnswer, useBlockAnswers } from "./useBlockAnswers";
 
 interface Props {
   element: Element;
-  chapterId: string;
 }
 
-function ChecklistReader({ element, chapterId }: Props) {
+function ChecklistReader({ element }: Props) {
   const blockId = element.attribs["data-node-id"] || "";
   const items = parseChecklistItems(element.attribs["data-items"]);
-  const { answers, setAnswer } = useBlockAnswers(chapterId, blockId);
+  const { answers, setAnswer } = useBlockAnswers(blockId);
 
   return (
     <section className="template-checklist my-4 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800">

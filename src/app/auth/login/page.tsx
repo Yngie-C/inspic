@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuthStore } from "@/stores/auth-store";
+import { safeInternalPath } from "@/lib/safe-redirect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,11 +19,22 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  /**
+   * 로그인 후 돌아갈 곳. 리더처럼 로그인이 필요한 화면이 `?redirect=`로
+   * 넘겨 줍니다. `useSearchParams()` 대신 여기서 읽는 것은 Suspense
+   * 경계를 강제하지 않기 위해서이고, 값은 제출 시점에만 필요합니다.
+   */
+  const redirectTarget = () =>
+    safeInternalPath(
+      new URLSearchParams(window.location.search).get("redirect"),
+      "/dashboard",
+    );
+
   const handleOAuth = async (provider: 'google' | 'kakao') => {
     setError("");
     setIsLoading(true);
     try {
-      const result = await signInWithOAuth(provider);
+      const result = await signInWithOAuth(provider, redirectTarget());
       if (result?.error) setError(result.error);
     } finally {
       setIsLoading(false);
@@ -39,7 +51,7 @@ export default function LoginPage() {
       if (result.error) {
         setError(result.error);
       } else {
-        router.push("/dashboard");
+        router.push(redirectTarget());
       }
     } finally {
       setIsLoading(false);

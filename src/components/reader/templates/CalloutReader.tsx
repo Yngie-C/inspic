@@ -7,7 +7,6 @@ type CalloutType = "info" | "warning" | "tip" | "note";
 
 interface Props {
   element: Element;
-  chapterId: string;
 }
 
 const CALLOUT_CONFIG: Record<

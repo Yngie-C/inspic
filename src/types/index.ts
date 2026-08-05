@@ -57,14 +57,9 @@ export interface Chapter {
   updated_at: string;
 }
 
-// --- Reader ---
-export type ReaderTheme = "light" | "dark" | "sepia";
-
-export interface ReaderPreferences {
-  fontSize: number;
-  theme: ReaderTheme;
-  lineHeight: number;
-}
+// 리더 설정(글자 크기·테마)은 M0에서 삭제했습니다. 타입만 남아 있어
+// 호출부가 쓰지도 않는 값을 하드코딩해 넘기고 있었으므로 M3에서 함께
+// 지웠습니다. 다시 넣는다면 저장 위치(계정 vs 기기)부터 정하세요.
 
 // --- Content Block (리더기용) ---
 export interface ContentBlock {

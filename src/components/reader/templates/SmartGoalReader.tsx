@@ -8,12 +8,11 @@ import { textAnswer, useBlockAnswers } from "./useBlockAnswers";
 
 interface Props {
   element: Element;
-  chapterId: string;
 }
 
-function SmartGoalReader({ element, chapterId }: Props) {
+function SmartGoalReader({ element }: Props) {
   const blockId = element.attribs["data-node-id"] || "";
-  const { answers, setAnswer } = useBlockAnswers(chapterId, blockId);
+  const { answers, setAnswer } = useBlockAnswers(blockId);
 
   return (
     <section className="template-smart-goal my-4 p-4 border border-blue-200 rounded-lg bg-blue-50">

@@ -7,17 +7,16 @@ import { numberAnswer, useBlockAnswers } from "./useBlockAnswers";
 
 interface Props {
   element: Element;
-  chapterId: string;
 }
 
-function ScaleReader({ element, chapterId }: Props) {
+function ScaleReader({ element }: Props) {
   const blockId = element.attribs["data-node-id"] || "";
   const min = parseInt(element.attribs["data-min"] || "1", 10);
   const max = parseInt(element.attribs["data-max"] || "10", 10);
   const labelMin = element.attribs["data-label-min"] || "";
   const labelMax = element.attribs["data-label-max"] || "";
 
-  const { answers, setAnswer } = useBlockAnswers(chapterId, blockId);
+  const { answers, setAnswer } = useBlockAnswers(blockId);
   const selected = numberAnswer(answers, SCALE_FIELD_KEY);
 
   const steps: number[] = [];

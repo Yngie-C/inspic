@@ -1,34 +1,26 @@
 "use client";
 
 import { sanitizeForRender } from "@/lib/sanitize";
-import type { ReaderTheme } from "@/types";
 import { useMemo } from "react";
 import parse, { type DOMNode } from "html-react-parser";
 import { isElementNode } from "@/lib/workbook/dom";
 import { getTemplateComponent } from "./templates";
 
+/**
+ * 챕터 본문을 그립니다. 워크북 블록은 HTML 대신 리더 컴포넌트로 바뀝니다.
+ *
+ * 활자 크기·테마 옵션은 없습니다. M0에서 리더 설정 기능을 삭제했는데
+ * 값만 남아 호출부가 매번 하드코딩한 숫자를 넘기고 있었습니다. 지금은
+ * 본문 스타일이 이 컴포넌트 하나에만 있습니다.
+ */
 interface HtmlContentRendererProps {
   html: string;
-  theme: ReaderTheme;
-  fontSize: number;
-  lineHeight: number;
   className?: string;
-  chapterId?: string;
 }
-
-const themeClasses: Record<ReaderTheme, string> = {
-  light: "bg-white text-gray-900",
-  dark: "bg-gray-950 text-gray-100",
-  sepia: "bg-amber-50 text-amber-950",
-};
 
 export function HtmlContentRenderer({
   html,
-  theme,
-  fontSize,
-  lineHeight,
   className = "",
-  chapterId = "",
 }: HtmlContentRendererProps) {
   const sanitized = useMemo(() => sanitizeForRender(html), [html]);
 
@@ -45,22 +37,13 @@ export function HtmlContentRenderer({
             console.warn(`Unknown template type: ${templateType}`);
             return; // render original HTML as-is
           }
-          return <Component element={domNode} chapterId={chapterId} />;
+          return <Component element={domNode} />;
         },
       }),
-    [sanitized, chapterId]
+    [sanitized],
   );
 
   return (
-    <div
-      className={[
-        "reader-content w-full h-full",
-        themeClasses[theme],
-        className,
-      ].join(" ")}
-      style={{ fontSize: `${fontSize}px`, lineHeight }}
-    >
-      {content}
-    </div>
+    <div className={`reader-content w-full ${className}`}>{content}</div>
   );
 }

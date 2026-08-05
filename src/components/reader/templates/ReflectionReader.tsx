@@ -8,16 +8,15 @@ import { textAnswer, useBlockAnswers } from "./useBlockAnswers";
 
 interface Props {
   element: Element;
-  chapterId: string;
 }
 
-function ReflectionReader({ element, chapterId }: Props) {
+function ReflectionReader({ element }: Props) {
   const blockId = element.attribs["data-node-id"] || "";
   const prompt = element.attribs["data-prompt"] || "";
   const placeholder =
     element.attribs["data-placeholder"] || "여기에 생각을 적어보세요...";
 
-  const { answers, setAnswer } = useBlockAnswers(chapterId, blockId);
+  const { answers, setAnswer } = useBlockAnswers(blockId);
   const value = textAnswer(answers, REFLECTION_FIELD_KEY);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
