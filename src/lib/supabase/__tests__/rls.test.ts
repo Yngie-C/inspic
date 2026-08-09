@@ -580,6 +580,42 @@ describe("크리에이터 집계", () => {
     ]);
   });
 
+  /**
+   * 미리보기가 리더를 그대로 띄우고 소유자는 응답을 저장할 수 있습니다.
+   * 그래서 저자가 자기 책을 확인하며 넣은 입력이 실제 응답 행이 됩니다.
+   * 세는 쪽에서 빼지 않으면 독자가 0명인 책이 "1명 응답"으로 보입니다.
+   */
+  it("저자 본인의 응답은 집계에 넣지 않는다", async () => {
+    await db.query(
+      `INSERT INTO workbook_responses
+         (user_id, book_id, chapter_id, block_id, field_key, value_text)
+       VALUES ($1, $2, $3, $4, 'answer', '저자가 미리보기에서 쓴 답')`,
+      [creator, paidBook, paidChapter, PAID_BLOCK],
+    );
+
+    try {
+      const stats = await asUser(creator, async () => {
+        const result = await db.query<{
+          respondent_count: number;
+          answered_count: number;
+        }>(
+          `SELECT respondent_count, answered_count
+           FROM workbook_response_stats($1) WHERE field_key = 'answer'`,
+          [paidBook],
+        );
+        return result.rows[0];
+      });
+
+      // 답을 쓴 사람은 독자 A 하나뿐입니다.
+      expect(stats).toEqual({ respondent_count: 1, answered_count: 1 });
+    } finally {
+      await db.query(
+        `DELETE FROM workbook_responses WHERE user_id = $1 AND book_id = $2`,
+        [creator, paidBook],
+      );
+    }
+  });
+
   it("집계 결과에 응답 원문이 들어 있지 않다", async () => {
     const columns = await asUser(creator, async () => {
       const result = await db.query(

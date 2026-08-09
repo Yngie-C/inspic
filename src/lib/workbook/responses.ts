@@ -102,6 +102,59 @@ export function restoreChapterAnswers(
 }
 
 /**
+ * 이 응답을 "답했다"로 셀 것인가.
+ *
+ * 체크 해제(`false`)는 답하지 않은 것으로 봅니다. 값으로 저장은 하지만
+ * (M3에서 정했습니다) 참여율에 세지는 않습니다 — 체크박스를 지나친
+ * 사람과 일부러 끈 사람을 진행률에서 구분할 방법이 없고, 끈 것을 답으로
+ * 세면 체크리스트가 있는 책은 아무것도 안 해도 진행률이 오릅니다.
+ *
+ * **이 판정은 `workbook_response_stats()`의 `answered_count`와 같아야
+ * 합니다.** 어긋나면 독자가 보는 진행률과 저자가 보는 참여율이 달라지고,
+ * 둘 중 어느 쪽이 맞는지 아무도 모르게 됩니다.
+ */
+export function isAnswered(response: WorkbookResponse): boolean {
+  return (
+    response.value_text !== null ||
+    response.value_number !== null ||
+    response.value_bool === true
+  );
+}
+
+/** 독자 한 명이 책 한 권에서 얼마나 채웠는지. */
+export interface WorkbookProgress {
+  total_fields: number;
+  answered_fields: number;
+}
+
+/**
+ * 진행률을 셉니다.
+ *
+ * 분모는 지금 책에 있는 문항이고, 분자는 그중 답이 있는 것입니다.
+ * 정의가 사라진 문항의 응답은 양쪽 어디에도 들어가지 않습니다 —
+ * 세면 100%를 넘고, 분모에만 넣으면 채울 수 없는 칸이 영영 남습니다.
+ */
+export function summarizeProgress(
+  fields: readonly { block_id: string; field_key: string }[],
+  responses: readonly WorkbookResponse[],
+): WorkbookProgress {
+  const answered = new Set(
+    responses
+      .filter(isAnswered)
+      .map((response) => responseKey(response.block_id, response.field_key)),
+  );
+
+  let answeredFields = 0;
+  for (const field of fields) {
+    if (answered.has(responseKey(field.block_id, field.field_key))) {
+      answeredFields += 1;
+    }
+  }
+
+  return { total_fields: fields.length, answered_fields: answeredFields };
+}
+
+/**
  * 블록에서 정의가 사라진 문항의 응답.
  *
  * 크리에이터가 문항을 지워도 독자가 쓴 내용은 DB에 남습니다. 화면에는

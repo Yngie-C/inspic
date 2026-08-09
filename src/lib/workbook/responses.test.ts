@@ -6,6 +6,7 @@ import {
   responseKey,
   restoreBlockAnswers,
   restoreChapterAnswers,
+  summarizeProgress,
   toResponseRow,
   toResponseRows,
 } from "./responses";
@@ -301,5 +302,77 @@ describe("toResponseRows", () => {
 
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ field_key: "a", value_bool: true });
+  });
+});
+
+describe("summarizeProgress", () => {
+  const fields = [
+    { block_id: "b-1", field_key: "answer" },
+    { block_id: "b-1", field_key: "second" },
+    { block_id: "b-2", field_key: "value" },
+  ];
+
+  function response(over: Partial<WorkbookResponse>): WorkbookResponse {
+    return {
+      block_id: "b-1",
+      field_key: "answer",
+      value_text: null,
+      value_number: null,
+      value_bool: null,
+      ...over,
+    };
+  }
+
+  it("답이 있는 문항만 센다", () => {
+    expect(
+      summarizeProgress(fields, [
+        response({ value_text: "쓴 답" }),
+        response({ field_key: "second" }),
+      ]),
+    ).toEqual({ total_fields: 3, answered_fields: 1 });
+  });
+
+  it("척도 0도 답으로 센다", () => {
+    expect(
+      summarizeProgress(fields, [
+        response({ block_id: "b-2", field_key: "value", value_number: 0 }),
+      ]),
+    ).toMatchObject({ answered_fields: 1 });
+  });
+
+  /**
+   * 체크 해제를 답으로 세면 체크리스트가 있는 책은 아무것도 하지 않아도
+   * 진행률이 오릅니다. `workbook_response_stats()`도 같은 규칙입니다.
+   */
+  it("체크 해제(false)는 답으로 세지 않는다", () => {
+    expect(
+      summarizeProgress(fields, [response({ value_bool: false })]),
+    ).toMatchObject({ answered_fields: 0 });
+
+    expect(
+      summarizeProgress(fields, [response({ value_bool: true })]),
+    ).toMatchObject({ answered_fields: 1 });
+  });
+
+  /**
+   * 정의가 사라진 문항의 응답은 분자에도 분모에도 들어가지 않습니다.
+   * 세면 100%를 넘습니다.
+   */
+  it("정의가 사라진 문항의 답은 진행률을 넘기지 않는다", () => {
+    expect(
+      summarizeProgress(fields, [
+        response({ value_text: "a" }),
+        response({ field_key: "second", value_text: "b" }),
+        response({ block_id: "b-2", field_key: "value", value_number: 5 }),
+        response({ block_id: "지워진", field_key: "x", value_text: "고아" }),
+      ]),
+    ).toEqual({ total_fields: 3, answered_fields: 3 });
+  });
+
+  it("문항이 없으면 0으로 나누지 않고 0을 돌려준다", () => {
+    expect(summarizeProgress([], [])).toEqual({
+      total_fields: 0,
+      answered_fields: 0,
+    });
   });
 });

@@ -1,8 +1,7 @@
 import { NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { getAuthUser, apiError } from "@/lib/api-utils";
 import { generateEpub } from "@/lib/epub-generator";
-import type { Book, Chapter } from "@/types";
+import { exportFilename, loadExportSource } from "@/lib/export-source";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -12,74 +11,35 @@ export async function GET(request: NextRequest) {
     return apiError("bookId query parameter is required", "VALIDATION_ERROR", 400);
   }
 
-  const supabase = await createClient();
   const user = await getAuthUser();
+  const loaded = await loadExportSource(bookId, user?.id ?? null);
 
-  // Fetch book
-  const { data: book, error: bookError } = await supabase
-    .from("books")
-    .select("*")
-    .eq("id", bookId)
-    .single();
-
-  if (bookError || !book) {
-    return apiError("Book not found", "NOT_FOUND", 404);
+  if (!loaded.ok) {
+    switch (loaded.reason) {
+      case "not_found":
+        return apiError("Book not found", "NOT_FOUND", 404);
+      case "unauthorized":
+        return apiError("Authentication required", "UNAUTHORIZED", 401);
+      case "forbidden":
+        return apiError("Access denied", "FORBIDDEN", 403);
+      case "server_error":
+        return apiError("Failed to fetch chapters", "SERVER_ERROR", 500);
+    }
   }
 
-  // Authorization: must own book OR book is public+published
-  const isOwner = user && book.owner_id === user.id;
-  const isPublicPublished =
-    book.visibility === "public" && book.status === "published";
+  const { book, chapters, authorName } = loaded.source;
 
-  if (!isOwner && !isPublicPublished) {
-    if (!user) return apiError("Authentication required", "UNAUTHORIZED", 401);
-    return apiError("Access denied", "FORBIDDEN", 403);
-  }
-
-  // Fetch chapters ordered by order_index (published only)
-  const { data: chapters, error: chaptersError } = await supabase
-    .from("chapters")
-    .select("*")
-    .eq("book_id", bookId)
-    .eq("status", "published")
-    .order("order_index", { ascending: true });
-
-  if (chaptersError) {
-    return apiError("Failed to fetch chapters", "SERVER_ERROR", 500);
-  }
-
-  // Fetch author display name
-  let authorName = "Unknown Author";
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("display_name")
-    .eq("user_id", book.owner_id)
-    .single();
-
-  if (profile?.display_name) {
-    authorName = profile.display_name;
-  }
-
-  // Generate EPUB
+  // EPUB에는 응답을 싣지 않습니다. 워크북을 채워 보는 형식은 PDF이고
+  // (M5 게이트), EPUB은 지금까지처럼 빈 워크시트로 나갑니다.
   let epubBuffer: Buffer;
   try {
-    epubBuffer = await generateEpub(
-      book as Book,
-      (chapters ?? []) as Chapter[],
-      authorName,
-    );
+    epubBuffer = await generateEpub(book, chapters, authorName);
   } catch (err) {
     const message = err instanceof Error ? err.message : "EPUB generation failed";
     return apiError(`EPUB generation failed: ${message}`, "SERVER_ERROR", 500);
   }
 
-  const safeTitle = book.title
-    .replace(/[^a-zA-Z0-9가-힣\s-_]/g, "")
-    .trim()
-    .replace(/\s+/g, "_")
-    .slice(0, 80);
-
-  const filename = `${safeTitle || "book"}.epub`;
+  const filename = exportFilename(book.title, "epub");
 
   // Slice to get a clean ArrayBuffer (valid BodyInit in all environments)
   const arrayBuffer = epubBuffer.buffer.slice(

@@ -6,6 +6,7 @@ import { BookOpen, Users, FileText, BookMarked } from "lucide-react";
 import { StatsCard } from "@/components/analytics/StatsCard";
 import { SimpleBarChart } from "@/components/analytics/SimpleBarChart";
 import { BookStatsTable } from "@/components/analytics/BookStatsTable";
+import { WorkbookEngagementSection } from "@/components/analytics/WorkbookEngagement";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuthStore } from "@/stores/auth-store";
 import { cn } from "@/lib/utils";
@@ -140,6 +141,14 @@ export default function AnalyticsPage() {
               />
             </div>
           )}
+
+          {/* Workbook engagement */}
+          <WorkbookEngagementSection
+            books={data.books.map((book) => ({
+              id: book.id,
+              title: book.title,
+            }))}
+          />
 
           {/* Book stats table */}
           <div>

@@ -5,18 +5,21 @@ import {
   Text,
   View,
   StyleSheet,
-  Font,
 } from "@react-pdf/renderer";
 import type { Book, Chapter } from "@/types";
-import { applyTemplateFallback } from "./template-fallback";
+import { applyTemplateFallback, type FallbackAnswers } from "./template-fallback";
+import { PDF_FONT_FAMILY, registerPdfFonts } from "./pdf-fonts";
 
-// Register a standard font (Helvetica is built-in, no external download needed)
-// Korean characters will fall back to the default renderer behavior
-Font.registerHyphenationCallback((word) => [word]);
+// 한글 글리프가 있는 폰트를 등록합니다. 내장 Helvetica로는 렌더가
+// 성공한 채 한글만 깨지므로, 이 호출이 빠지면 조용히 망가집니다.
+registerPdfFonts();
 
+// 이 문서에는 이탤릭 웨이트가 없습니다. fontStyle: "italic"을 주면
+// react-pdf가 해당 스타일의 소스를 못 찾아 렌더 자체가 실패합니다.
+// 강조는 색과 선으로만 합니다.
 const styles = StyleSheet.create({
   page: {
-    fontFamily: "Helvetica",
+    fontFamily: PDF_FONT_FAMILY,
     fontSize: 11,
     paddingTop: 60,
     paddingBottom: 60,
@@ -26,7 +29,7 @@ const styles = StyleSheet.create({
     color: "#1a1a1a",
   },
   coverPage: {
-    fontFamily: "Helvetica",
+    fontFamily: PDF_FONT_FAMILY,
     fontSize: 11,
     paddingTop: 120,
     paddingBottom: 60,
@@ -39,7 +42,8 @@ const styles = StyleSheet.create({
   },
   coverTitle: {
     fontSize: 32,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: PDF_FONT_FAMILY,
+    fontWeight: "bold",
     textAlign: "center",
     color: "#111111",
     marginBottom: 24,
@@ -47,7 +51,7 @@ const styles = StyleSheet.create({
   },
   coverAuthor: {
     fontSize: 16,
-    fontFamily: "Helvetica",
+    fontFamily: PDF_FONT_FAMILY,
     textAlign: "center",
     color: "#555555",
     marginBottom: 40,
@@ -60,14 +64,14 @@ const styles = StyleSheet.create({
   },
   coverDescription: {
     fontSize: 12,
-    fontFamily: "Helvetica",
+    fontFamily: PDF_FONT_FAMILY,
     textAlign: "center",
     color: "#666666",
     lineHeight: 1.6,
     maxWidth: 360,
   },
   tocPage: {
-    fontFamily: "Helvetica",
+    fontFamily: PDF_FONT_FAMILY,
     fontSize: 11,
     paddingTop: 60,
     paddingBottom: 60,
@@ -76,7 +80,8 @@ const styles = StyleSheet.create({
   },
   tocTitle: {
     fontSize: 20,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: PDF_FONT_FAMILY,
+    fontWeight: "bold",
     color: "#111111",
     marginBottom: 32,
     borderBottomWidth: 1,
@@ -111,7 +116,7 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
   chapterPage: {
-    fontFamily: "Helvetica",
+    fontFamily: PDF_FONT_FAMILY,
     fontSize: 11,
     paddingTop: 60,
     paddingBottom: 72,
@@ -122,7 +127,8 @@ const styles = StyleSheet.create({
   },
   chapterTitle: {
     fontSize: 22,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: PDF_FONT_FAMILY,
+    fontWeight: "bold",
     color: "#111111",
     marginBottom: 32,
     borderBottomWidth: 1,
@@ -139,7 +145,8 @@ const styles = StyleSheet.create({
   },
   heading1: {
     fontSize: 18,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: PDF_FONT_FAMILY,
+    fontWeight: "bold",
     color: "#111111",
     marginTop: 24,
     marginBottom: 12,
@@ -147,7 +154,8 @@ const styles = StyleSheet.create({
   },
   heading2: {
     fontSize: 15,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: PDF_FONT_FAMILY,
+    fontWeight: "bold",
     color: "#222222",
     marginTop: 20,
     marginBottom: 10,
@@ -155,7 +163,8 @@ const styles = StyleSheet.create({
   },
   heading3: {
     fontSize: 12,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: PDF_FONT_FAMILY,
+    fontWeight: "bold",
     color: "#333333",
     marginTop: 16,
     marginBottom: 8,
@@ -164,7 +173,7 @@ const styles = StyleSheet.create({
   blockquote: {
     fontSize: 11,
     color: "#555555",
-    fontFamily: "Helvetica-Oblique",
+    fontFamily: PDF_FONT_FAMILY,
     borderLeftWidth: 3,
     borderLeftColor: "#cccccc",
     paddingLeft: 16,
@@ -174,7 +183,7 @@ const styles = StyleSheet.create({
   },
   codeBlock: {
     fontSize: 10,
-    fontFamily: "Courier",
+    fontFamily: PDF_FONT_FAMILY,
     backgroundColor: "#f5f5f5",
     padding: 12,
     marginBottom: 14,
@@ -195,6 +204,54 @@ const styles = StyleSheet.create({
   },
   listContent: {
     flex: 1,
+  },
+  tableRow: {
+    flexDirection: "row",
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eeeeee",
+    paddingBottom: 6,
+  },
+  tableLabel: {
+    fontSize: 10,
+    color: "#555555",
+    width: "42%",
+    paddingRight: 10,
+    lineHeight: 1.5,
+  },
+  tableValue: {
+    fontSize: 11,
+    color: "#222222",
+    flex: 1,
+    lineHeight: 1.6,
+  },
+  orphanSection: {
+    marginTop: 28,
+    borderTopWidth: 1,
+    borderTopColor: "#e5e5e5",
+    paddingTop: 14,
+  },
+  orphanTitle: {
+    fontSize: 12,
+    fontFamily: PDF_FONT_FAMILY,
+    fontWeight: "bold",
+    color: "#555555",
+    marginBottom: 6,
+  },
+  orphanNote: {
+    fontSize: 9,
+    color: "#999999",
+    marginBottom: 12,
+    lineHeight: 1.6,
+  },
+  orphanAnswer: {
+    fontSize: 11,
+    color: "#222222",
+    marginBottom: 10,
+    lineHeight: 1.7,
+    borderLeftWidth: 2,
+    borderLeftColor: "#dddddd",
+    paddingLeft: 12,
   },
   footer: {
     position: "absolute",
@@ -222,8 +279,23 @@ const styles = StyleSheet.create({
 
 // Strip HTML and return structured content blocks
 export interface TextBlock {
-  type: "paragraph" | "heading1" | "heading2" | "heading3" | "blockquote" | "code" | "listitem";
+  type:
+    | "paragraph"
+    | "heading1"
+    | "heading2"
+    | "heading3"
+    | "blockquote"
+    | "code"
+    | "listitem"
+    | "tablerow";
   text: string;
+  /**
+   * `tablerow`의 오른쪽 칸. SMART 목표가 라벨과 답을 두 칸으로 냅니다.
+   *
+   * 표를 따로 다루지 않으면 `<table>` 전체가 문단 하나로 뭉쳐서
+   * 다섯 항목의 라벨과 답이 한 줄에 이어 붙습니다.
+   */
+  value?: string;
 }
 
 export function stripHtmlForPdf(html: string): TextBlock[] {
@@ -243,16 +315,17 @@ export function stripHtmlForPdf(html: string): TextBlock[] {
       .replace(/&#x27;/g, "'")
       .replace(/&#x2F;/g, "/");
 
-  // Extract inner text from an HTML string
+  /**
+   * 태그 제거 → 엔티티 복원 → 공백 접기 순입니다.
+   *
+   * 엔티티를 나중에 풀면 `&nbsp;`만 든 빈 칸이 공백 한 칸으로 남아
+   * "비어 있음"과 구분되지 않습니다. 태그 제거를 먼저 하는 이유는
+   * 반대로 `&lt;`가 복원된 뒤 태그로 오인되지 않게 하기 위해서입니다.
+   */
   const innerText = (s: string): string =>
-    decodeEntities(s.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim());
-
-  // Process block-level elements
-  const blockRe =
-    /<(h1|h2|h3|h4|h5|h6|p|blockquote|pre|li|ul|ol|div|br)[^>]*>([\s\S]*?)<\/\1>|<br\s*\/?>/gi;
-
-  // Reset regex
-  blockRe.lastIndex = 0;
+    decodeEntities(s.replace(/<[^>]*>/g, ""))
+      .replace(/\s+/g, " ")
+      .trim();
 
   const processedHtml = html
     // Normalize line breaks inside tags
@@ -262,7 +335,7 @@ export function stripHtmlForPdf(html: string): TextBlock[] {
 
   // Split by block-level tags
   const segments = processedHtml.split(
-    /(<h[1-6][^>]*>[\s\S]*?<\/h[1-6]>|<p[^>]*>[\s\S]*?<\/p>|<blockquote[^>]*>[\s\S]*?<\/blockquote>|<pre[^>]*>[\s\S]*?<\/pre>|<li[^>]*>[\s\S]*?<\/li>)/gi
+    /(<h[1-6][^>]*>[\s\S]*?<\/h[1-6]>|<p[^>]*>[\s\S]*?<\/p>|<blockquote[^>]*>[\s\S]*?<\/blockquote>|<pre[^>]*>[\s\S]*?<\/pre>|<li[^>]*>[\s\S]*?<\/li>|<tr[^>]*>[\s\S]*?<\/tr>)/gi
   );
 
   for (const seg of segments) {
@@ -276,6 +349,18 @@ export function stripHtmlForPdf(html: string): TextBlock[] {
     const bqMatch = seg.match(/^<blockquote[^>]*>([\s\S]*?)<\/blockquote>$/i);
     const preMatch = seg.match(/^<pre[^>]*>([\s\S]*?)<\/pre>$/i);
     const liMatch = seg.match(/^<li[^>]*>([\s\S]*?)<\/li>$/i);
+    const trMatch = seg.match(/^<tr[^>]*>([\s\S]*?)<\/tr>$/i);
+
+    if (trMatch) {
+      const cells = [...trMatch[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)]
+        .map((cell) => innerText(cell[1]));
+      const text = cells[0] ?? "";
+      const value = cells.slice(1).filter(Boolean).join(" ");
+      // 라벨도 답도 없는 줄은 버립니다. 답을 쓰지 않은 SMART 항목은
+      // 라벨이 남아 있으므로 여기서 사라지지 않습니다.
+      if (text || value) blocks.push({ type: "tablerow", text, value });
+      continue;
+    }
 
     if (h1Match) {
       const text = innerText(h1Match[1]);
@@ -354,15 +439,21 @@ function TOCPage({ book, chapters }: { book: Book; chapters: Chapter[] }) {
 
 // Single chapter page
 function ChapterPage({
-  book,
   chapter,
-  pageNumber,
+  answers,
+  orphans,
 }: {
-  book: Book;
   chapter: Chapter;
-  pageNumber: number;
+  answers: FallbackAnswers;
+  orphans: readonly string[];
 }) {
-  const blocks = stripHtmlForPdf(applyTemplateFallback(chapter.content_html || chapter.content_raw || ""));
+  const blocks = stripHtmlForPdf(
+    applyTemplateFallback(chapter.content_html || chapter.content_raw || "", {
+      answers,
+      // 번들한 한글 폰트에 이모지 글리프가 없습니다.
+      emoji: false,
+    }),
+  );
 
   return (
     <Page size="A4" style={styles.chapterPage}>
@@ -407,6 +498,13 @@ function ChapterPage({
                 <Text style={styles.listContent}>{block.text}</Text>
               </View>
             );
+          case "tablerow":
+            return (
+              <View key={i} style={styles.tableRow}>
+                <Text style={styles.tableLabel}>{block.text}</Text>
+                <Text style={styles.tableValue}>{block.value || ""}</Text>
+              </View>
+            );
           default:
             return (
               <Text key={i} style={styles.paragraph}>
@@ -417,9 +515,26 @@ function ChapterPage({
       })}
 
       {blocks.length === 0 && (
-        <Text style={{ ...styles.paragraph, color: "#aaaaaa", fontFamily: "Helvetica-Oblique" }}>
+        <Text style={{ ...styles.paragraph, color: "#aaaaaa" }}>
           (내용 없음)
         </Text>
+      )}
+
+      {orphans.length > 0 && (
+        <View style={styles.orphanSection}>
+          <Text style={styles.orphanTitle}>
+            저자가 이후 수정한 문항의 답
+          </Text>
+          <Text style={styles.orphanNote}>
+            아래 답을 받던 문항은 저자가 책을 고치면서 사라졌습니다. 질문
+            문구는 남아 있지 않지만 쓰신 내용은 그대로입니다.
+          </Text>
+          {orphans.map((text, i) => (
+            <Text key={i} style={styles.orphanAnswer}>
+              {text}
+            </Text>
+          ))}
+        </View>
       )}
 
       <View style={styles.footer} fixed>
@@ -433,14 +548,42 @@ function ChapterPage({
   );
 }
 
+/**
+ * 정의가 사라진 문항의 자유서술 답.
+ *
+ * 자유서술만 담는 이유는 문항 문구가 남아 있지 않기 때문입니다. 저자가
+ * 문항을 지우면 라벨도 함께 지워져서, 체크 여부(`true`)나 척도 값(`7`)은
+ * 질문 없이 읽으면 아무 의미가 없습니다. 글로 쓴 답은 그 자체로 읽힙니다.
+ */
+export interface OrphanedTextAnswer {
+  chapter_id: string;
+  text: string;
+}
+
 // Main PDF Document
 export interface BookPDFProps {
   book: Book;
   chapters: Chapter[];
   authorName: string;
+  /** block_id → (field_key → 값). 비우면 빈 워크시트가 나옵니다. */
+  answers?: FallbackAnswers;
+  orphans?: readonly OrphanedTextAnswer[];
 }
 
-export function BookPDF({ book, chapters, authorName }: BookPDFProps) {
+export function BookPDF({
+  book,
+  chapters,
+  authorName,
+  answers = {},
+  orphans = [],
+}: BookPDFProps) {
+  const orphansByChapter = new Map<string, string[]>();
+  for (const orphan of orphans) {
+    const list = orphansByChapter.get(orphan.chapter_id);
+    if (list) list.push(orphan.text);
+    else orphansByChapter.set(orphan.chapter_id, [orphan.text]);
+  }
+
   return (
     <Document
       title={book.title}
@@ -451,12 +594,12 @@ export function BookPDF({ book, chapters, authorName }: BookPDFProps) {
     >
       <CoverPage book={book} authorName={authorName} />
       {chapters.length > 1 && <TOCPage book={book} chapters={chapters} />}
-      {chapters.map((ch, i) => (
+      {chapters.map((ch) => (
         <ChapterPage
           key={ch.id}
-          book={book}
           chapter={ch}
-          pageNumber={i + (chapters.length > 1 ? 3 : 2)}
+          answers={answers}
+          orphans={orphansByChapter.get(ch.id) ?? []}
         />
       ))}
     </Document>

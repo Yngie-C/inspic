@@ -3,13 +3,12 @@
 import { useState } from "react";
 import { Download, FileText, BookMarked, ChevronDown, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { downloadExport, type ExportFormat } from "@/lib/download-export";
 
 interface ExportMenuProps {
   bookId: string;
   bookTitle?: string;
 }
-
-type ExportFormat = "pdf" | "epub";
 
 export function ExportMenu({ bookId, bookTitle }: ExportMenuProps) {
   const [open, setOpen] = useState(false);
@@ -22,38 +21,7 @@ export function ExportMenu({ bookId, bookTitle }: ExportMenuProps) {
     setError(null);
 
     try {
-      const url = `/api/${format}?bookId=${encodeURIComponent(bookId)}`;
-      const res = await fetch(url);
-
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        throw new Error(json.error ?? `${format.toUpperCase()} 생성에 실패했습니다.`);
-      }
-
-      const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-
-      const a = document.createElement("a");
-      a.href = objectUrl;
-
-      // Try to get filename from Content-Disposition
-      const disposition = res.headers.get("Content-Disposition");
-      let filename = `${bookTitle ?? "book"}.${format}`;
-      if (disposition) {
-        const match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
-        if (match) {
-          filename = decodeURIComponent(match[1]);
-        } else {
-          const basicMatch = disposition.match(/filename="([^"]+)"/i);
-          if (basicMatch) filename = basicMatch[1];
-        }
-      }
-
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(objectUrl);
+      await downloadExport(bookId, format, bookTitle);
     } catch (err) {
       setError(err instanceof Error ? err.message : "내보내기에 실패했습니다.");
       // Auto-clear error after 4 seconds

@@ -160,7 +160,8 @@ workbook_responses         독자 응답. (user_id, block_id, field_key) 유일
 - **`data-*` 속성에 독자 응답을 담지 마세요.** 챕터 HTML은 문항만 싣습니다. 체크 여부·스케일 선택값·SMART 답변은 전부 `workbook_responses`에 있습니다. 저작 화면에서 답변처럼 보이는 입력을 만들지 마세요.
 - **문항은 `data-*` 안의 JSON이 아니라 `workbook_block_fields` 행으로 저장하세요.** 크리에이터 지표는 이 테이블을 조인해 냅니다.
 - **`workbook_responses.block_id`에는 FK가 없습니다. 의도적입니다.** 크리에이터가 문항을 지워도 독자가 쓴 내용은 남아야 합니다. 정의가 사라진 응답은 `orphanedResponses()`로 분리해 다루세요. `book_id`/`chapter_id`에는 FK CASCADE가 있습니다 — 책·챕터 삭제는 소유자의 명시적 파기로 봅니다.
-- **크리에이터에게 응답 원문을 보여주지 마세요.** RLS상 작성자 본인만 행을 읽습니다. 집계는 `workbook_response_stats()` 함수로만 조회합니다.
+- **크리에이터에게 응답 원문을 보여주지 마세요.** RLS상 작성자 본인만 행을 읽습니다. 집계는 `workbook_response_stats()` 함수로만 조회합니다. 이 함수는 **소유자 본인의 응답을 제외합니다**(마이그레이션 00004) — 미리보기가 리더를 그대로 띄우므로 저자가 확인하며 넣은 입력이 실제 응답 행이 되기 때문입니다. 참여율을 세는 코드를 새로 쓴다면 같은 규칙을 지키세요.
+- **"답했다"의 판정은 한 곳에서 옵니다.** `isAnswered()`(`lib/workbook/responses.ts`)와 `workbook_response_stats()`의 `answered_count`가 같아야 합니다. 어긋나면 독자가 보는 진행률과 저자가 보는 참여율이 달라지고, 어느 쪽이 맞는지 아무도 모르게 됩니다. 둘 다 체크 해제(`false`)는 세지 않습니다.
 - **독자 응답을 DB에 쓸 때는 `PUT /api/books/[bookId]/responses`만 쓰세요.** 리더에서 Supabase를 직접 호출하지 마세요. 리더가 보내는 것은 `(block_id, field_key, 값)`뿐이고, **`chapter_id`와 값 컬럼(`value_text`/`value_number`/`value_bool`)은 서버가 `workbook_block_fields` / `workbook_blocks`에서 읽어 정합니다.** 클라이언트가 정하게 두면 정의가 DB에 없는 블록에 응답이 매달리고(집계에서 조인되지 않아 나중에 원인을 찾을 수 없습니다), 남의 챕터 ID를 실어 보낼 수 있습니다.
 - **응답 저장은 전부 아니면 전무가 아닙니다.** 정의가 없거나 타입이 어긋난 한 건 때문에 배치를 통째로 버리지 마세요 — 같은 화면에서 함께 쓴 멀쩡한 답까지 사라집니다. 빠진 것은 응답의 `rejected`에 실어 리더가 "저장 실패"로 표시하게 하세요.
 - **길이·타입 제약은 DB보다 먼저 검사하세요** (`parseResponseWrites`). CHECK 제약에 걸리면 배치 전체가 실패합니다.
@@ -173,6 +174,19 @@ workbook_responses         독자 응답. (user_id, block_id, field_key) 유일
 - **동기화가 실패해도 챕터 저장을 실패시키지 마세요.** 본문은 이미 저장된 뒤라 여기서 던지면 크리에이터에게는 글이 날아간 것처럼 보입니다. 결과를 응답의 `workbook_sync`에 싣고, 공개 전 검수(`lib/publish-checks.ts`)가 본문과 DB가 어긋난 상태를 차단합니다.
 - **`data-node-id`가 없는 블록에 ID를 만들어 붙이지 마세요.** `extractWorkbookBlocks()`는 그런 블록을 건너뜁니다. 세어야 할 때는 `countWorkbookBlockElements()`를 쓰세요 — 두 수의 차이가 곧 "화면에는 보이지만 응답을 받을 수 없는 블록"이고, 검수가 그것을 차단 사유로 씁니다.
 - 워크북 블록을 추가/변경하면 에디터 Node, 리더 컴포넌트, `lib/sanitize.ts` 허용 목록, `lib/template-fallback.ts`(EPUB/PDF 정적 폴백), `lib/workbook/extract-blocks.ts`의 `BLOCK_TYPE_BY_TEMPLATE` 표, `00001` 스키마의 `block_type` CHECK 제약을 **함께** 확인하세요. `data-template-type` 문자열은 앞의 네 곳이 공유합니다.
+
+## 내보내기 (PDF·EPUB)
+
+M5(2026-08-08)에서 확정했습니다. 여기서 지키는 규칙: **독자가 쓴 답은 사라지지 않고, 깨진 파일이 정상인 척 나가지 않는다.**
+
+- **PDF에 한글을 찍으려면 번들한 폰트가 있어야 합니다.** 내장 Helvetica로는 **렌더가 성공한 채 글자만 깨집니다** — 한 글자가 Latin-1 한 바이트로 매핑돼 엉뚱한 문자와 빈칸이 나옵니다. 예외가 없으니 "PDF가 만들어졌다"는 확인으로는 절대 안 잡힙니다. 등록은 `lib/pdf-fonts.ts`가 하고, 폰트가 없으면 조용히 물러서지 않고 던집니다.
+- **`fontStyle: "italic"`을 쓰지 마세요.** 이탤릭 웨이트를 등록하지 않았고, react-pdf는 해당 스타일 소스를 못 찾으면 렌더 자체를 실패시킵니다. 강조는 색과 선으로 하세요.
+- **PDF에 이모지를 넣지 마세요.** Noto Sans KR에 이모지 글리프가 없습니다. `applyTemplateFallback(html, { emoji: false })`가 콜아웃 앞머리를 `[팁]` 같은 텍스트로 바꿉니다. EPUB은 리더기 폰트를 쓰므로 이모지를 그대로 둡니다.
+- **PDF에 새 문자를 넣으면 `pdf-fallback-glyphs.test.ts`가 먼저 확인합니다.** 폰트에 없는 글자는 예외 없이 조용히 다른 폰트로 새어 엉뚱하게 찍힙니다(실제로 `✓`가 Dingbats라 빠져서 `v`로 나온 적이 있습니다). 커버리지를 넓히려면 `scripts/build-korean-font.sh`의 유니코드 범위를 고치고 다시 만드세요.
+- **폰트를 새로 만들면 두 웨이트의 postscript 이름이 서로 달라야 합니다.** pdfkit이 임베드 폰트를 이름으로 캐시해서, 같으면 Bold가 Regular로 덮이고 굵은 글씨가 조용히 사라집니다. `fonttools varLib.instancer`에 `--update-name-table`이 필수인 이유입니다.
+- **내보내기 권한은 `loadExportSource()` 하나로 판정합니다.** 라우트가 `visibility`/`status`를 직접 보지 마세요 — 그 판정은 구매를 보지 않습니다. 미리보기 권한(`canRead`만 true)으로는 내보내지 않습니다.
+- **정의가 사라진 문항의 답을 버리지 마세요.** `splitAnswers()`가 본문에 남은 문항의 답과 고아를 나눕니다. 고아 중 자유서술만 "저자가 이후 수정한 문항의 답"으로 보여 줍니다 — 문항 문구가 함께 지워져서 `true`나 `7`만으로는 읽히지 않기 때문입니다. 보여 주지 않을 뿐 DB에서 지우지 않습니다.
+- **어떤 문항이 지금 책에 있는지는 챕터 HTML이 정합니다.** 내보내기에서 DB 정의를 다시 읽지 마세요 — 본문과 어긋났을 때 답이 통째로 고아로 분류됩니다 (M3에서 정한 것과 같은 이유).
 
 ## 결제와 접근 제어
 
