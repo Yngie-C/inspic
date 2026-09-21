@@ -8,11 +8,11 @@
 
 **M0~M5 코드 완료. 다음은 M6 (실사용 검증).**
 
-코드 밖으로 남은 것입니다. 전부 배포 환경에서만 할 수 있고, 하기 전까지 배포된 앱은 결제와 내보내기가 절반만 동작합니다.
+코드 밖으로 남은 것입니다. 전부 배포 환경에서만 할 수 있습니다.
 
-- [ ] `supabase/migrations/00003_payment_integrity.sql`을 Supabase에 적용 — **이것 없이는 결제 승인이 구매로 이어지지 않고 첫 챕터 미리보기도 열리지 않습니다**
-- [ ] `supabase/migrations/00004_workbook_stats_exclude_owner.sql`을 Supabase에 적용 — 적용 전에는 크리에이터 참여 지표에 본인 미리보기 응답이 섞입니다
-- [ ] Toss 상점 관리자에 webhook 등록 — `https://<도메인>/api/payments/webhook`
+- [x] `supabase/migrations/00003_payment_integrity.sql`을 Supabase에 적용 (2026-09-01)
+- [x] `supabase/migrations/00004_workbook_stats_exclude_owner.sql`을 Supabase에 적용 (2026-09-01)
+- [ ] Toss 상점 관리자에 webhook 등록 — `https://<도메인>/api/payments/webhook`. **창닫음 시나리오가 이 경로에 걸려 있으므로 테스트 결제보다 먼저입니다**
 - [ ] 테스트 결제로 성공·실패·중복·창닫음 4개 시나리오를 직접 밟기. **M4 게이트의 문구가 이것입니다.** DB·보상 로직은 테스트 35개가 덮고 있지만, 이 저장소의 완료 판정은 "코드가 존재한다"가 아니라 "사용자가 끝까지 통과한다"입니다
 - [ ] 배포본에서 PDF를 한 번 받아 보기. 폰트가 서버리스 번들에 들어가는지는 `next.config.ts`의 `outputFileTracingIncludes`에 달려 있고, 빌드 트레이스로는 확인했지만 실제 배포에서 확인한 것은 아닙니다
 
@@ -370,7 +370,7 @@ M3에서 독자의 답이 계정에 남기 시작했고, M4에서 그 책을 팔
 
 **결과**: 테스트 275 → 320개 통과. typecheck 0 에러, build 통과. lint 에러 10개로 동일 (전부 재구성 이전 부채).
 
-**적용 필요**: `supabase/migrations/00004_workbook_stats_exclude_owner.sql`. 적용 전에는 참여 지표에 저자 본인의 미리보기 응답이 섞입니다.
+**적용 완료**: `supabase/migrations/00004_workbook_stats_exclude_owner.sql` — 2026-09-01.
 
 ### 남긴 것
 
@@ -437,7 +437,9 @@ Font.registerHyphenationCallback((word) => [word]);
 
 ## 이후 마일스톤
 
-M6(실사용 검증) — 본인 콘텐츠 1권 + 저자 2~3명. 위의 "지금 열려 있는 것"을 먼저 비우세요. 마이그레이션 `00003`·`00004`가 적용되지 않은 상태로 실사용자를 받으면 결제와 지표가 둘 다 어긋납니다.
+M6(실사용 검증) — 본인 콘텐츠 1권 + 저자 2~3명. 위의 "지금 열려 있는 것"을 먼저 비우세요. 마이그레이션 `00003`·`00004`는 적용됐고(2026-09-01), 남은 것은 webhook 등록과 결제·PDF 실사용 확인입니다.
+
+마이그레이션 적용 여부는 이력 테이블이 아니라 객체 존재로 판정합니다(SQL 에디터로 적용하면 `supabase_migrations.schema_migrations`에 기록이 남지 않습니다). 지문: `00003` → `void_payment`/`is_book_public`/`book_preview_chapter_id` 함수와 `chapters_select_preview` 정책이 있고 `purchases_insert_own` 정책이 **없을 것**. `00004` → `workbook_response_stats` 본문에 `v_owner_id`가 있을 것.
 
 각 마일스톤의 범위와 게이트는 `README.md` 참조.
 
