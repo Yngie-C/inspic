@@ -99,6 +99,17 @@ export async function GET(): Promise<NextResponse> {
         .eq("visibility", "public"),
     ]);
 
+    // supabase-js는 연결·쿼리 실패를 던지지 않고 error로 돌려줍니다.
+    // 그대로 넘기면 DB에 닿지 못해도 "책 0권"인 정상 응답이 나가서 장애가 가려집니다.
+    const failed = [
+      purchasesResult,
+      newestResult,
+      freeResult,
+      totalBooksResult,
+      authorsResult,
+    ].find((r) => r.error);
+    if (failed?.error) throw failed.error;
+
     // --- Collect all books for batch author lookup ---
     const allRawBooks: Record<string, unknown>[] = [
       ...((newestResult.data ?? []) as Record<string, unknown>[]),

@@ -3,6 +3,13 @@ name: Supabase Keep-Alive
 # Prevents Supabase free-tier project from pausing due to inactivity.
 # Supabase free plan auto-pauses after 1 week of no DB activity.
 # This workflow pings the DB every 5 days, well within the 7-day window.
+#
+# 시크릿 이름은 저장소에 등록된 NEXT_PUBLIC_* 그대로 씁니다. 예전에는
+# SUPABASE_URL을 읽어서 값이 비었고, 6월부터 한 번도 성공하지 못한 채
+# 프로젝트가 일시정지됐습니다.
+#
+# 루트(/rest/v1/)가 아니라 실제 테이블을 조회합니다. DB 활동으로 확실히
+# 잡히고, 공개 책이 없어도 RLS 아래에서 빈 배열과 200이 납니다.
 
 on:
   schedule:
@@ -16,15 +23,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping Supabase REST API
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
         run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_KEY" ]; then
+            echo "::error::NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY 시크릿이 비어 있습니다"
+            exit 1
+          fi
+
           response=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "apikey: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}" \
-            "${{ secrets.SUPABASE_URL }}/rest/v1/")
+            -H "apikey: $SUPABASE_KEY" \
+            "$SUPABASE_URL/rest/v1/books?select=id&limit=1")
 
           echo "HTTP status: $response"
 
           if [ "$response" != "200" ]; then
-            echo "::warning::Unexpected HTTP status $response — keep-alive may have failed"
+            echo "::error::Unexpected HTTP status $response — keep-alive failed"
             exit 1
           fi
 
