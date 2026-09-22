@@ -16,11 +16,6 @@ interface AuthState {
     displayName?: string;
   }) => Promise<{ error?: string }>;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
-  /** `next`는 로그인 후 돌아갈 같은 사이트 경로입니다 (콜백이 검증합니다). */
-  signInWithOAuth: (
-    provider: 'google' | 'kakao',
-    next?: string,
-  ) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   fetchProfile: () => Promise<void>;
 }
@@ -85,21 +80,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       password,
     });
 
-    if (error) return { error: error.message };
-    return {};
-  },
-
-  signInWithOAuth: async (provider, next) => {
-    const supabase = createClient();
-    const callback = new URL("/auth/callback", window.location.origin);
-    if (next) callback.searchParams.set("next", next);
-
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: callback.toString(),
-      },
-    });
     if (error) return { error: error.message };
     return {};
   },
