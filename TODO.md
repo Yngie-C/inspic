@@ -21,9 +21,10 @@
 - [ ] Auth → 이메일 발송: 새 프로젝트는 기본 SMTP입니다. 기본 SMTP는 조직 팀원 주소로만 보내고 시간당 발송량도 작습니다. **OAuth를 걷어내 이메일이 유일한 가입 경로이므로**, 1번의 두 번째 계정부터 여기에 걸립니다. 그 주소를 조직 팀원으로 넣거나 커스텀 SMTP를 붙이세요. 외부 사용자가 들어오는 M6 전에는 커스텀 SMTP가 필수입니다
 - [ ] Vercel env 교체 — `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`. `NEXT_PUBLIC_*`은 빌드 때 번들에 박히므로 **재배포해야 반영됩니다**
 - [ ] 로컬 `.env.local` 교체
-- [ ] GitHub 시크릿 `NEXT_PUBLIC_SUPABASE_URL`·`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` 교체 (keep-alive가 읽음)
+- [x] GitHub 시크릿 `NEXT_PUBLIC_SUPABASE_URL`·`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` 교체 (keep-alive가 읽음) (2026-09-23)
 - [x] keep-alive가 등록된 시크릿(`NEXT_PUBLIC_SUPABASE_*`)을 읽고, 루트가 아니라 `books` 테이블을 조회하도록 수정
-- [ ] main에 반영 후 `gh workflow run supabase-keepalive.yml`로 수동 실행해 `HTTP status: 200` 확인
+- [x] main에 반영 후 `gh workflow run supabase-keepalive.yml`로 수동 실행해 `HTTP status: 200` 확인 (2026-09-23)
+- [x] keep-alive 주기를 5일 → 매일로, curl 실패 시 종료 코드와 원인을 로그에 남기도록
 - [ ] 운영 번들이 새 호스트를 가리키고 `/api/explore`가 200인지 확인
 - [x] `/api/landing`이 쿼리 에러를 삼켜 "책 0권"으로 응답하던 것 — 이번 장애가 첫 화면에서 안 보였던 이유
 

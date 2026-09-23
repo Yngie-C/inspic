@@ -2,7 +2,8 @@ name: Supabase Keep-Alive
 
 # Prevents Supabase free-tier project from pausing due to inactivity.
 # Supabase free plan auto-pauses after 1 week of no DB activity.
-# This workflow pings the DB every 5 days, well within the 7-day window.
+# 공식 문서는 "하루 몇 번의 DB 요청"이면 충분하다고 하므로 매일 조회합니다.
+# 5일 간격은 권장보다 드물었습니다.
 #
 # 시크릿 이름은 저장소에 등록된 NEXT_PUBLIC_* 그대로 씁니다. 예전에는
 # SUPABASE_URL을 읽어서 값이 비었고, 6월부터 한 번도 성공하지 못한 채
@@ -13,8 +14,8 @@ name: Supabase Keep-Alive
 
 on:
   schedule:
-    # Every 5 days at 00:00 UTC
-    - cron: '0 0 */5 * *'
+    # Every day at 00:00 UTC
+    - cron: '0 0 * * *'
   # Allow manual trigger from GitHub Actions UI
   workflow_dispatch:
 
@@ -32,14 +33,24 @@ jobs:
             exit 1
           fi
 
+          # 러너의 bash는 -e라서 curl이 비정상 종료하면 아래 메시지 없이
+          # 스텝이 끝납니다. 종료 코드를 직접 받아 원인을 남깁니다.
+          # 코드 6은 DNS 실패 — 시크릿이 사라진 옛 프로젝트를 가리킬 때입니다.
+          curl_exit=0
           response=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 30 --retry 3 --retry-delay 10 --retry-all-errors \
             -H "apikey: $SUPABASE_KEY" \
-            "$SUPABASE_URL/rest/v1/books?select=id&limit=1")
+            "$SUPABASE_URL/rest/v1/books?select=id&limit=1") || curl_exit=$?
+
+          if [ "$curl_exit" != "0" ]; then
+            echo "::error::curl이 exit $curl_exit 로 실패했습니다 (6: 호스트를 찾지 못함, 7: 연결 실패, 28: 시간 초과). NEXT_PUBLIC_SUPABASE_URL 시크릿이 현재 프로젝트를 가리키는지 확인하세요"
+            exit 1
+          fi
 
           echo "HTTP status: $response"
 
           if [ "$response" != "200" ]; then
-            echo "::error::Unexpected HTTP status $response — keep-alive failed"
+            echo "::error::Unexpected HTTP status $response — keep-alive failed (401이면 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY 시크릿을 확인하세요)"
             exit 1
           fi
 
