@@ -24,10 +24,10 @@ export function BookSection({ title, moreHref, books }: BookSectionProps) {
       transition={{ duration: 0.5 }}
     >
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">{title}</h2>
+        <h2 className="text-xl font-bold text-primary sm:text-2xl">{title}</h2>
         <Link
           href={moreHref}
-          className="flex items-center gap-1 text-sm font-medium text-gray-500 transition-colors hover:text-gray-900"
+          className="flex items-center gap-1 text-sm font-medium text-muted transition-colors hover:text-primary"
         >
           더보기 →
         </Link>

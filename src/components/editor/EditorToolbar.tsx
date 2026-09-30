@@ -50,9 +50,9 @@ function ToolbarButton({
       title={title}
       className={cn(
         "flex h-8 w-8 items-center justify-center rounded transition-colors",
-        "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+        "text-muted hover:bg-mark hover:text-primary",
         "disabled:pointer-events-none disabled:opacity-40",
-        isActive && "bg-gray-900 text-white hover:bg-gray-800 hover:text-white",
+        isActive && "bg-primary text-on-accent hover:bg-primary hover:text-on-accent",
       )}
     >
       {children}
@@ -61,7 +61,7 @@ function ToolbarButton({
 }
 
 function ToolbarDivider() {
-  return <div className="mx-1 h-5 w-px bg-gray-200 shrink-0" />;
+  return <div className="mx-1 h-5 w-px bg-line shrink-0" />;
 }
 
 interface EditorToolbarProps {
@@ -82,7 +82,7 @@ export function EditorToolbar({ editor, onImageUpload }: EditorToolbarProps) {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-0.5 border-b border-gray-200 bg-white px-3 py-2 overflow-x-auto">
+    <div className="flex flex-wrap items-center gap-0.5 border-b border-line bg-paper px-3 py-2 overflow-x-auto">
       {/* Text formatting */}
       <Tooltip label="굵게" shortcut={SHORTCUTS.bold}>
         <ToolbarButton

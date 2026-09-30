@@ -68,7 +68,7 @@ export default function CreatorPage() {
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       {/* Header row */}
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">크리에이터 스튜디오</h1>
+        <h1 className="text-2xl font-bold text-primary">크리에이터 스튜디오</h1>
         <div className="flex items-center gap-2">
           <Button asChild>
             <Link href="/create" className="flex items-center gap-2">
@@ -81,36 +81,36 @@ export default function CreatorPage() {
 
       {/* Stats cards */}
       <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-gray-100 bg-white p-6">
+        <div className="rounded-lg border border-line bg-surface p-6">
           <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-blue-100 p-2">
-              <BookOpen className="h-5 w-5 text-blue-600" />
+            <div className="rounded-lg p-2">
+              <BookOpen className="h-5 w-5 text-info" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">총 작품</p>
-              <p className="text-2xl font-bold text-gray-900">{books.length}권</p>
+              <p className="text-sm text-muted">총 작품</p>
+              <p className="text-2xl font-bold text-primary">{books.length}권</p>
             </div>
           </div>
         </div>
-        <div className="rounded-2xl border border-gray-100 bg-white p-6">
+        <div className="rounded-lg border border-line bg-surface p-6">
           <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-green-100 p-2">
-              <TrendingUp className="h-5 w-5 text-green-600" />
+            <div className="rounded-lg p-2">
+              <TrendingUp className="h-5 w-5 text-success" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">출판 작품</p>
-              <p className="text-2xl font-bold text-gray-900">{publishedBooks.length}권</p>
+              <p className="text-sm text-muted">출판 작품</p>
+              <p className="text-2xl font-bold text-primary">{publishedBooks.length}권</p>
             </div>
           </div>
         </div>
-        <div className="rounded-2xl border border-gray-100 bg-white p-6 col-span-2 sm:col-span-1">
+        <div className="rounded-lg border border-line bg-surface p-6 col-span-2 sm:col-span-1">
           <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-amber-100 p-2">
-              <DollarSign className="h-5 w-5 text-amber-600" />
+            <div className="rounded-lg p-2">
+              <DollarSign className="h-5 w-5 text-warning" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">총 판매액</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm text-muted">총 판매액</p>
+              <p className="text-2xl font-bold text-primary">
                 {totalRevenue.toLocaleString("ko-KR")}원
               </p>
             </div>
@@ -124,18 +124,18 @@ export default function CreatorPage() {
           <Spinner size="lg" />
         </div>
       ) : isError ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center text-red-700">
+        <div className="rounded-lg border border-danger/40 p-8 text-center text-danger">
           콘텐츠 목록을 불러오지 못했습니다.{" "}
           <button onClick={() => refetch()} className="underline">
             다시 시도
           </button>
         </div>
       ) : books.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-gray-200 bg-white py-20 text-center">
-          <BookOpen className="h-16 w-16 text-gray-300" />
+        <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-line bg-surface py-20 text-center">
+          <BookOpen className="h-16 w-16 text-faint" />
           <div>
-            <p className="text-lg font-semibold text-gray-700">아직 콘텐츠가 없습니다</p>
-            <p className="mt-1 text-sm text-gray-400">첫 번째 콘텐츠를 만들어보세요!</p>
+            <p className="text-lg font-semibold text-primary">아직 콘텐츠가 없습니다</p>
+            <p className="mt-1 text-sm text-muted">첫 번째 콘텐츠를 만들어보세요!</p>
           </div>
           <Button asChild>
             <Link href="/create">

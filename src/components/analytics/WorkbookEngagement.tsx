@@ -51,13 +51,13 @@ export function WorkbookEngagementSection({ books }: { books: BookOption[] }) {
   return (
     <div>
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-base font-semibold text-gray-900">워크북 참여</h2>
+        <h2 className="text-base font-semibold text-primary">워크북 참여</h2>
 
         {books.length > 1 && (
           <select
             value={selectedId}
             onChange={(event) => setSelectedId(event.target.value)}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900"
+            className="rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-primary focus:outline-none focus:ring-2 focus:ring-primary"
           >
             {books.map((book) => (
               <option key={book.id} value={book.id}>
@@ -68,7 +68,7 @@ export function WorkbookEngagementSection({ books }: { books: BookOption[] }) {
         )}
       </div>
 
-      <p className="mb-4 flex items-start gap-1.5 text-xs text-gray-400">
+      <p className="mb-4 flex items-start gap-1.5 text-xs text-muted">
         <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
         {/* 이 안내가 없으면 저자가 자기 책을 테스트하고 0을 보고 고장 난 줄 압니다. */}
         본인이 미리보기에서 쓴 답은 집계에서 제외됩니다.
@@ -79,15 +79,15 @@ export function WorkbookEngagementSection({ books }: { books: BookOption[] }) {
           <Spinner />
         </div>
       ) : isError ? (
-        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p className="rounded-lg border border-danger/40 px-4 py-3 text-sm text-danger">
           참여 지표를 불러오지 못했습니다.
         </p>
       ) : !data || data.chapters.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-gray-200 bg-white px-4 py-8 text-center text-sm text-gray-400">
+        <p className="rounded-lg border border-dashed border-line bg-surface px-4 py-8 text-center text-sm text-muted">
           이 책에는 아직 응답을 받을 워크북 블록이 없습니다.
         </p>
       ) : data.engaged_readers === 0 ? (
-        <p className="rounded-xl border border-dashed border-gray-200 bg-white px-4 py-8 text-center text-sm text-gray-400">
+        <p className="rounded-lg border border-dashed border-line bg-surface px-4 py-8 text-center text-sm text-muted">
           아직 답을 쓴 독자가 없습니다.
         </p>
       ) : (
@@ -118,14 +118,14 @@ function EngagementList({ engagement }: { engagement: WorkbookEngagement }) {
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-gray-600">
+      <p className="text-sm text-muted">
         워크북에 답을 쓴 독자{" "}
-        <span className="font-semibold text-gray-900">{peak}명</span>
+        <span className="font-semibold text-primary">{peak}명</span>
       </p>
 
       {engagement.chapters.map((chapter) => (
         <div key={chapter.chapter_id}>
-          <h3 className="mb-2 text-sm font-medium text-gray-500">
+          <h3 className="mb-2 text-sm font-medium text-muted">
             {chapter.title}
           </h3>
 
@@ -139,33 +139,33 @@ function EngagementList({ engagement }: { engagement: WorkbookEngagement }) {
                 <li
                   key={block.block_id}
                   className={cn(
-                    "rounded-xl border bg-white p-3",
-                    isDrop ? "border-amber-300 bg-amber-50" : "border-gray-200",
+                    "rounded-lg border bg-surface p-3",
+                    isDrop ? "border-warning/40" : "border-line",
                   )}
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <span className="flex items-center gap-1.5 text-sm text-gray-700">
+                    <span className="flex items-center gap-1.5 text-sm text-primary">
                       {BLOCK_LABEL[block.block_type] ?? block.block_type}
                       {isDrop && (
-                        <span className="flex items-center gap-1 rounded-full bg-amber-200 px-2 py-0.5 text-xs font-medium text-amber-900">
+                        <span className="flex items-center gap-1 text-xs font-medium text-warning">
                           <TrendingDown className="h-3 w-3" />
                           가장 많이 이탈
                         </span>
                       )}
                     </span>
-                    <span className="shrink-0 text-sm font-medium text-gray-900">
+                    <span className="shrink-0 text-sm font-medium text-primary">
                       {block.answered_readers}명
-                      <span className="ml-1 text-xs font-normal text-gray-400">
+                      <span className="ml-1 text-xs font-normal text-muted">
                         {percent}%
                       </span>
                     </span>
                   </div>
 
-                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-mark">
                     <div
                       className={cn(
                         "h-full rounded-full",
-                        isDrop ? "bg-amber-500" : "bg-gray-900",
+                        isDrop ? "bg-warning" : "bg-primary",
                       )}
                       style={{ width: `${percent}%` }}
                     />
@@ -177,7 +177,7 @@ function EngagementList({ engagement }: { engagement: WorkbookEngagement }) {
                       {block.fields.map((field) => (
                         <li
                           key={field.field_key}
-                          className="flex items-center justify-between gap-3 text-xs text-gray-500"
+                          className="flex items-center justify-between gap-3 text-xs text-muted"
                         >
                           <span className="truncate">
                             {field.label || field.field_key}

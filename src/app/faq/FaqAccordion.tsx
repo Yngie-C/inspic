@@ -20,7 +20,7 @@ export function FaqAccordion({ items }: FaqAccordionProps) {
   };
 
   return (
-    <div className="divide-y divide-gray-200 border-t border-b border-gray-200">
+    <div className="divide-y divide-line border-t border-b border-line">
       {items.map((item, index) => {
         const isOpen = openIndex === index;
         return (
@@ -31,11 +31,11 @@ export function FaqAccordion({ items }: FaqAccordionProps) {
               className="flex w-full items-center justify-between gap-4 py-5 text-left"
               aria-expanded={isOpen}
             >
-              <span className="text-base font-medium text-gray-900">
+              <span className="text-base font-medium text-primary">
                 {item.question}
               </span>
               <ChevronDown
-                className={`h-5 w-5 shrink-0 text-gray-400 transition-transform duration-200 ${
+                className={`h-5 w-5 shrink-0 text-muted transition-transform duration-200 ${
                   isOpen ? "rotate-180" : ""
                 }`}
               />
@@ -45,7 +45,7 @@ export function FaqAccordion({ items }: FaqAccordionProps) {
                 isOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
               }`}
             >
-              <p className="pb-5 text-sm leading-relaxed text-gray-600">
+              <p className="pb-5 text-sm leading-relaxed text-muted">
                 {item.answer}
               </p>
             </div>

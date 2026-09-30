@@ -32,13 +32,13 @@ export function PreviewClient({ bookId, bookTitle, isPublished }: Props) {
 
   if (isTooNarrow) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-gray-50 px-6 text-center">
-        <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm max-w-sm w-full">
-          <Monitor className="mx-auto h-12 w-12 text-gray-300" />
-          <h2 className="mt-4 text-lg font-semibold text-gray-900">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-mark px-6 text-center">
+        <div className="rounded-lg border border-line bg-surface p-8 max-w-sm w-full">
+          <Monitor className="mx-auto h-12 w-12 text-faint" />
+          <h2 className="mt-4 text-lg font-semibold text-primary">
             데스크톱에서 이용해주세요
           </h2>
-          <p className="mt-2 text-sm text-gray-500">
+          <p className="mt-2 text-sm text-muted">
             미리보기 기능은 넓은 화면에서만 사용할 수 있습니다.
           </p>
           <div className="mt-6 flex flex-col gap-2">
@@ -47,7 +47,7 @@ export function PreviewClient({ bookId, bookTitle, isPublished }: Props) {
             </Button>
             <button
               onClick={() => setShowHelp(true)}
-              className="flex items-center justify-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+              className="flex items-center justify-center gap-1.5 text-sm text-muted hover:text-muted transition-colors"
             >
               <HelpCircle className="h-4 w-4" />
               왜 비활성화 되나요?
@@ -57,18 +57,18 @@ export function PreviewClient({ bookId, bookTitle, isPublished }: Props) {
 
         {/* Help modal */}
         {showHelp && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-            <div className="relative max-w-md w-full rounded-2xl bg-white p-6 shadow-xl">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-primary/40 px-4">
+            <div className="relative max-w-md w-full rounded-lg bg-surface p-6 shadow-float">
               <button
                 onClick={() => setShowHelp(false)}
-                className="absolute right-4 top-4 rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                className="absolute right-4 top-4 rounded-lg p-1 text-muted hover:bg-mark hover:text-muted"
               >
                 <X className="h-5 w-5" />
               </button>
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-lg font-semibold text-primary">
                 미리보기 기능 안내
               </h3>
-              <div className="mt-4 space-y-3 text-sm text-gray-600">
+              <div className="mt-4 space-y-3 text-sm text-muted">
                 <p>
                   미리보기는 고객이 보는 화면을 다양한 기기 크기(데스크톱, 태블릿, 모바일)로
                   시뮬레이션하는 기능입니다.
@@ -95,7 +95,7 @@ export function PreviewClient({ bookId, bookTitle, isPublished }: Props) {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-gray-100">
+    <div className="flex h-screen flex-col bg-mark">
       <PreviewToolbar
         bookId={bookId}
         bookTitle={bookTitle}

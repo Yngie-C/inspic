@@ -21,12 +21,12 @@ export function SideNavLayout({ navItems, children }: SideNavLayoutProps) {
   const pathname = usePathname();
 
   return (
-    <div className="flex min-h-screen flex-col bg-white">
+    <div className="flex min-h-screen flex-col bg-paper">
       <Header />
       <div className="flex flex-1">
-        <aside className="hidden w-56 flex-shrink-0 border-r border-gray-200 bg-gray-50/50 lg:block">
+        <aside className="hidden w-56 flex-shrink-0 border-r border-line bg-mark/50 lg:block">
           <nav className="sticky top-16 p-4">
-            <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
+            <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted">
               메뉴
             </p>
             <ul className="space-y-1">
@@ -40,7 +40,7 @@ export function SideNavLayout({ navItems, children }: SideNavLayoutProps) {
                         "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                         isActive
                           ? "bg-mark font-semibold text-primary"
-                          : "text-gray-600 hover:bg-mark hover:text-gray-900",
+                          : "text-muted hover:bg-mark hover:text-primary",
                       )}
                     >
                       <Icon className="h-4 w-4" />

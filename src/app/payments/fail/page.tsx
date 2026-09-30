@@ -12,15 +12,15 @@ export default function PaymentFailPage() {
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
-      <XCircle className="mb-4 h-16 w-16 text-red-400" />
-      <h1 className="text-2xl font-bold text-gray-900">결제 실패</h1>
-      <p className="mt-2 text-sm text-gray-500">{errorMessage}</p>
+      <XCircle className="mb-4 h-16 w-16 text-danger" />
+      <h1 className="text-2xl font-bold text-primary">결제 실패</h1>
+      <p className="mt-2 text-sm text-muted">{errorMessage}</p>
       {errorCode && (
-        <p className="mt-1 text-xs text-gray-400">에러 코드: {errorCode}</p>
+        <p className="mt-1 text-xs text-muted">에러 코드: {errorCode}</p>
       )}
       <div className="mt-6 flex gap-3">
-        <Button className="rounded-full" onClick={() => router.back()}>다시 시도</Button>
-        <Button variant="outline" className="rounded-full" onClick={() => router.push("/explore")}>
+        <Button onClick={() => router.back()}>다시 시도</Button>
+        <Button variant="outline" onClick={() => router.push("/explore")}>
           둘러보기
         </Button>
       </div>

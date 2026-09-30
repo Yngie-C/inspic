@@ -100,8 +100,8 @@ export function PreviewFrame({ bookId, viewport }: Props) {
   return (
     <div ref={containerRef} className="flex flex-1 flex-col items-center px-6 py-6">
       {/* Preview mode banner */}
-      <div className="mb-4 flex items-center gap-2 rounded-full bg-blue-50 px-4 py-2 text-sm text-blue-700">
-        <span className="inline-block h-2 w-2 rounded-full bg-blue-500" />
+      <div className="mb-4 flex items-center gap-2 py-2 text-sm text-info">
+        <span className="inline-block h-2 w-2 rounded-full bg-accent" />
         미리보기 모드 — 고객에게 이렇게 보입니다
       </div>
 
@@ -114,25 +114,25 @@ export function PreviewFrame({ bookId, viewport }: Props) {
             transformOrigin: "top center",
             height: `${(100 / scale) * 0.85}vh`,
           }}
-          className="relative rounded-xl border border-gray-300 bg-white shadow-2xl overflow-hidden"
+          className="relative rounded-lg border border-line-strong bg-surface shadow-float overflow-hidden"
         >
           {/* Loading skeleton */}
           {loading && !error && (
-            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white">
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-surface">
               <div className="space-y-4 w-3/4">
-                <div className="h-8 w-2/3 animate-pulse rounded bg-gray-200" />
-                <div className="h-4 w-1/2 animate-pulse rounded bg-gray-200" />
-                <div className="h-40 w-full animate-pulse rounded bg-gray-200" />
-                <div className="h-4 w-3/4 animate-pulse rounded bg-gray-200" />
+                <div className="h-8 w-2/3 animate-pulse rounded bg-line" />
+                <div className="h-4 w-1/2 animate-pulse rounded bg-line" />
+                <div className="h-40 w-full animate-pulse rounded bg-line" />
+                <div className="h-4 w-3/4 animate-pulse rounded bg-line" />
               </div>
             </div>
           )}
 
           {/* Error state */}
           {error && (
-            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-white">
-              <AlertCircle className="h-10 w-10 text-gray-400" />
-              <p className="text-sm text-gray-500">미리보기를 불러올 수 없습니다.</p>
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-surface">
+              <AlertCircle className="h-10 w-10 text-muted" />
+              <p className="text-sm text-muted">미리보기를 불러올 수 없습니다.</p>
               <Button variant="outline" size="sm" onClick={handleRetry}>
                 <RefreshCw className="h-4 w-4 mr-1.5" />
                 다시 시도

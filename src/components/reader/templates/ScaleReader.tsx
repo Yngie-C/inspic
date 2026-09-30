@@ -1,7 +1,15 @@
 "use client";
 
 import type { Element } from "html-react-parser";
+import {
+  BlockStatusText,
+  WorkbookBlock,
+  scaleCellClass,
+  scaleGridStyle,
+} from "@/components/ui/workbook-block";
+import { describeScale } from "@/lib/workbook/block-status";
 import { SCALE_FIELD_KEY } from "@/lib/workbook/types";
+import { cn } from "@/lib/utils";
 import { registerTemplate } from "./TemplateRenderer";
 import { numberAnswer, useBlockAnswers } from "./useBlockAnswers";
 
@@ -23,30 +31,42 @@ function ScaleReader({ element }: Props) {
   for (let i = min; i <= max; i++) steps.push(i);
 
   return (
-    <section className="template-scale my-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
-      <div className="flex items-center gap-2 flex-wrap">
-        {labelMin && (
-          <span className="text-xs text-gray-500 shrink-0">{labelMin}</span>
-        )}
-        <div className="flex gap-1 flex-wrap">
+    <section className="template-scale">
+      <WorkbookBlock
+        kind="척도"
+        aside={<BlockStatusText status={describeScale(selected)} />}
+      >
+        <div
+          role="group"
+          aria-label={`${min}부터 ${max}까지`}
+          className="grid gap-1 max-[600px]:gap-[3px]"
+          style={scaleGridStyle(steps.length)}
+        >
           {steps.map((val) => (
             <button
               key={val}
-              onClick={() => setAnswer(SCALE_FIELD_KEY, val === selected ? null : val)}
-              className={`w-8 h-8 rounded text-sm font-medium border transition-colors ${
-                selected === val
-                  ? "bg-blue-500 text-white border-blue-500"
-                  : "bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:text-blue-600"
-              }`}
+              type="button"
+              aria-pressed={selected === val}
+              onClick={() =>
+                setAnswer(SCALE_FIELD_KEY, val === selected ? null : val)
+              }
+              className={cn(
+                scaleCellClass(selected === val),
+                "cursor-pointer",
+                selected !== val && "hover:border-line-strong",
+              )}
             >
               {val}
             </button>
           ))}
         </div>
-        {labelMax && (
-          <span className="text-xs text-gray-500 shrink-0">{labelMax}</span>
+        {(labelMin || labelMax) && (
+          <div className="flex justify-between gap-3 text-caption text-muted">
+            <span>{labelMin}</span>
+            <span className="text-right">{labelMax}</span>
+          </div>
         )}
-      </div>
+      </WorkbookBlock>
     </section>
   );
 }

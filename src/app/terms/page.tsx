@@ -7,12 +7,12 @@ export const metadata: Metadata = {
 export default function TermsPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
-      <h1 className="mb-2 text-3xl font-bold text-gray-900">이용약관</h1>
-      <p className="mb-10 text-sm text-gray-500">
+      <h1 className="mb-2 text-3xl font-bold text-primary">이용약관</h1>
+      <p className="mb-10 text-sm text-muted">
         시행일: 2026년 9월 30일 &nbsp;|&nbsp; 최종 수정일: 2026년 9월 30일
       </p>
 
-      <p className="mb-10 text-sm leading-relaxed text-gray-600">
+      <p className="mb-10 text-sm leading-relaxed text-muted">
         본 이용약관은 inspic(이하 &quot;회사&quot;)이 운영하는 디지털 콘텐츠
         플랫폼 <strong>inspic</strong>(이하 &quot;서비스&quot;)의 이용 조건을
         규정합니다. 서비스를 이용하시기 전에 본 약관을 주의 깊게 읽어 주시기
@@ -22,10 +22,10 @@ export default function TermsPage() {
 
       {/* 1. 서비스 이용 조건 */}
       <section className="mb-10">
-        <h2 className="mb-4 text-xl font-semibold text-gray-900">
+        <h2 className="mb-4 text-xl font-semibold text-primary">
           제1조 서비스 이용 조건
         </h2>
-        <div className="space-y-3 text-sm leading-relaxed text-gray-700">
+        <div className="space-y-3 text-sm leading-relaxed text-primary">
           <p>
             1. 본 서비스는 만 14세 이상의 이용자가 이용할 수 있습니다. 만 14세
             미만의 이용자는 법정 대리인의 동의가 있어야 합니다.
@@ -42,7 +42,7 @@ export default function TermsPage() {
           <p>
             4. 이용자는 서비스를 이용하면서 다음의 행위를 해서는 안 됩니다.
           </p>
-          <ul className="ml-4 list-disc space-y-1 text-gray-600">
+          <ul className="ml-4 list-disc space-y-1 text-muted">
             <li>타인의 개인정보 또는 저작물을 무단으로 사용하는 행위</li>
             <li>서비스의 정상적인 운영을 방해하는 행위</li>
             <li>불법적이거나 유해한 콘텐츠를 업로드하거나 배포하는 행위</li>
@@ -59,10 +59,10 @@ export default function TermsPage() {
 
       {/* 2. 콘텐츠 저작권 */}
       <section className="mb-10">
-        <h2 className="mb-4 text-xl font-semibold text-gray-900">
+        <h2 className="mb-4 text-xl font-semibold text-primary">
           제2조 콘텐츠 저작권
         </h2>
-        <div className="space-y-3 text-sm leading-relaxed text-gray-700">
+        <div className="space-y-3 text-sm leading-relaxed text-primary">
           <p>
             1. 크리에이터가 inspic 플랫폼에 업로드한 모든 콘텐츠(전자책, 워크북,
             이미지, 텍스트 등)의 저작권은 해당 콘텐츠를 창작한 크리에이터에게
@@ -92,10 +92,10 @@ export default function TermsPage() {
 
       {/* 3. 디지털 콘텐츠 환불 정책 */}
       <section className="mb-10">
-        <h2 className="mb-4 text-xl font-semibold text-gray-900">
+        <h2 className="mb-4 text-xl font-semibold text-primary">
           제3조 디지털 콘텐츠 환불 정책
         </h2>
-        <div className="space-y-3 text-sm leading-relaxed text-gray-700">
+        <div className="space-y-3 text-sm leading-relaxed text-primary">
           <p>
             1. 「전자상거래 등에서의 소비자보호에 관한 법률」(이하
             &quot;전자상거래법&quot;) 제17조에 따라, 디지털 콘텐츠의 경우 청약
@@ -115,7 +115,7 @@ export default function TermsPage() {
             4. <strong>예외적 환불:</strong> 다음의 경우에는 열람 여부와 관계없이
             환불이 가능합니다.
           </p>
-          <ul className="ml-4 list-disc space-y-1 text-gray-600">
+          <ul className="ml-4 list-disc space-y-1 text-muted">
             <li>콘텐츠가 설명과 현저히 다른 경우</li>
             <li>기술적 결함으로 콘텐츠를 정상적으로 이용할 수 없는 경우</li>
             <li>중복 결제가 발생한 경우</li>
@@ -130,10 +130,10 @@ export default function TermsPage() {
 
       {/* 4. 면책 조항 */}
       <section className="mb-10">
-        <h2 className="mb-4 text-xl font-semibold text-gray-900">
+        <h2 className="mb-4 text-xl font-semibold text-primary">
           제4조 면책 조항
         </h2>
-        <div className="space-y-3 text-sm leading-relaxed text-gray-700">
+        <div className="space-y-3 text-sm leading-relaxed text-primary">
           <p>
             1. 회사는 크리에이터가 서비스에 등록·제공하는 콘텐츠의 정확성,
             완전성, 신뢰성, 적법성에 대해 보증하지 않습니다. 콘텐츠의 내용에
@@ -161,10 +161,10 @@ export default function TermsPage() {
 
       {/* 5. 이용약관 변경 */}
       <section className="mb-10">
-        <h2 className="mb-4 text-xl font-semibold text-gray-900">
+        <h2 className="mb-4 text-xl font-semibold text-primary">
           제5조 이용약관 변경
         </h2>
-        <div className="space-y-3 text-sm leading-relaxed text-gray-700">
+        <div className="space-y-3 text-sm leading-relaxed text-primary">
           <p>
             1. 회사는 관련 법령의 변경, 서비스 정책 변경, 기타 합리적인 사유가
             있는 경우 본 약관을 변경할 수 있습니다.
@@ -186,8 +186,8 @@ export default function TermsPage() {
         </div>
       </section>
 
-      <div className="border-t border-gray-200 pt-8">
-        <p className="text-xs leading-relaxed text-gray-400">
+      <div className="border-t border-line pt-8">
+        <p className="text-xs leading-relaxed text-muted">
           본 이용약관은 대한민국 법률에 따라 규율됩니다. 서비스 이용과 관련한
           분쟁이 발생하는 경우 회사의 소재지를 관할하는 법원을 전속 관할 법원으로
           합니다. 문의사항은 고객센터를 통해 접수해 주세요.

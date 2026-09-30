@@ -143,11 +143,11 @@ export function Tooltip({
               zIndex: 9999,
               pointerEvents: "none",
             }}
-            className="flex items-center gap-1 rounded bg-gray-900 px-2 py-1 text-xs text-white shadow-lg whitespace-nowrap"
+            className="flex items-center gap-1 rounded bg-primary px-2 py-1 text-xs text-on-accent shadow-float whitespace-nowrap"
           >
             <span>{label}</span>
             {shortcut && (
-              <kbd className="ml-1 rounded bg-gray-700 px-1 py-0.5 font-mono text-[10px] text-gray-300">
+              <kbd className="ml-1 rounded bg-primary px-1 py-0.5 font-mono text-[10px] text-faint">
                 {formatShortcut(shortcut)}
               </kbd>
             )}

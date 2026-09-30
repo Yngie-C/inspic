@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { Spinner } from "@/components/ui/spinner";
 import { BookDetailClient } from "./BookDetailClient";
 
 interface Props {
@@ -54,17 +55,11 @@ export default function BookDetailPage() {
   );
 }
 
+// 로딩 뼈대(shimmer) 대신 Spinner를 쓴다 (DESIGN.md Motion).
 function BookDetailSkeleton() {
   return (
-    <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
-      <div className="flex flex-col gap-8 sm:flex-row">
-        <div className="h-72 w-48 animate-pulse rounded-xl bg-gray-200 sm:h-80 sm:w-56" />
-        <div className="flex-1 space-y-4">
-          <div className="h-8 w-2/3 animate-pulse rounded bg-gray-200" />
-          <div className="h-4 w-1/3 animate-pulse rounded bg-gray-200" />
-          <div className="h-20 w-full animate-pulse rounded bg-gray-200" />
-        </div>
-      </div>
+    <div className="flex min-h-[60vh] items-center justify-center text-muted">
+      <Spinner size="lg" />
     </div>
   );
 }

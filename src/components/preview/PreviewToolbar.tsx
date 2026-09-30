@@ -27,7 +27,7 @@ export function PreviewToolbar({
   onViewportChange,
 }: Props) {
   return (
-    <div className="sticky top-0 z-50 flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2.5 shadow-sm">
+    <div className="sticky top-0 z-50 flex items-center justify-between border-b border-line bg-paper px-4 py-2.5">
       {/* Left: back + title */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" asChild>
@@ -36,7 +36,7 @@ export function PreviewToolbar({
             편집으로
           </Link>
         </Button>
-        <span className="hidden text-sm font-medium text-gray-600 sm:block">
+        <span className="hidden text-sm font-medium text-muted sm:block">
           {bookTitle}
         </span>
       </div>
@@ -51,8 +51,8 @@ export function PreviewToolbar({
             className={cn(
               "rounded-lg p-2 transition-colors",
               viewport === key
-                ? "bg-gray-900 text-white"
-                : "text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                ? "bg-primary text-on-accent"
+                : "text-muted hover:bg-mark hover:text-muted"
             )}
           >
             <Icon className="h-4 w-4" />

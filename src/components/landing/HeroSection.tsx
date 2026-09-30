@@ -17,7 +17,7 @@ export function HeroSection({ totalBooks }: { totalBooks?: number }) {
   };
 
   return (
-    <section className="relative overflow-hidden bg-white pt-20 pb-16 md:pt-32 md:pb-24">
+    <section className="relative overflow-hidden bg-paper pt-20 pb-16 md:pt-32 md:pb-24">
       {/* 배경 장식 (심플한 그라데이션 블러) */}
 
       <div className="mx-auto max-w-5xl px-4 text-center">
@@ -26,37 +26,37 @@ export function HeroSection({ totalBooks }: { totalBooks?: number }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          <h1 className="text-5xl font-bold tracking-tight text-gray-900 md:text-7xl">
+          <h1 className="text-5xl font-bold tracking-tight text-primary md:text-7xl">
             읽고, 쓰고, <br />
             <span className="text-accent">적용하세요</span>
           </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-500 md:text-xl">
+          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-muted md:text-xl">
             워크시트와 질문이 담긴 워크북형 전자책. <br className="hidden md:block" />
             읽으면서 직접 쓰고, 쓴 답은 계정에 남습니다.
           </p>
 
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <Button size="lg" className="h-14 px-8 rounded-full text-base" asChild>
+            <Button size="lg" className="h-12 px-6" asChild>
               <Link href="/explore">
                 콘텐츠 둘러보기 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
             </Button>
 
             <form onSubmit={handleSearch} className="relative w-full max-w-sm">
-              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
               <input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="관심 있는 주제 검색..."
-                className="h-14 w-full rounded-full border border-gray-200 bg-gray-50 pl-12 pr-6 text-sm outline-none transition-all focus:border-field-line focus:bg-white focus:outline-2 focus:outline-offset-1 focus:outline-accent"
+                className="h-12 w-full rounded-md border border-field-line bg-field pl-12 pr-6 text-sm outline-none transition-all focus:border-field-line focus:bg-surface focus:outline-2 focus:outline-offset-1 focus:outline-accent"
               />
             </form>
           </div>
 
           {totalBooks != null && (
-            <p className="mt-6 text-sm font-medium text-gray-400">
-              이미 <span className="text-gray-900">{totalBooks.toLocaleString()}권</span>의 이야기가 출판되었습니다.
+            <p className="mt-6 text-sm font-medium text-muted">
+              이미 <span className="text-primary">{totalBooks.toLocaleString()}권</span>의 이야기가 출판되었습니다.
             </p>
           )}
         </motion.div>

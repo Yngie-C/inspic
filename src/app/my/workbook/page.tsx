@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import Image from "next/image";
 import { BookOpen, FileText, Loader2, PenLine } from "lucide-react";
+import { BookCover } from "@/components/ui/book-cover";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuthStore } from "@/stores/auth-store";
@@ -60,14 +60,14 @@ export default function MyWorkbookPage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
       <div className="mb-2">
-        <h1 className="text-2xl font-bold text-gray-900">내 워크북</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-2xl font-bold text-primary">내 워크북</h1>
+        <p className="mt-1 text-sm text-muted">
           답을 쓴 책이 모입니다. PDF로 받으면 내가 쓴 내용이 그대로 담깁니다.
         </p>
       </div>
 
       {error && (
-        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="mt-4 rounded-lg border border-danger/40 px-4 py-3 text-sm text-danger">
           {error}
         </div>
       )}
@@ -78,20 +78,20 @@ export default function MyWorkbookPage() {
             <Spinner size="lg" />
           </div>
         ) : isError ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center text-red-700">
+          <div className="rounded-lg border border-danger/40 p-8 text-center text-body-sm text-danger">
             워크북 목록을 불러오지 못했습니다.{" "}
             <button onClick={() => refetch()} className="underline">
               다시 시도
             </button>
           </div>
         ) : workbooks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-gray-200 bg-white py-20 text-center">
-            <PenLine className="h-16 w-16 text-gray-300" />
+          <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-line py-20 text-center">
+            <PenLine className="h-16 w-16 text-faint" />
             <div>
-              <p className="text-lg font-semibold text-gray-700">
+              <p className="text-lg font-semibold text-primary">
                 아직 쓴 답이 없습니다
               </p>
-              <p className="mt-1 text-sm text-gray-400">
+              <p className="mt-1 text-sm text-muted">
                 책을 읽으며 워크북에 답을 쓰면 여기 모입니다.
               </p>
             </div>
@@ -100,7 +100,7 @@ export default function MyWorkbookPage() {
             </Button>
           </div>
         ) : (
-          <ul className="flex flex-col gap-3">
+          <ul className="flex flex-col border-t border-line">
             {workbooks.map((workbook) => (
               <WorkbookRow
                 key={workbook.book_id}
@@ -131,55 +131,47 @@ function WorkbookRow({
   const percent = total > 0 ? Math.round((answered / total) * 100) : 0;
 
   return (
-    <li className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
-      <div className="relative h-20 w-15 shrink-0 overflow-hidden rounded-lg bg-gray-100">
-        {workbook.cover_image_url ? (
-          <Image
-            src={workbook.cover_image_url}
-            alt={workbook.title}
-            fill
-            className="object-cover"
-            sizes="60px"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-300 to-gray-400">
-            <span className="text-2xl font-bold text-white/80 select-none">
-              {workbook.title.charAt(0).toUpperCase()}
-            </span>
-          </div>
-        )}
+    <li className="flex items-center gap-4 border-b border-line py-4">
+      <div className="relative h-20 w-15 shrink-0 overflow-hidden rounded-sm border border-primary/10">
+        <BookCover
+          bookId={workbook.book_id}
+          title={workbook.title}
+          coverImageUrl={workbook.cover_image_url}
+          sizes="60px"
+          size="sm"
+          className="p-1.5 [&>span:first-child]:text-[10px] [&>span:first-child]:leading-tight [&>span:last-child]:hidden"
+        />
       </div>
 
       <div className="min-w-0 flex-1">
-        <h2 className="truncate font-semibold text-gray-900">{workbook.title}</h2>
+        <h2 className="truncate text-subtitle text-primary">{workbook.title}</h2>
         {workbook.author_name && (
-          <p className="truncate text-xs text-gray-500">{workbook.author_name}</p>
+          <p className="truncate text-caption text-muted">{workbook.author_name}</p>
         )}
 
         <div className="mt-2 flex items-center gap-2">
-          <div className="h-1.5 w-full max-w-40 overflow-hidden rounded-full bg-gray-100">
+          <div className="h-0.5 w-full max-w-40 overflow-hidden bg-line">
             <div
               className={cn(
-                "h-full rounded-full transition-all",
-                percent === 100 ? "bg-emerald-500" : "bg-gray-900",
+                "h-full bg-accent",
               )}
               style={{ width: `${percent}%` }}
             />
           </div>
-          <span className="shrink-0 text-xs text-gray-500">
+          <span className={cn("shrink-0 text-caption tabular-nums", percent === 100 ? "font-semibold text-accent" : "text-muted")}>
             {total > 0 ? `${answered}/${total} 문항` : "문항 없음"}
           </span>
         </div>
 
         {workbook.last_written_at && (
-          <p className="mt-1.5 text-xs text-gray-400">
+          <p className="mt-1.5 text-caption text-muted">
             {new Date(workbook.last_written_at).toLocaleDateString("ko-KR")}에 마지막으로 씀
           </p>
         )}
       </div>
 
       <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
-        <Button size="sm" variant="outline" asChild>
+        <Button size="sm" variant="secondary" asChild>
           <Link href={`/reader/${workbook.book_id}`}>
             <BookOpen className="mr-1 h-3.5 w-3.5" />
             이어 쓰기

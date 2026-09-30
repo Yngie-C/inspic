@@ -1,6 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { BlockAnswers } from "@/lib/workbook/response-cache";
+import { describeSave, type BlockStatus } from "@/lib/workbook/block-status";
+import type { useBlockResponses } from "../WorkbookResponsesProvider";
 
 export { useBlockResponses as useBlockAnswers } from "../WorkbookResponsesProvider";
 
@@ -31,4 +34,37 @@ export function numberAnswer(
 /** 참/거짓 응답을 꺼냅니다. 미응답이면 false. */
 export function boolAnswer(answers: BlockAnswers, fieldKey: string): boolean {
   return answers[fieldKey] === true;
+}
+
+/** 값이 하나라도 채워졌는가. 빈 문자열·false·null은 답이 아닙니다. */
+export function hasAnyAnswer(answers: BlockAnswers): boolean {
+  return Object.values(answers).some(
+    (value) => value !== null && value !== false && value !== "",
+  );
+}
+
+/**
+ * 글로 답하는 블록(성찰·목표)의 머리 줄 상태. "저장됨 · 3분 전"이
+ * 흘러가도록 저장한 뒤에는 30초마다 다시 셉니다.
+ */
+export function useSaveStatus(
+  block: ReturnType<typeof useBlockResponses>,
+): BlockStatus {
+  const { savedAt, pending } = block.save;
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (savedAt === null) return;
+    const timer = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, [savedAt]);
+
+  return describeSave({
+    hasAnswer: hasAnyAnswer(block.answers),
+    pending,
+    savedAt,
+    failed: block.saveState === "error",
+    // 저장 직후에는 now가 savedAt보다 이를 수 있습니다. 그때는 "방금"입니다.
+    now: Math.max(now, savedAt ?? 0),
+  });
 }

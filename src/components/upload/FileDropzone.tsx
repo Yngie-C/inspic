@@ -90,40 +90,40 @@ export function FileDropzone({
         onDrop={onDrop}
         onClick={() => !selectedFile && inputRef.current?.click()}
         className={cn(
-          "flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-12 text-center transition-colors",
+          "flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-12 text-center transition-colors",
           isDragging
-            ? "border-gray-900 bg-gray-50"
-            : "border-gray-300 bg-white hover:border-gray-400",
+            ? "border-primary bg-mark"
+            : "border-line-strong bg-surface hover:border-line-strong",
           !selectedFile && "cursor-pointer",
         )}
       >
         {selectedFile ? (
           <div className="flex items-center gap-3">
-            <File className="h-8 w-8 text-gray-600" />
+            <File className="h-8 w-8 text-muted" />
             <div className="text-left">
-              <p className="font-medium text-gray-900">{selectedFile.name}</p>
-              <p className="text-sm text-gray-400">
+              <p className="font-medium text-primary">{selectedFile.name}</p>
+              <p className="text-sm text-muted">
                 {(selectedFile.size / 1024).toFixed(1)} KB
               </p>
             </div>
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); clearFile(); }}
-              className="ml-2 rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              className="ml-2 rounded-sm p-1 text-muted hover:bg-mark hover:text-muted"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
         ) : (
           <>
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
-              <Upload className="h-7 w-7 text-gray-500" />
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-mark">
+              <Upload className="h-7 w-7 text-muted" />
             </div>
             <div>
-              <p className="font-medium text-gray-900">
+              <p className="font-medium text-primary">
                 파일을 드래그하거나 클릭하여 업로드
               </p>
-              <p className="mt-1 text-sm text-gray-400">
+              <p className="mt-1 text-sm text-muted">
                 {accept.join(", ")} 지원 &middot; TXT/MD 최대 5MB, DOCX 최대 {maxSizeMB}MB
               </p>
             </div>
@@ -132,7 +132,7 @@ export function FileDropzone({
       </div>
 
       {error && (
-        <p className="text-sm text-red-600">{error}</p>
+        <p className="text-sm text-danger">{error}</p>
       )}
 
       <input

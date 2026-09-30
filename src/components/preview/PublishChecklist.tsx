@@ -84,14 +84,14 @@ export function PublishChecklist({ bookId, isPublished }: Props) {
   };
 
   return (
-    <aside className="flex w-80 shrink-0 flex-col border-l border-gray-200 bg-white">
-      <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-        <h2 className="text-sm font-semibold text-gray-900">공개 전 검수</h2>
+    <aside className="flex w-80 shrink-0 flex-col border-l border-line bg-paper">
+      <div className="flex items-center justify-between border-b border-line px-5 py-4">
+        <h2 className="text-sm font-semibold text-primary">공개 전 검수</h2>
         <button
           type="button"
           onClick={() => refetch()}
           disabled={isFetching}
-          className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-40"
+          className="rounded-lg p-1.5 text-muted hover:bg-mark hover:text-primary disabled:opacity-40"
           title="다시 검사"
         >
           <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
@@ -106,7 +106,7 @@ export function PublishChecklist({ bookId, isPublished }: Props) {
         )}
 
         {error && (
-          <p className="text-sm text-red-600">
+          <p className="text-sm text-danger">
             검수 결과를 불러오지 못했습니다.
           </p>
         )}
@@ -114,9 +114,9 @@ export function PublishChecklist({ bookId, isPublished }: Props) {
         {data && (
           <div className="space-y-4">
             {data.blockers.length === 0 && data.warnings.length === 0 && (
-              <div className="flex items-start gap-2.5 rounded-lg bg-green-50 p-3">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
-                <p className="text-sm text-green-800">
+              <div className="flex items-start gap-2.5 rounded-lg p-3">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                <p className="text-sm text-success">
                   확인할 항목이 없습니다. 공개할 준비가 됐습니다.
                 </p>
               </div>
@@ -132,11 +132,11 @@ export function PublishChecklist({ bookId, isPublished }: Props) {
         )}
       </div>
 
-      <div className="space-y-2 border-t border-gray-100 px-5 py-4">
-        {publishError && <p className="text-xs text-red-600">{publishError}</p>}
+      <div className="space-y-2 border-t border-line px-5 py-4">
+        {publishError && <p className="text-xs text-danger">{publishError}</p>}
 
         {isPublished ? (
-          <p className="text-center text-sm text-gray-500">이미 공개된 책입니다.</p>
+          <p className="text-center text-sm text-muted">이미 공개된 책입니다.</p>
         ) : (
           <>
             <Button
@@ -148,7 +148,7 @@ export function PublishChecklist({ bookId, isPublished }: Props) {
               공개하기
             </Button>
             {data && !data.can_publish && (
-              <p className="text-center text-xs text-gray-400">
+              <p className="text-center text-xs text-muted">
                 차단 항목 {data.blockers.length}개를 해결해야 공개할 수 있습니다.
               </p>
             )}
@@ -165,26 +165,26 @@ function CheckItem({ check }: { check: PublishCheck }) {
   return (
     <div
       className={`rounded-lg border p-3 ${
-        isBlocker ? "border-red-200 bg-red-50" : "border-amber-200 bg-amber-50"
+        isBlocker ? "border-danger/40" : "border-warning/40"
       }`}
     >
       <div className="flex items-start gap-2.5">
         {isBlocker ? (
-          <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+          <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
         ) : (
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
         )}
         <div className="min-w-0">
           <p
             className={`text-sm font-medium ${
-              isBlocker ? "text-red-900" : "text-amber-900"
+              isBlocker ? "text-danger" : "text-warning"
             }`}
           >
             {check.title}
           </p>
           <p
             className={`mt-1 text-xs leading-relaxed ${
-              isBlocker ? "text-red-700" : "text-amber-700"
+              isBlocker ? "text-danger" : "text-warning"
             }`}
           >
             {check.detail}

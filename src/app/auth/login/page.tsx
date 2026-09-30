@@ -48,7 +48,7 @@ export default function LoginPage() {
 
   return (
     <div className="relative">
-      <Card className="rounded-2xl border border-gray-100 shadow-sm">
+      <Card className="rounded-lg border border-line">
         <CardHeader>
           <CardTitle className="text-2xl">로그인</CardTitle>
           <CardDescription>inspic 계정으로 로그인하세요.</CardDescription>
@@ -56,7 +56,7 @@ export default function LoginPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             {error && (
-              <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 border border-red-200">
+              <div className="rounded-lg px-4 py-3 text-sm text-danger border border-danger/40">
                 {error}
               </div>
             )}
@@ -68,7 +68,6 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
-              className="rounded-full"
             />
             <Input
               label="비밀번호"
@@ -78,17 +77,16 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="current-password"
-              className="rounded-full"
             />
-            <Button type="submit" isLoading={isLoading} className="w-full mt-2 rounded-full">
+            <Button type="submit" isLoading={isLoading} className="w-full mt-2">
               로그인
             </Button>
           </form>
         </CardContent>
         <CardFooter className="justify-center">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted">
             계정이 없으신가요?{" "}
-            <Link href="/auth/signup" className="font-medium text-gray-900 hover:underline">
+            <Link href="/auth/signup" className="font-medium text-primary hover:underline">
               회원가입
             </Link>
           </p>

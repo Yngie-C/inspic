@@ -130,35 +130,35 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
     <div className="flex flex-col gap-6">
       {/* Cover image */}
       <div>
-        <label className="mb-2 block text-sm font-medium text-gray-700">표지 이미지</label>
+        <label className="mb-2 block text-sm font-medium text-primary">표지 이미지</label>
         <div className="relative">
           {coverUrl ? (
-            <div className="group relative w-full overflow-hidden rounded-lg border border-gray-200">
+            <div className="group relative w-full overflow-hidden rounded-lg border border-line">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={coverUrl}
                 alt="표지 이미지"
                 className="h-48 w-full object-cover"
               />
-              <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/0 transition-colors group-hover:bg-black/40">
+              <div className="absolute inset-0 flex items-center justify-center gap-2 bg-primary/0 transition-colors duration-150 ease-out group-hover:bg-primary/40">
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="hidden rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-gray-900 shadow group-hover:flex"
+                  className="hidden rounded-lg bg-surface px-3 py-1.5 text-xs font-medium text-primary group-hover:flex"
                 >
                   교체
                 </button>
                 <button
                   type="button"
                   onClick={handleRemoveCover}
-                  className="hidden rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white shadow group-hover:flex"
+                  className="hidden rounded-lg bg-danger px-3 py-1.5 text-xs font-medium text-on-accent group-hover:flex"
                 >
                   삭제
                 </button>
               </div>
               {coverUploading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-white/70">
-                  <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
+                <div className="absolute inset-0 flex items-center justify-center bg-surface/70">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted" />
                 </div>
               )}
             </div>
@@ -171,27 +171,27 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
               className={cn(
                 "flex h-40 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed transition-colors",
                 isDragging
-                  ? "border-gray-900 bg-gray-50"
-                  : "border-gray-300 hover:border-gray-400 hover:bg-gray-50",
+                  ? "border-primary bg-mark"
+                  : "border-line-strong hover:border-line-strong hover:bg-mark",
                 coverUploading && "pointer-events-none opacity-60",
               )}
             >
               {coverUploading ? (
-                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                <Loader2 className="h-8 w-8 animate-spin text-muted" />
               ) : (
                 <>
-                  <ImageIcon className="h-8 w-8 text-gray-400" />
+                  <ImageIcon className="h-8 w-8 text-muted" />
                   <div className="text-center">
-                    <p className="text-sm font-medium text-gray-600">표지 이미지 업로드</p>
-                    <p className="text-xs text-gray-400">JPEG, PNG, WebP · 최대 5MB</p>
-                    <p className="text-xs text-gray-400">드래그하거나 클릭하세요</p>
+                    <p className="text-sm font-medium text-muted">표지 이미지 업로드</p>
+                    <p className="text-xs text-muted">JPEG, PNG, WebP · 최대 5MB</p>
+                    <p className="text-xs text-muted">드래그하거나 클릭하세요</p>
                   </div>
                 </>
               )}
             </div>
           )}
         </div>
-        {coverError && <p className="mt-1.5 text-xs text-red-600">{coverError}</p>}
+        {coverError && <p className="mt-1.5 text-xs text-danger">{coverError}</p>}
         <input
           ref={fileInputRef}
           type="file"
@@ -203,37 +203,37 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
 
       {/* Title */}
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-gray-700">
-          제목 <span className="text-red-500">*</span>
+        <label className="mb-1.5 block text-sm font-medium text-primary">
+          제목 <span className="text-danger">*</span>
         </label>
         <input
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="콘텐츠 제목을 입력하세요"
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+          className="w-full rounded-lg border border-line-strong px-3 py-2 text-sm text-primary placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
         />
       </div>
 
       {/* Description */}
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-gray-700">소개</label>
+        <label className="mb-1.5 block text-sm font-medium text-primary">소개</label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="콘텐츠 소개를 입력하세요"
           rows={4}
-          className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+          className="w-full resize-none rounded-lg border border-line-strong px-3 py-2 text-sm text-primary placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
         />
       </div>
 
       {/* Language */}
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-gray-700">언어</label>
+        <label className="mb-1.5 block text-sm font-medium text-primary">언어</label>
         <select
           value={language}
           onChange={(e) => setLanguage(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+          className="w-full rounded-lg border border-line-strong px-3 py-2 text-sm text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
         >
           {LANGUAGE_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -245,7 +245,7 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
 
       {/* Visibility */}
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-gray-700">공개 설정</label>
+        <label className="mb-1.5 block text-sm font-medium text-primary">공개 설정</label>
         <div className="flex flex-col gap-2">
           {VISIBILITY_OPTIONS.map((opt) => (
             <label
@@ -253,8 +253,8 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
               className={cn(
                 "flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors",
                 visibility === opt.value
-                  ? "border-gray-900 bg-gray-50"
-                  : "border-gray-200 hover:border-gray-300",
+                  ? "border-primary bg-mark"
+                  : "border-line hover:border-line-strong",
               )}
             >
               <input
@@ -263,11 +263,11 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
                 value={opt.value}
                 checked={visibility === opt.value}
                 onChange={() => setVisibility(opt.value)}
-                className="mt-0.5 h-4 w-4 accent-gray-900"
+                className="mt-0.5 h-4 w-4 accent-primary"
               />
               <div>
-                <p className="text-sm font-medium text-gray-900">{opt.label}</p>
-                <p className="text-xs text-gray-500">{opt.description}</p>
+                <p className="text-sm font-medium text-primary">{opt.label}</p>
+                <p className="text-xs text-muted">{opt.description}</p>
               </div>
             </label>
           ))}
@@ -275,9 +275,9 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
       </div>
 
       {/* Status display */}
-      <div className="rounded-lg bg-gray-50 px-3 py-2">
-        <span className="text-xs text-gray-500">상태: </span>
-        <span className="text-xs font-medium text-gray-700">
+      <div className="rounded-lg bg-mark px-3 py-2">
+        <span className="text-xs text-muted">상태: </span>
+        <span className="text-xs font-medium text-primary">
           {book.status === "draft" && "초안"}
           {book.status === "processing" && "처리 중"}
           {book.status === "published" && "출판됨"}
@@ -285,7 +285,7 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
         </span>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
       <Button onClick={handleSave} isLoading={saving} disabled={saving}>
         {saved ? "저장됨" : "저장"}

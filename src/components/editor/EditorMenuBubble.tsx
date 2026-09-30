@@ -24,8 +24,8 @@ function BubbleButton({ onClick, isActive, title, children }: BubbleButtonProps)
       title={title}
       className={cn(
         "flex h-7 w-7 items-center justify-center rounded transition-colors",
-        "text-gray-700 hover:bg-gray-100",
-        isActive && "bg-gray-900 text-white hover:bg-gray-800",
+        "text-primary hover:bg-mark",
+        isActive && "bg-primary text-on-accent hover:bg-primary",
       )}
     >
       {children}
@@ -123,7 +123,7 @@ export function EditorMenuBubble({ editor }: EditorMenuBubbleProps) {
     <div
       ref={menuRef}
       style={{ top: pos.top, left: pos.left, scrollbarWidth: "none", msOverflowStyle: "none" }}
-      className="fixed z-50 rounded-lg border border-gray-200 bg-white px-1.5 py-1 shadow-md overflow-x-auto [&::-webkit-scrollbar]:hidden"
+      className="fixed z-50 rounded-lg border border-line bg-surface px-1.5 py-1 overflow-x-auto [&::-webkit-scrollbar]:hidden"
     >
       <div className="flex items-center gap-0.5">
         <Tooltip label="굵게" shortcut={SHORTCUTS.bold} side="top">
@@ -162,7 +162,7 @@ export function EditorMenuBubble({ editor }: EditorMenuBubbleProps) {
             <Code2 className="h-3.5 w-3.5" />
           </BubbleButton>
         </Tooltip>
-        <div className="mx-0.5 h-4 w-px bg-gray-200 shrink-0" />
+        <div className="mx-0.5 h-4 w-px bg-line shrink-0" />
         <Tooltip label="링크" shortcut={SHORTCUTS.link} side="top">
           <BubbleButton
             onClick={addLink}
@@ -173,7 +173,7 @@ export function EditorMenuBubble({ editor }: EditorMenuBubbleProps) {
           </BubbleButton>
         </Tooltip>
         {/* Block format divider */}
-        <div className="mx-0.5 h-4 w-px bg-gray-200 shrink-0" />
+        <div className="mx-0.5 h-4 w-px bg-line shrink-0" />
         {/* Block format buttons */}
         <Tooltip label="제목 1" shortcut={SHORTCUTS.heading1} side="top">
           <BubbleButton

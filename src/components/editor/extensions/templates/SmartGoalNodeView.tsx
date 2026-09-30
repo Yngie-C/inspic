@@ -1,4 +1,5 @@
 import { NodeViewWrapper } from "@tiptap/react";
+import { BlockQuestion, WorkbookBlock } from "@/components/ui/workbook-block";
 import { SMART_GOAL_FIELDS } from "@/lib/workbook/types";
 
 /**
@@ -7,19 +8,25 @@ import { SMART_GOAL_FIELDS } from "@/lib/workbook/types";
 export function SmartGoalNodeView() {
   return (
     <NodeViewWrapper className="template-smart-goal" data-template-type="smart-goal">
-      <div className="my-2 rounded-lg border border-gray-200 bg-white p-4">
-        <h3 className="mb-3 text-sm font-bold text-gray-700">SMART 목표 설정</h3>
-        <div className="flex flex-col gap-3">
+      <WorkbookBlock
+        kind="목표"
+        aside={<span className="text-caption text-muted">독자가 작성</span>}
+      >
+        <BlockQuestion>SMART 목표를 세워 보세요</BlockQuestion>
+        <div className="flex flex-col gap-4">
           {SMART_GOAL_FIELDS.map(({ key, label }) => (
-            <div key={key} className="flex flex-col gap-1">
-              <span className="text-sm font-bold uppercase text-gray-700">{key}</span>
-              <p className="text-xs text-gray-400">{label}</p>
-              <div className="min-h-[60px] rounded border border-dashed border-gray-200 bg-gray-50" />
+            <div key={key} className="flex flex-col gap-1.5">
+              <span className="text-caption text-muted">
+                <span className="mr-1.5 font-bold text-primary">
+                  {key.toUpperCase()}
+                </span>
+                {label}
+              </span>
+              <div className="h-14 rounded-md border border-field-line bg-field" />
             </div>
           ))}
         </div>
-        <p className="mt-3 text-xs text-gray-400">독자가 작성하는 칸입니다.</p>
-      </div>
+      </WorkbookBlock>
     </NodeViewWrapper>
   );
 }

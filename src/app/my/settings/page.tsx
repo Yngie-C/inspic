@@ -68,14 +68,14 @@ export default function SettingsPage() {
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-12 sm:px-6">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">설정</h1>
-        <p className="mt-1 text-gray-500">프로필 정보를 수정하세요.</p>
+        <h1 className="text-2xl font-bold text-primary">설정</h1>
+        <p className="mt-1 text-muted">프로필 정보를 수정하세요.</p>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
+      <div className="rounded-lg border border-line bg-surface p-8">
         {/* Avatar preview */}
         <div className="mb-6 flex items-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-gray-900 text-xl font-bold text-white">
+          <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-primary text-xl font-bold text-on-accent">
             {avatarUrl ? (
               <img
                 src={avatarUrl}
@@ -87,21 +87,21 @@ export default function SettingsPage() {
             )}
           </div>
           <div>
-            <p className="font-medium text-gray-900">
+            <p className="font-medium text-primary">
               {displayName || user?.email?.split("@")[0] || "사용자"}
             </p>
-            <p className="text-sm text-gray-400">{user?.email}</p>
+            <p className="text-sm text-muted">{user?.email}</p>
           </div>
         </div>
 
         <form onSubmit={handleSave} className="flex flex-col gap-5">
           {error && (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="rounded-lg border border-danger/40 px-4 py-3 text-sm text-danger">
               {error}
             </div>
           )}
           {success && (
-            <div className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+            <div className="flex items-center gap-2 rounded-lg border border-success/40 px-4 py-3 text-sm text-success">
               <Check className="h-4 w-4" />
               저장되었습니다.
             </div>
@@ -116,13 +116,13 @@ export default function SettingsPage() {
           />
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-gray-700">소개</label>
+            <label className="text-sm font-medium text-primary">소개</label>
             <textarea
               placeholder="자신을 소개해주세요"
               value={bio}
               onChange={(e) => setBio(e.target.value)}
               rows={3}
-              className="w-full resize-none rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 transition-colors focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/20"
+              className="w-full resize-none rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-primary placeholder:text-muted transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
           </div>
 

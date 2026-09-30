@@ -2,9 +2,16 @@
 
 import { useEffect, useRef } from "react";
 import type { Element } from "html-react-parser";
+import {
+  BlockQuestion,
+  BlockStatusText,
+  WorkbookBlock,
+  blockFieldClass,
+} from "@/components/ui/workbook-block";
 import { SMART_GOAL_FIELDS } from "@/lib/workbook/types";
+import { cn } from "@/lib/utils";
 import { registerTemplate } from "./TemplateRenderer";
-import { textAnswer, useBlockAnswers } from "./useBlockAnswers";
+import { textAnswer, useBlockAnswers, useSaveStatus } from "./useBlockAnswers";
 
 interface Props {
   element: Element;
@@ -12,26 +19,30 @@ interface Props {
 
 function SmartGoalReader({ element }: Props) {
   const blockId = element.attribs["data-node-id"] || "";
-  const { answers, setAnswer } = useBlockAnswers(blockId);
+  const block = useBlockAnswers(blockId);
+  const status = useSaveStatus(block);
 
   return (
-    <section className="template-smart-goal my-4 p-4 border border-blue-200 rounded-lg bg-blue-50">
-      <h3 className="text-sm font-bold text-blue-800 mb-3">SMART 목표 설정</h3>
-      <div className="flex flex-col gap-3">
-        {SMART_GOAL_FIELDS.map(({ key, label }) => (
-          <div key={key}>
-            <div className="flex items-baseline gap-2 mb-1">
-              <span className="font-bold text-blue-700 text-base uppercase">{key}</span>
-              <span className="text-xs text-gray-500">{label}</span>
-            </div>
-            <AutoResizeTextarea
-              value={textAnswer(answers, key)}
-              onChange={(next) => setAnswer(key, next)}
-              placeholder={`${key.toUpperCase()} 항목을 입력하세요...`}
-            />
-          </div>
-        ))}
-      </div>
+    <section className="template-smart-goal">
+      <WorkbookBlock kind="목표" aside={<BlockStatusText status={status} />}>
+        <BlockQuestion>SMART 목표를 세워 보세요</BlockQuestion>
+        <div className="flex flex-col gap-4">
+          {SMART_GOAL_FIELDS.map(({ key, label }) => (
+            <label key={key} className="flex flex-col gap-1.5">
+              <span className="text-caption text-muted">
+                <span className="mr-1.5 font-bold text-primary">
+                  {key.toUpperCase()}
+                </span>
+                {label}
+              </span>
+              <AutoResizeTextarea
+                value={textAnswer(block.answers, key)}
+                onChange={(next) => block.setAnswer(key, next)}
+              />
+            </label>
+          ))}
+        </div>
+      </WorkbookBlock>
     </section>
   );
 }
@@ -39,11 +50,9 @@ function SmartGoalReader({ element }: Props) {
 function AutoResizeTextarea({
   value,
   onChange,
-  placeholder,
 }: {
   value: string;
   onChange: (v: string) => void;
-  placeholder: string;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
 
@@ -57,10 +66,9 @@ function AutoResizeTextarea({
   return (
     <textarea
       ref={ref}
-      className="w-full resize-none overflow-hidden rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300"
+      className={cn(blockFieldClass, "resize-none overflow-hidden")}
       rows={2}
       value={value}
-      placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
     />
   );

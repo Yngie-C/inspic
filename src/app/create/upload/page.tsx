@@ -78,22 +78,22 @@ function UploadContent() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-white">
+    <div className="flex min-h-screen flex-col bg-paper">
       <Header />
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-12 sm:px-6">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">파일 업로드</h1>
-          <p className="mt-2 text-gray-500">
+          <h1 className="text-3xl font-bold text-primary">파일 업로드</h1>
+          <p className="mt-2 text-muted">
             &ldquo;{title}&rdquo; 콘텐츠의 원고 파일을 업로드하세요.
           </p>
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
+        <div className="rounded-lg border border-line bg-surface p-8">
           <div className="flex flex-col gap-6">
             <FileDropzone onFileSelect={handleFileSelect} />
 
             {error && (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div className="rounded-lg border border-danger/40 px-4 py-3 text-sm text-danger">
                 {error}
               </div>
             )}
@@ -101,13 +101,13 @@ function UploadContent() {
             {/* Progress */}
             {uploading && (
               <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between text-sm text-gray-600">
+                <div className="flex items-center justify-between text-sm text-muted">
                   <span>업로드 중...</span>
                   <span>{progress}%</span>
                 </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                <div className="h-2 w-full overflow-hidden rounded-full bg-line">
                   <div
-                    className="h-full rounded-full bg-gray-900 transition-all duration-300"
+                    className="h-full rounded-full bg-primary transition-all duration-300"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
@@ -116,21 +116,21 @@ function UploadContent() {
 
             {/* Chapter preview */}
             {chapters.length > 0 && (
-              <div className="rounded-xl border border-green-200 bg-green-50 p-4">
+              <div className="rounded-lg border border-success/40 p-4">
                 <div className="mb-3 flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
-                  <span className="font-medium text-green-800">
+                  <CheckCircle className="h-5 w-5 text-success" />
+                  <span className="font-medium text-success">
                     {chapters.length}개의 챕터가 감지되었습니다
                   </span>
                 </div>
-                <ul className="flex flex-col gap-1.5 text-sm text-green-700">
+                <ul className="flex flex-col gap-1.5 text-sm text-success">
                   {chapters.slice(0, 5).map((ch, i) => (
                     <li key={i} className="flex items-start gap-2">
                       <span className="font-medium shrink-0">{i + 1}.</span>
                       <span>
                         {ch.title}
                         {ch.preview && (
-                          <span className="ml-1 text-green-600 opacity-70">
+                          <span className="ml-1 text-success opacity-70">
                             — {ch.preview.slice(0, 40)}...
                           </span>
                         )}
@@ -138,7 +138,7 @@ function UploadContent() {
                     </li>
                   ))}
                   {chapters.length > 5 && (
-                    <li className="text-green-600 opacity-70">
+                    <li className="text-success opacity-70">
                       ...외 {chapters.length - 5}개
                     </li>
                   )}

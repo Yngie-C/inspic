@@ -25,8 +25,8 @@ export default function AnalyticsPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">분석</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-2xl font-bold text-primary">분석</h1>
+        <p className="mt-1 text-sm text-muted">
           독자가 워크북에 얼마나 답하고 있는지 확인하세요
         </p>
       </div>
@@ -37,17 +37,17 @@ export default function AnalyticsPage() {
         </div>
       ) : isError ? (
         <div className="flex flex-col items-center justify-center py-24 text-center">
-          <p className="text-lg font-medium text-gray-700">
+          <p className="text-lg font-medium text-primary">
             데이터를 불러오는 중 오류가 발생했습니다
           </p>
-          <p className="mt-1 text-sm text-gray-400">잠시 후 다시 시도해주세요.</p>
+          <p className="mt-1 text-sm text-muted">잠시 후 다시 시도해주세요.</p>
         </div>
       ) : books && books.length > 0 ? (
         <WorkbookEngagementSection
           books={books.map((book) => ({ id: book.id, title: book.title }))}
         />
       ) : books ? (
-        <p className="py-24 text-center text-sm text-gray-500">
+        <p className="py-24 text-center text-sm text-muted">
           아직 만든 책이 없습니다.
         </p>
       ) : null}

@@ -8,15 +8,15 @@ export function FeaturesSection() {
   ];
 
   return (
-    <section className="border-y border-gray-50 bg-white py-20">
+    <section className="border-y border-line bg-paper py-20">
       <div className="mx-auto grid max-w-7xl gap-12 px-4 md:grid-cols-3">
         {features.map((f, i) => (
           <div key={i} className="group flex flex-col items-center text-center">
-            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-mark text-accent transition-transform group-hover:-translate-y-1">
+            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-lg bg-mark text-accent">
               <f.icon className="h-8 w-8" />
             </div>
-            <h3 className="text-lg font-bold text-gray-900">{f.title}</h3>
-            <p className="mt-2 text-sm leading-relaxed text-gray-500">{f.desc}</p>
+            <h3 className="text-lg font-bold text-primary">{f.title}</h3>
+            <p className="mt-2 text-sm leading-relaxed text-muted">{f.desc}</p>
           </div>
         ))}
       </div>

@@ -2,9 +2,16 @@
 
 import { useEffect, useRef } from "react";
 import type { Element } from "html-react-parser";
+import {
+  BlockQuestion,
+  BlockStatusText,
+  WorkbookBlock,
+  blockFieldClass,
+} from "@/components/ui/workbook-block";
 import { REFLECTION_FIELD_KEY } from "@/lib/workbook/types";
+import { cn } from "@/lib/utils";
 import { registerTemplate } from "./TemplateRenderer";
-import { textAnswer, useBlockAnswers } from "./useBlockAnswers";
+import { textAnswer, useBlockAnswers, useSaveStatus } from "./useBlockAnswers";
 
 interface Props {
   element: Element;
@@ -16,8 +23,9 @@ function ReflectionReader({ element }: Props) {
   const placeholder =
     element.attribs["data-placeholder"] || "여기에 생각을 적어보세요...";
 
-  const { answers, setAnswer } = useBlockAnswers(blockId);
-  const value = textAnswer(answers, REFLECTION_FIELD_KEY);
+  const block = useBlockAnswers(blockId);
+  const value = textAnswer(block.answers, REFLECTION_FIELD_KEY);
+  const status = useSaveStatus(block);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -29,20 +37,19 @@ function ReflectionReader({ element }: Props) {
   }, [value]);
 
   return (
-    <section className="template-reflection my-4 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800">
-      {prompt && (
-        <p className="mb-3 text-sm font-bold leading-relaxed text-gray-800 dark:text-gray-100">
-          {prompt}
-        </p>
-      )}
-      <textarea
-        ref={textareaRef}
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => setAnswer(REFLECTION_FIELD_KEY, e.target.value)}
-        rows={3}
-        className="w-full resize-none overflow-hidden rounded-md border border-gray-300 bg-white px-3 py-2 text-sm leading-relaxed text-gray-800 placeholder-gray-400 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200 dark:placeholder-gray-500 dark:focus:border-blue-500 dark:focus:ring-blue-500"
-      />
+    <section className="template-reflection">
+      <WorkbookBlock kind="성찰" aside={<BlockStatusText status={status} />}>
+        {prompt && <BlockQuestion>{prompt}</BlockQuestion>}
+        <textarea
+          ref={textareaRef}
+          value={value}
+          placeholder={placeholder}
+          aria-label={prompt || "성찰"}
+          onChange={(e) => block.setAnswer(REFLECTION_FIELD_KEY, e.target.value)}
+          rows={3}
+          className={cn(blockFieldClass, "min-h-24 resize-none overflow-hidden")}
+        />
+      </WorkbookBlock>
     </section>
   );
 }

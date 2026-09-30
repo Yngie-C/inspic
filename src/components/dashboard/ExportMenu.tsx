@@ -38,8 +38,8 @@ export function ExportMenu({ bookId, bookTitle }: ExportMenuProps) {
         onClick={() => setOpen((v) => !v)}
         disabled={loading !== null}
         className={cn(
-          "flex h-9 items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 transition-colors",
-          "hover:border-gray-400 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1",
+          "flex h-9 items-center gap-1.5 rounded-lg border border-line-strong bg-surface px-3 text-sm font-medium text-primary transition-colors",
+          "hover:border-line-strong hover:bg-mark focus:outline-none focus:ring-2 focus:ring-primary",
           "disabled:pointer-events-none disabled:opacity-50",
         )}
       >
@@ -61,21 +61,21 @@ export function ExportMenu({ bookId, bookTitle }: ExportMenuProps) {
           />
 
           {/* Dropdown */}
-          <div className="absolute right-0 z-20 mt-1.5 w-52 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+          <div className="absolute right-0 z-20 mt-1.5 w-52 rounded-lg border border-line bg-surface py-1 shadow-float">
             <button
               type="button"
               onClick={() => handleExport("pdf")}
               disabled={loading !== null}
-              className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-primary hover:bg-mark disabled:opacity-50"
             >
               {loading === "pdf" ? (
-                <Loader2 className="h-4 w-4 shrink-0 animate-spin text-gray-400" />
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted" />
               ) : (
-                <FileText className="h-4 w-4 shrink-0 text-red-500" />
+                <FileText className="h-4 w-4 shrink-0 text-danger" />
               )}
               <div className="text-left">
                 <p className="font-medium">PDF로 내보내기</p>
-                <p className="text-xs text-gray-400">인쇄 가능한 PDF 파일</p>
+                <p className="text-xs text-muted">인쇄 가능한 PDF 파일</p>
               </div>
             </button>
 
@@ -86,7 +86,7 @@ export function ExportMenu({ bookId, bookTitle }: ExportMenuProps) {
       )}
 
       {error && (
-        <div className="absolute right-0 top-full mt-2 w-64 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 shadow-md">
+        <div className="absolute right-0 top-full mt-2 w-64 rounded-lg border border-danger/40 px-3 py-2 text-xs text-danger">
           {error}
         </div>
       )}

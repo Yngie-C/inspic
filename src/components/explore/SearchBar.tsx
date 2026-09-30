@@ -66,89 +66,100 @@ export function SearchBar({ filters, onFiltersChange, className }: SearchBarProp
   };
 
   return (
-    <div className={cn("space-y-3", className)}>
-      {/* Search input row */}
+    <div className={cn("flex flex-col gap-3", className)}>
       <div className="flex gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+            strokeWidth={1.75}
+          />
           <input
-            type="text"
+            type="search"
             value={localQuery}
             onChange={(e) => handleQueryChange(e.target.value)}
-            placeholder="제목이나 설명으로 검색..."
-            className="h-10 w-full rounded-full border border-gray-300 bg-white pl-10 pr-10 text-sm text-gray-900 placeholder-gray-400 transition-colors focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/20"
+            placeholder="제목이나 설명으로 검색"
+            aria-label="책 검색"
+            className="h-10 w-full rounded-md border border-field-line bg-field pl-9 pr-9 text-body text-primary placeholder:text-muted [&::-webkit-search-cancel-button]:hidden"
           />
           {localQuery && (
             <button
+              type="button"
               onClick={handleClear}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              aria-label="검색어 지우기"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted transition-colors duration-150 ease-out hover:text-primary"
             >
-              <X className="h-4 w-4" />
+              <X className="h-4 w-4" strokeWidth={1.75} />
             </button>
           )}
         </div>
         <button
+          type="button"
           onClick={() => setShowFilters((v) => !v)}
+          aria-expanded={showFilters}
           className={cn(
-            "flex h-10 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors",
-            showFilters
-              ? "border-accent bg-accent text-on-accent"
-              : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50",
+            "flex h-10 items-center gap-2 rounded-md border bg-surface px-3 text-button text-primary transition-colors duration-150 ease-out",
+            showFilters ? "border-primary" : "border-line hover:border-primary",
           )}
         >
-          <SlidersHorizontal className="h-4 w-4" />
-          <span className="hidden sm:inline">필터</span>
+          <SlidersHorizontal className="h-4 w-4" strokeWidth={1.75} />
+          <span className="max-[600px]:sr-only">필터</span>
         </button>
       </div>
 
-      {/* Filter row */}
       {showFilters && (
-        <div className="flex flex-wrap gap-3 rounded-lg border border-gray-200 bg-white p-3">
-          {/* Sort filter */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-gray-500">정렬</span>
-            <div className="flex gap-1">
-              {SORT_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => handleSortChange(opt.value)}
-                  className={cn(
-                    "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
-                    filters.sort === opt.value
-                      ? "bg-accent text-on-accent"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200",
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="h-auto w-px bg-gray-200 hidden sm:block" />
-
-          {/* Price filter */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-gray-500">가격</span>
-            <div className="flex gap-1">
-              {PRICE_RANGES.map((range) => (
-                <button
-                  key={range.value}
-                  onClick={() => handlePriceRangeChange(range.value)}
-                  className={cn(
-                    "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
-                    filters.priceRange === range.value
-                      ? "bg-accent text-on-accent"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200",
-                  )}
-                >
-                  {range.label}
-                </button>
-              ))}
-            </div>
-          </div>
+        <div className="flex flex-col gap-2 border-y border-line py-3">
+          <FilterRow
+            label="정렬"
+            options={SORT_OPTIONS}
+            value={filters.sort}
+            onChange={(v) => handleSortChange(v as SortOrder)}
+          />
+          <FilterRow
+            label="가격"
+            options={PRICE_RANGES}
+            value={filters.priceRange}
+            onChange={handlePriceRangeChange}
+          />
         </div>
       )}
+    </div>
+  );
+}
+
+/** 선택지 줄. 선택된 항목은 목차의 현재 장과 같은 mark 면 + 600이다. */
+function FilterRow({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: ReadonlyArray<{ value: string; label: string }>;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="flex items-baseline gap-3">
+      <span className="w-8 flex-none text-caption text-muted">{label}</span>
+      <div className="flex flex-wrap gap-1">
+        {options.map((opt) => {
+          const selected = value === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => onChange(opt.value)}
+              className={cn(
+                "rounded-sm px-2 py-1 text-body-sm transition-colors duration-150 ease-out",
+                selected ? "bg-mark font-semibold text-primary" : "text-muted hover:bg-mark",
+              )}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

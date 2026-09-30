@@ -119,7 +119,7 @@ export default function CheckoutPage() {
   if (error && !book) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
-        <p className="text-lg font-medium text-gray-700">{error}</p>
+        <p className="text-lg font-medium text-primary">{error}</p>
         <Button variant="outline" size="sm" className="mt-4" onClick={() => router.back()}>
           돌아가기
         </Button>
@@ -131,52 +131,52 @@ export default function CheckoutPage() {
 
   return (
     <div className="mx-auto max-w-lg px-4 py-12">
-      <h1 className="mb-8 text-2xl font-bold text-gray-900">결제하기</h1>
+      <h1 className="mb-8 text-2xl font-bold text-primary">결제하기</h1>
 
-      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="rounded-lg border border-line bg-surface p-6">
         {/* 책 정보 */}
-        <div className="mb-6 border-b border-gray-100 pb-6">
-          <h2 className="text-lg font-semibold text-gray-900">{book.title}</h2>
+        <div className="mb-6 border-b border-line pb-6">
+          <h2 className="text-lg font-semibold text-primary">{book.title}</h2>
           {book.author_name && (
-            <p className="mt-1 text-sm text-gray-500">by {book.author_name}</p>
+            <p className="mt-1 text-sm text-muted">by {book.author_name}</p>
           )}
         </div>
 
         {/* 결제 금액 */}
         <div className="mb-6 flex items-center justify-between">
-          <span className="text-sm font-medium text-gray-600">결제 금액</span>
-          <span className="text-2xl font-bold text-gray-900">
+          <span className="text-sm font-medium text-muted">결제 금액</span>
+          <span className="text-2xl font-bold text-primary">
             {book.price.toLocaleString("ko-KR")}원
           </span>
         </div>
 
         {error && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="mb-4 rounded-lg border border-danger/40 px-4 py-3 text-sm text-danger">
             {error}
           </div>
         )}
 
         {/* 환불 정책 안내 */}
-        <div className="mb-4 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600">
+        <div className="mb-4 rounded-lg bg-mark px-4 py-3 text-sm text-muted">
           <p className="mb-1">
             디지털 콘텐츠 특성상 콘텐츠 열람 후에는 환불이 제한됩니다.
           </p>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-muted">
             자세한 내용은{" "}
-            <Link href="/terms" className="underline hover:text-gray-600">이용약관</Link>
+            <Link href="/terms" className="underline hover:text-muted">이용약관</Link>
             {" "}및{" "}
-            <Link href="/privacy" className="underline hover:text-gray-600">개인정보처리방침</Link>
+            <Link href="/privacy" className="underline hover:text-muted">개인정보처리방침</Link>
             을 확인해 주세요.
           </p>
         </div>
 
         {/* 동의 체크박스 */}
-        <label className="mb-4 flex cursor-pointer items-start gap-2 text-sm text-gray-700">
+        <label className="mb-4 flex cursor-pointer items-start gap-2 text-sm text-primary">
           <input
             type="checkbox"
             checked={agreed}
             onChange={(e) => setAgreed(e.target.checked)}
-            className="mt-0.5 h-4 w-4 flex-shrink-0 cursor-pointer accent-gray-900"
+            className="mt-0.5 h-4 w-4 flex-shrink-0 cursor-pointer accent-primary"
           />
           <span>
             위 내용을 확인하였으며, 이용약관 및 개인정보처리방침에 동의합니다.
@@ -189,12 +189,12 @@ export default function CheckoutPage() {
           isLoading={paying}
           disabled={paying || !agreed}
           size="lg"
-          className="w-full rounded-full bg-accent hover:bg-accent-hover text-on-accent"
+          className="w-full"
         >
           {book.price.toLocaleString("ko-KR")}원 결제하기
         </Button>
 
-        <p className="mt-4 text-center text-xs text-gray-400">
+        <p className="mt-4 text-center text-xs text-muted">
           Toss Payments를 통해 안전하게 결제됩니다
         </p>
       </div>

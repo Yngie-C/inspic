@@ -187,22 +187,22 @@ export function EditPageContent() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-white">
+    <div className="flex min-h-screen flex-col bg-paper">
       <Header />
 
       {/* Top bar */}
-      <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 sm:px-6">
+      <div className="flex items-center justify-between border-b border-line bg-paper px-4 py-3 sm:px-6">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => router.push("/creator")}>
             <ArrowLeft className="h-4 w-4 mr-1" />
             대시보드
           </Button>
-          <span className="hidden text-sm font-medium text-gray-700 sm:block">
+          <span className="hidden text-sm font-medium text-primary sm:block">
             {book?.title}
           </span>
-          {!saved && <span className="text-xs text-gray-400">저장 중...</span>}
+          {!saved && <span className="text-xs text-muted">저장 중...</span>}
           {saved && selectedId && (
-            <span className="flex items-center gap-1 text-xs text-green-600">
+            <span className="flex items-center gap-1 text-xs text-success">
               <Check className="h-3.5 w-3.5" />
               저장됨
             </span>
@@ -215,7 +215,7 @@ export function EditPageContent() {
           <button
             type="button"
             onClick={() => setMetaOpen(true)}
-            className="flex h-9 items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 hover:border-gray-400 hover:bg-gray-50"
+            className="flex h-9 items-center gap-1.5 rounded-lg border border-line-strong bg-surface px-3 text-sm font-medium text-primary hover:border-line-strong hover:bg-mark"
             title="책 설정"
           >
             <Settings className="h-4 w-4" />
@@ -231,14 +231,14 @@ export function EditPageContent() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar: chapter list */}
-        <aside className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white">
-          <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-            <span className="text-sm font-semibold text-gray-700">
+        <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-paper">
+          <div className="flex items-center justify-between border-b border-line px-4 py-3">
+            <span className="text-sm font-semibold text-primary">
               챕터 ({chapters.length})
             </span>
             <button
               onClick={addChapter}
-              className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+              className="rounded-lg p-1.5 text-muted hover:bg-mark hover:text-primary"
               title="챕터 추가"
             >
               <Plus className="h-4 w-4" />
@@ -253,7 +253,7 @@ export function EditPageContent() {
                 className={`group flex cursor-pointer items-center gap-2 px-3 py-2.5 text-sm transition-colors ${
                   selectedId === ch.id
                     ? "bg-mark font-semibold text-primary"
-                    : "text-gray-600 hover:bg-mark hover:text-gray-900"
+                    : "text-muted hover:bg-mark hover:text-primary"
                 }`}
               >
                 <GripVertical className="h-4 w-4 shrink-0 opacity-40" />
@@ -266,7 +266,7 @@ export function EditPageContent() {
                   className={`rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 ${
                     selectedId === ch.id
                       ? "hover:bg-mark"
-                      : "text-red-500 hover:bg-red-50"
+                      : "text-danger"
                   }`}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -275,7 +275,7 @@ export function EditPageContent() {
             ))}
 
             {chapters.length === 0 && (
-              <div className="px-4 py-6 text-center text-xs text-gray-400">
+              <div className="px-4 py-6 text-center text-xs text-muted">
                 챕터가 없습니다.
                 <br />+ 버튼으로 추가하세요.
               </div>
@@ -287,17 +287,17 @@ export function EditPageContent() {
         <main className="flex flex-1 flex-col overflow-hidden">
           {selectedChapter ? (
             <div className="flex flex-1 flex-col overflow-hidden">
-              <div className="border-b border-gray-100 bg-white px-8 pt-8 pb-4">
+              <div className="border-b border-line bg-paper px-8 pt-8 pb-4">
                 <input
                   type="text"
                   value={editTitle}
                   onChange={(e) => handleTitleChange(e.target.value)}
                   placeholder="챕터 제목"
-                  className="w-full border-none bg-transparent text-2xl font-bold text-gray-900 outline-none placeholder-gray-300"
+                  className="w-full border-none bg-transparent text-2xl font-bold text-primary outline-none placeholder:text-muted"
                 />
               </div>
 
-              <div className="flex flex-1 flex-col overflow-hidden bg-white">
+              <div className="flex flex-1 flex-col overflow-hidden bg-surface">
                 <RichTextEditor
                   key={selectedChapter.id}
                   content={editContent}
@@ -310,7 +310,7 @@ export function EditPageContent() {
               </div>
             </div>
           ) : (
-            <div className="flex flex-1 flex-col items-center justify-center gap-3 text-gray-400">
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 text-muted">
               <BookOpen className="h-16 w-16 opacity-30" />
               <p className="text-sm">
                 왼쪽에서 챕터를 선택하거나 새 챕터를 추가하세요.
@@ -322,23 +322,23 @@ export function EditPageContent() {
 
       {/* Book metadata side panel */}
       <div
-        className={`fixed inset-0 z-30 bg-black/20 transition-opacity duration-300 ${
+        className={`fixed inset-0 z-30 bg-primary/40 transition-opacity duration-300 ${
           metaOpen ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
         onClick={() => setMetaOpen(false)}
       />
 
       <div
-        className={`fixed right-0 top-0 z-40 flex h-full w-full max-w-sm flex-col border-l border-gray-200 bg-white shadow-xl transition-transform duration-300 ease-in-out ${
+        className={`fixed right-0 top-0 z-40 flex h-full w-full max-w-sm flex-col border-l border-line bg-surface shadow-float transition-transform duration-300 ease-in-out ${
           metaOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-4">
-          <h2 className="text-base font-semibold text-gray-900">책 설정</h2>
+        <div className="flex items-center justify-between border-b border-line px-4 py-4">
+          <h2 className="text-base font-semibold text-primary">책 설정</h2>
           <button
             type="button"
             onClick={() => setMetaOpen(false)}
-            className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100"
+            className="rounded-lg p-1.5 text-muted hover:bg-mark"
           >
             <X className="h-5 w-5" />
           </button>

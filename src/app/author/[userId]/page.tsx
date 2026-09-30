@@ -74,7 +74,7 @@ export default function AuthorPage() {
         {/* Avatar */}
         <div className="flex-shrink-0">
           {profile?.avatar_url ? (
-            <div className="relative h-24 w-24 overflow-hidden rounded-full shadow-md">
+            <div className="relative h-24 w-24 overflow-hidden rounded-full">
               <Image
                 src={profile.avatar_url}
                 alt={displayName}
@@ -84,8 +84,8 @@ export default function AuthorPage() {
               />
             </div>
           ) : (
-            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gray-900 shadow-md">
-              <span className="text-3xl font-bold text-white select-none">
+            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-primary">
+              <span className="text-3xl font-bold text-on-accent select-none">
                 {initial}
               </span>
             </div>
@@ -94,11 +94,11 @@ export default function AuthorPage() {
 
         {/* Info */}
         <div className="flex flex-1 flex-col gap-2">
-          <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+          <h1 className="text-2xl font-bold text-primary sm:text-3xl">
             {displayName}
           </h1>
           {profile?.bio && (
-            <p className="max-w-xl text-sm leading-relaxed text-gray-500">
+            <p className="max-w-xl text-sm leading-relaxed text-muted">
               {profile.bio}
             </p>
           )}
@@ -107,14 +107,14 @@ export default function AuthorPage() {
 
       {/* Books section */}
       <div>
-        <h2 className="mb-6 text-lg font-semibold text-gray-900 flex items-center gap-2">
-          <BookOpen className="h-5 w-5 text-gray-400" />
+        <h2 className="mb-6 text-lg font-semibold text-primary flex items-center gap-2">
+          <BookOpen className="h-5 w-5 text-muted" />
           이 저자의 전자책
         </h2>
 
         {!books || books.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <p className="text-sm text-gray-400">아직 공개된 전자책이 없습니다.</p>
+            <p className="text-sm text-muted">아직 공개된 전자책이 없습니다.</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
@@ -123,9 +123,9 @@ export default function AuthorPage() {
                 <Link
                   key={book.id}
                   href={`/book/${book.id}`}
-                  className="group flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm hover:-translate-y-2 hover:shadow-lg transition-all duration-300"
+                  className="group flex flex-col gap-2.5 text-primary"
                 >
-                  <div className="relative aspect-[3/4] w-full overflow-hidden">
+                  <div className="relative aspect-[3/4] w-full overflow-hidden rounded-sm border border-primary/10">
                     <BookCover
                       bookId={book.id}
                       title={book.title}
@@ -134,8 +134,8 @@ export default function AuthorPage() {
                       size="md"
                     />
                   </div>
-                  <div className="p-3">
-                    <p className="line-clamp-2 text-sm font-medium text-gray-900 group-hover:text-gray-700">
+                  <div>
+                    <p className="line-clamp-2 text-subtitle decoration-1 underline-offset-3 group-hover:underline">
                       {book.title}
                     </p>
                   </div>

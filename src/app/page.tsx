@@ -33,7 +33,7 @@ export default function LandingPage() {
   });
 
   return (
-    <div className="flex min-h-screen flex-col bg-white">
+    <div className="flex min-h-screen flex-col bg-paper">
       <Header />
 
       {/* Hero */}
@@ -46,10 +46,10 @@ export default function LandingPage() {
       <main className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-6">
         {isError && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <p className="text-lg font-medium text-gray-700">
+            <p className="text-lg font-medium text-primary">
               데이터를 불러오는 중 오류가 발생했습니다
             </p>
-            <p className="mt-1 text-sm text-gray-400">잠시 후 다시 시도해주세요.</p>
+            <p className="mt-1 text-sm text-muted">잠시 후 다시 시도해주세요.</p>
           </div>
         )}
 

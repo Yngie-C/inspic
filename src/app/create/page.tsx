@@ -87,20 +87,20 @@ export default function CreatePage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-white">
+    <div className="flex min-h-screen flex-col bg-paper">
       <Header />
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-12 sm:px-6">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">새 콘텐츠 만들기</h1>
-          <p className="mt-2 text-gray-500">
+          <h1 className="text-3xl font-bold text-primary">새 콘텐츠 만들기</h1>
+          <p className="mt-2 text-muted">
             콘텐츠의 기본 정보를 입력하세요.
           </p>
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
+        <div className="rounded-lg border border-line bg-surface p-8">
           <div className="flex flex-col gap-5">
             {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div className="rounded-lg border border-danger/40 px-4 py-3 text-sm text-danger">
                 {error}
               </div>
             )}
@@ -114,7 +114,7 @@ export default function CreatePage() {
             />
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-gray-700">
+              <label className="text-sm font-medium text-primary">
                 설명 (선택)
               </label>
               <textarea
@@ -122,13 +122,13 @@ export default function CreatePage() {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 transition-colors focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/20 resize-none"
+                className="w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-primary placeholder:text-muted transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
               />
             </div>
 
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-gray-700">
+              <label className="text-sm font-medium text-primary">
                 가격 (원)
               </label>
               <div className="relative">
@@ -139,13 +139,13 @@ export default function CreatePage() {
                   value={price}
                   onChange={(e) => setPrice(Math.max(0, parseInt(e.target.value) || 0))}
                   placeholder="0"
-                  className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 pr-10 text-sm text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/20"
+                  className="h-10 w-full rounded-lg border border-line-strong bg-surface px-3 pr-10 text-sm text-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted">
                   원
                 </span>
               </div>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-muted">
                 {price === 0
                   ? "무료로 공개됩니다"
                   : `판매 가격: ${price.toLocaleString("ko-KR")}원`}
@@ -158,7 +158,7 @@ export default function CreatePage() {
                 isLoading={isCreating}
                 disabled={isCreating}
                 size="lg"
-                className="flex items-center justify-center gap-2 rounded-full"
+                className="flex items-center justify-center gap-2"
               >
                 <PenLine className="h-4 w-4" />
                 직접 작성하기

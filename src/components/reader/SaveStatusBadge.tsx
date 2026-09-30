@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, Check, CloudOff, Loader2 } from "lucide-react";
+import { AlertCircle, CloudOff } from "lucide-react";
 import { useWorkbookSaveStatus } from "./WorkbookResponsesProvider";
 
 /**
@@ -17,8 +17,7 @@ export function SaveStatusBadge() {
 
   if (saveState === "saving") {
     return (
-      <span className="flex items-center gap-1.5 text-xs text-gray-400">
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      <span className="flex items-center gap-1.5 whitespace-nowrap text-caption text-muted">
         저장 중
       </span>
     );
@@ -26,8 +25,8 @@ export function SaveStatusBadge() {
 
   if (saveState === "saved") {
     return (
-      <span className="flex items-center gap-1.5 text-xs text-gray-400">
-        <Check className="h-3.5 w-3.5" />
+      <span className="flex items-center gap-1.5 whitespace-nowrap text-caption text-muted">
+        <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-accent" />
         저장됨
       </span>
     );
@@ -36,10 +35,10 @@ export function SaveStatusBadge() {
   if (saveState === "local-only") {
     return (
       <span
-        className="flex items-center gap-1.5 text-xs text-amber-600"
+        className="flex items-center gap-1.5 whitespace-nowrap text-caption text-warning"
         title="작성한 내용이 이 브라우저에만 남습니다."
       >
-        <CloudOff className="h-3.5 w-3.5" />
+        <CloudOff className="h-4 w-4" strokeWidth={1.75} />
         이 기기에만 저장됨
       </span>
     );
@@ -47,11 +46,12 @@ export function SaveStatusBadge() {
 
   return (
     <button
+      type="button"
       onClick={retry}
-      className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+      className="flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 text-caption font-semibold text-danger transition-colors duration-150 ease-out hover:bg-mark"
       title={saveError ?? undefined}
     >
-      <AlertCircle className="h-3.5 w-3.5" />
+      <AlertCircle className="h-4 w-4" strokeWidth={1.75} />
       저장 실패 · 다시 시도
     </button>
   );

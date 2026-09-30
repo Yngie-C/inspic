@@ -58,7 +58,7 @@ export default function SignupPage() {
 
   if (success) {
     return (
-      <Card className="rounded-2xl border border-gray-100 shadow-sm">
+      <Card className="rounded-lg border border-line">
         <CardHeader>
           <CardTitle className="text-2xl">이메일을 확인해주세요</CardTitle>
           <CardDescription>
@@ -69,7 +69,7 @@ export default function SignupPage() {
         <CardFooter className="justify-center">
           <Link
             href="/auth/login"
-            className="text-sm font-medium text-gray-900 hover:underline"
+            className="text-sm font-medium text-primary hover:underline"
           >
             로그인 페이지로 이동
           </Link>
@@ -80,7 +80,7 @@ export default function SignupPage() {
 
   return (
     <div className="relative">
-      <Card className="rounded-2xl border border-gray-100 shadow-sm">
+      <Card className="rounded-lg border border-line">
         <CardHeader>
           <CardTitle className="text-2xl">회원가입</CardTitle>
           <CardDescription>새 inspic 계정을 만드세요.</CardDescription>
@@ -88,7 +88,7 @@ export default function SignupPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div className="rounded-lg border border-danger/40 px-4 py-3 text-sm text-danger">
                 {error}
               </div>
             )}
@@ -99,7 +99,6 @@ export default function SignupPage() {
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               required
-              className="rounded-full"
             />
             <Input
               label="이메일"
@@ -109,7 +108,6 @@ export default function SignupPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
-              className="rounded-full"
             />
             <Input
               label="비밀번호"
@@ -119,7 +117,6 @@ export default function SignupPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="new-password"
-              className="rounded-full"
             />
             <Input
               label="비밀번호 확인"
@@ -129,19 +126,18 @@ export default function SignupPage() {
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
               autoComplete="new-password"
-              className="rounded-full"
             />
-            <Button type="submit" isLoading={isLoading} className="mt-2 w-full rounded-full">
+            <Button type="submit" isLoading={isLoading} className="mt-2 w-full">
               회원가입
             </Button>
           </form>
         </CardContent>
         <CardFooter className="justify-center">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted">
             이미 계정이 있으신가요?{" "}
             <Link
               href="/auth/login"
-              className="font-medium text-gray-900 hover:underline"
+              className="font-medium text-primary hover:underline"
             >
               로그인
             </Link>

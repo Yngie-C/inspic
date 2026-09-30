@@ -47,8 +47,20 @@ export type SaveState =
   /** 저장할 수 없는 상태(비로그인·미구매). 이 기기에만 남습니다. */
   | "local-only";
 
+/**
+ * 블록 하나의 저장 진행. 책 전체 상태(`SaveState`)와 별개로, 블록 머리 줄에
+ * "저장됨 · 방금"을 쓰기 위해 둡니다.
+ */
+export interface BlockSave {
+  /** 이 블록에 아직 서버로 못 보낸 응답이 있다. */
+  pending: boolean;
+  /** 이번 세션에서 마지막으로 저장에 성공한 시각(ms). */
+  savedAt: number | null;
+}
+
 interface WorkbookResponsesValue {
   answers: BookAnswers;
+  blockSaves: Record<string, BlockSave>;
   setAnswer(blockId: string, fieldKey: string, value: WorkbookAnswer): void;
   saveState: SaveState;
   /** 저장 실패 시 사람이 읽을 수 있는 이유. */
@@ -65,6 +77,7 @@ const WorkbookResponsesContext = createContext<WorkbookResponsesValue | null>(
 const DEBOUNCE_MS = 600;
 
 const NO_ANSWERS: BlockAnswers = {};
+const NO_SAVE: BlockSave = { pending: false, savedAt: null };
 
 interface Props {
   bookId: string;
@@ -100,6 +113,7 @@ export function WorkbookResponsesProvider({
   const [answers, setAnswers] = useState<BookAnswers>({});
   const [saveState, setSaveState] = useState<SaveState>("loading");
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [blockSaves, setBlockSaves] = useState<Record<string, BlockSave>>({});
 
   // 화면 상태의 거울. setAnswer가 이전 값을 읽어야 하는데, setState updater
   // 안에서 캐시 쓰기 같은 부수효과를 하면 StrictMode의 이중 호출에서
@@ -177,6 +191,22 @@ export function WorkbookResponsesProvider({
         }
       }
 
+      // 보낸 블록 중 큐에서 완전히 빠진 것만 저장됨으로 올립니다.
+      // 서버가 거절한 블록도 저장된 것이 아니므로 올리지 않습니다.
+      const stillPending = new Set([
+        ...[...pendingRef.current.values()].map((write) => write.block_id),
+        ...result.rejected.map((write) => write.block_id),
+      ]);
+      const savedAt = Date.now();
+      setBlockSaves((previous) => {
+        const next = { ...previous };
+        for (const write of batch) {
+          if (stillPending.has(write.block_id)) continue;
+          next[write.block_id] = { pending: false, savedAt };
+        }
+        return next;
+      });
+
       if (result.rejected.length > 0) {
         setSaveState("error");
         setSaveError(
@@ -217,6 +247,10 @@ export function WorkbookResponsesProvider({
       return;
     }
 
+    setBlockSaves((previous) => ({
+      ...previous,
+      [blockId]: { pending: true, savedAt: previous[blockId]?.savedAt ?? null },
+    }));
     pendingRef.current.set(responseKey(blockId, fieldKey), {
       block_id: blockId,
       field_key: fieldKey,
@@ -248,6 +282,7 @@ export function WorkbookResponsesProvider({
 
   const value: WorkbookResponsesValue = {
     answers,
+    blockSaves,
     setAnswer,
     saveState,
     saveError,
@@ -307,6 +342,8 @@ export function useBlockResponses(blockId: string) {
 
   return {
     answers: answers[blockId] ?? NO_ANSWERS,
+    save: context.blockSaves[blockId] ?? NO_SAVE,
+    saveState: context.saveState,
     setAnswer: (fieldKey: string, value: WorkbookAnswer) =>
       setAnswer(blockId, fieldKey, value),
   };

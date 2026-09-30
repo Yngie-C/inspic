@@ -15,7 +15,7 @@ function AuthInitializer({ children }: { children: React.ReactNode }) {
   if (!isInitialized) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-gray-900" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-line-strong border-t-primary" />
       </div>
     );
   }

@@ -3,13 +3,12 @@
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import Link from "next/link";
-import { BookCover } from "@/components/ui/book-cover";
 import { BookGrid } from "@/components/explore/BookGrid";
+import { BookPreviewCard } from "@/components/explore/BookPreviewCard";
+import { Button } from "@/components/ui/button";
 import { SearchBar, type SearchFilters } from "@/components/explore/SearchBar";
 import { Spinner } from "@/components/ui/spinner";
-// [SUN-68] 시리즈 기능 — 추후 활성화 (cn은 필터 탭에서만 사용됨)
-// import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import type { Book } from "@/types";
 
 interface BookWithAuthor extends Book {
@@ -62,63 +61,23 @@ function PopularBooksSection() {
     staleTime: 60_000,
   });
 
-  if (isLoading) {
-    return (
-      <div className="mb-10">
-        <h2 className="mb-4 text-xl font-bold text-gray-900">인기 책</h2>
-        <div className="flex gap-4 overflow-x-auto pb-2">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className="flex-shrink-0 w-36 h-56 rounded-2xl bg-gray-100 animate-pulse"
-            />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (!books || books.length === 0) return null;
+  // 로딩 중에는 자리를 비워 둔다. 반짝이는 뼈대(shimmer)는 쓰지 않는다.
+  if (isLoading || !books || books.length === 0) return null;
 
   return (
-    <div className="mb-10">
-      <h2 className="mb-4 text-xl font-bold text-gray-900">인기 책</h2>
-      <div className="flex gap-4 overflow-x-auto pb-2">
-        {books.map((book) => {
-          return (
-            <Link
-              key={book.id}
-              href={`/book/${book.id}`}
-              className="group flex-shrink-0 w-36 flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm hover:-translate-y-2 hover:shadow-lg transition-all duration-300"
-            >
-              <div className="relative h-48 w-full overflow-hidden">
-                <BookCover
-                  bookId={book.id}
-                  title={book.title}
-                  coverImageUrl={book.cover_image_url}
-                  sizes="144px"
-                  size="sm"
-                />
-              </div>
-              <div className="p-2">
-                <p className="line-clamp-2 text-xs font-medium text-gray-900 group-hover:text-gray-700">
-                  {book.title}
-                </p>
-                {book.author_name && (
-                  <Link
-                    href={`/author/${book.owner_id}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="mt-0.5 block text-xs text-gray-400 hover:text-gray-700 hover:underline truncate"
-                  >
-                    {book.author_name}
-                  </Link>
-                )}
-              </div>
-            </Link>
-          );
-        })}
+    <section className="mb-12">
+      <h2 className="mb-3.5 text-label text-muted">많이 읽는 책</h2>
+      <div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-2 min-[601px]:mx-0 min-[601px]:px-0">
+        {books.map((book) => (
+          <BookPreviewCard
+            key={book.id}
+            book={book}
+            size="sm"
+            className="w-36 flex-none"
+          />
+        ))}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -126,7 +85,7 @@ export default function ExplorePage() {
   return (
     <Suspense
       fallback={
-        <div className="flex justify-center py-24">
+        <div className="flex justify-center py-24 text-muted">
           <Spinner size="lg" />
         </div>
       }
@@ -162,58 +121,54 @@ function ExploreContent() {
   const totalPages = Math.ceil(total / PER_PAGE);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-      {/* Page header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-          콘텐츠 탐색
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          다양한 콘텐츠를 발견하고 읽어보세요
+    <div className="mx-auto max-w-[936px] px-4 pb-16 pt-10 min-[601px]:px-6 min-[601px]:pt-12">
+      <div className="mb-8 flex flex-col gap-1">
+        <h1 className="text-display text-primary max-[600px]:text-[25px]">탐색</h1>
+        <p className="text-body-sm text-muted">
+          읽고, 쓰고, 적용하는 워크북을 찾아보세요.
         </p>
       </div>
 
-      {/* Popular books */}
       <PopularBooksSection />
 
-      {/* Search & filters */}
-      <div className="mb-8">
+      <div className="mb-6">
         <SearchBar filters={filters} onFiltersChange={handleFiltersChange} />
       </div>
 
-      {/* Results count */}
-      {!isLoading && !isError && (
-        <div className="mb-4 text-sm text-gray-500">
-          {total > 0 ? `${total.toLocaleString()}개의 콘텐츠` : ""}
-        </div>
+      {!isLoading && !isError && total > 0 && (
+        <p className="mb-4 text-caption tabular-nums text-muted">
+          {total.toLocaleString()}권
+        </p>
       )}
 
-      {/* Content */}
       {isLoading ? (
-        <div className="flex justify-center py-24">
+        <div className="flex justify-center py-24 text-muted">
           <Spinner size="lg" />
         </div>
       ) : isError ? (
-        <div className="flex flex-col items-center justify-center py-24 text-center">
-          <p className="text-lg font-medium text-gray-700">
-            데이터를 불러오는 중 오류가 발생했습니다
+        <div className="flex flex-col items-center justify-center gap-1 py-24 text-center">
+          <p className="text-subtitle text-danger">책 목록을 불러오지 못했습니다</p>
+          <p className="text-body-sm text-muted">
+            연결을 확인하고 페이지를 새로고침해 주세요.
           </p>
-          <p className="mt-1 text-sm text-gray-400">잠시 후 다시 시도해주세요.</p>
         </div>
       ) : (
         <BookGrid books={books} />
       )}
 
-      {/* Pagination */}
       {totalPages > 1 && (
-        <div className="mt-10 flex items-center justify-center gap-2">
-          <button
+        <nav
+          aria-label="페이지"
+          className="mt-12 flex items-center justify-center gap-2"
+        >
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}
-            className="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:pointer-events-none disabled:opacity-40"
           >
             이전
-          </button>
+          </Button>
 
           <div className="flex gap-1">
             {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
@@ -227,15 +182,17 @@ function ExploreContent() {
               } else {
                 pageNum = page - 3 + i;
               }
+              const current = pageNum === page;
               return (
                 <button
                   key={pageNum}
+                  type="button"
                   onClick={() => setPage(pageNum)}
-                  className={`h-9 w-9 rounded-full text-sm font-medium transition-colors ${
-                    pageNum === page
-                      ? "bg-accent text-on-accent"
-                      : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                  }`}
+                  aria-current={current ? "page" : undefined}
+                  className={cn(
+                    "h-8 min-w-8 rounded-sm px-2 text-body-sm tabular-nums transition-colors duration-150 ease-out",
+                    current ? "bg-mark font-semibold" : "text-muted hover:bg-mark",
+                  )}
                 >
                   {pageNum}
                 </button>
@@ -243,14 +200,15 @@ function ExploreContent() {
             })}
           </div>
 
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
-            className="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:pointer-events-none disabled:opacity-40"
           >
             다음
-          </button>
-        </div>
+          </Button>
+        </nav>
       )}
     </div>
   );

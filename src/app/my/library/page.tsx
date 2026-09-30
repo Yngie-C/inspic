@@ -44,7 +44,7 @@ export default function LibraryPage() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">구매한 책</h1>
+        <h1 className="text-2xl font-bold text-primary">구매한 책</h1>
         <Button variant="outline" asChild>
           <Link href="/explore" className="flex items-center gap-2">
             <ShoppingBag className="h-4 w-4" />
@@ -58,20 +58,20 @@ export default function LibraryPage() {
           <Spinner size="lg" />
         </div>
       ) : isError ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center text-red-700">
+        <div className="rounded-lg border border-danger/40 p-8 text-center text-body-sm text-danger">
           구매 목록을 불러오지 못했습니다.{" "}
           <button onClick={() => refetch()} className="underline">
             다시 시도
           </button>
         </div>
       ) : purchases.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-gray-200 bg-white py-20 text-center">
-          <ShoppingBag className="h-16 w-16 text-gray-300" />
+        <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-line py-20 text-center">
+          <ShoppingBag className="h-16 w-16 text-faint" />
           <div>
-            <p className="text-lg font-semibold text-gray-700">
+            <p className="text-lg font-semibold text-primary">
               아직 구매한 책이 없습니다
             </p>
-            <p className="mt-1 text-sm text-gray-400">
+            <p className="mt-1 text-sm text-muted">
               마음에 드는 전자책을 찾아보세요!
             </p>
           </div>
@@ -88,10 +88,10 @@ export default function LibraryPage() {
             return (
               <div
                 key={purchase.id}
-                className="group flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-2 hover:shadow-lg"
+                className="flex flex-col gap-2.5"
               >
                 {/* Cover */}
-                <div className="relative aspect-[3/4] w-full overflow-hidden bg-gray-100">
+                <div className="relative aspect-[3/4] w-full overflow-hidden rounded-sm border border-primary/10">
                   <BookCover
                     bookId={book.id}
                     title={book.title}
@@ -102,14 +102,14 @@ export default function LibraryPage() {
                 </div>
 
                 {/* Info */}
-                <div className="flex flex-1 flex-col p-3">
-                  <h3 className="mb-1 line-clamp-2 text-sm font-semibold text-gray-900">
+                <div className="flex flex-1 flex-col">
+                  <h3 className="mb-0.5 line-clamp-2 text-subtitle text-primary">
                     {book.title}
                   </h3>
                   {book.author_name && (
-                    <p className="mb-2 text-xs text-gray-500">{book.author_name}</p>
+                    <p className="mb-1 text-caption text-muted">{book.author_name}</p>
                   )}
-                  <p className="mt-auto text-xs text-gray-400">
+                  <p className="mt-auto text-caption text-muted">
                     {new Date(purchase.purchased_at).toLocaleDateString("ko-KR")} 구매
                   </p>
 

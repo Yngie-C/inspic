@@ -59,10 +59,10 @@ export default function AboutPage() {
     <div className="mx-auto max-w-5xl px-4 py-20">
       {/* Hero */}
       <section className="mb-20 text-center">
-        <h1 className="mb-4 text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
+        <h1 className="mb-4 text-4xl font-bold tracking-tight text-primary sm:text-5xl">
           읽는 책이 아니라 적용하는 책
         </h1>
-        <p className="mx-auto max-w-2xl text-lg leading-relaxed text-gray-600">
+        <p className="mx-auto max-w-2xl text-lg leading-relaxed text-muted">
           inspic은 원고에 워크시트·체크리스트·성찰 질문을 끼워 넣어 워크북으로
           출간하는 플랫폼입니다. 독자는 읽으면서 직접 쓰고, 그 답은 독자의 계정에
           남습니다.
@@ -71,20 +71,20 @@ export default function AboutPage() {
 
       {/* Features Grid */}
       <section className="mb-20">
-        <h2 className="mb-10 text-center text-2xl font-bold text-gray-900">
+        <h2 className="mb-10 text-center text-2xl font-bold text-primary">
           inspic이 제공하는 것
         </h2>
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
           {features.map((feature) => (
             <div
               key={feature.title}
-              className="rounded-2xl border border-gray-100 bg-white p-6 hover:-translate-y-2 hover:shadow-lg transition-all duration-300"
+              className="rounded-lg border border-line bg-surface p-6 transition-all duration-300"
             >
               <feature.icon className="mb-3 h-8 w-8 text-accent" />
-              <h3 className="mb-2 text-lg font-semibold text-gray-900">
+              <h3 className="mb-2 text-lg font-semibold text-primary">
                 {feature.title}
               </h3>
-              <p className="text-sm leading-relaxed text-gray-600">
+              <p className="text-sm leading-relaxed text-muted">
                 {feature.description}
               </p>
             </div>
@@ -94,7 +94,7 @@ export default function AboutPage() {
 
       {/* How it works */}
       <section className="mb-20">
-        <h2 className="mb-10 text-center text-2xl font-bold text-gray-900">
+        <h2 className="mb-10 text-center text-2xl font-bold text-primary">
           어떻게 시작하나요?
         </h2>
         <div className="grid gap-6 sm:grid-cols-3">
@@ -122,10 +122,10 @@ export default function AboutPage() {
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-accent text-lg font-bold text-on-accent">
                 {item.step}
               </div>
-              <h3 className="mb-2 text-lg font-semibold text-gray-900">
+              <h3 className="mb-2 text-lg font-semibold text-primary">
                 {item.title}
               </h3>
-              <p className="text-sm leading-relaxed text-gray-500">
+              <p className="text-sm leading-relaxed text-muted">
                 {item.description}
               </p>
             </div>
@@ -134,17 +134,17 @@ export default function AboutPage() {
       </section>
 
       {/* CTA */}
-      <section className="relative overflow-hidden rounded-2xl border border-line bg-white px-6 py-14 text-center">
+      <section className="relative overflow-hidden rounded-lg border border-line bg-paper px-6 py-14 text-center">
         <div className="relative">
-          <h2 className="mb-3 text-2xl font-bold text-gray-900 sm:text-3xl">
+          <h2 className="mb-3 text-2xl font-bold text-primary sm:text-3xl">
             나만의 콘텐츠를 출판해보세요
           </h2>
-          <p className="mb-8 text-gray-500">
+          <p className="mb-8 text-muted">
             누구나 무료로 시작할 수 있습니다. 글만 있으면 충분해요.
           </p>
           <Link
             href="/auth/signup"
-            className="inline-block rounded-full bg-accent px-8 py-3 font-semibold text-on-accent transition-colors hover:bg-accent-hover"
+            className="inline-block rounded-md bg-accent px-8 py-3 font-semibold text-on-accent transition-colors hover:bg-accent-hover"
           >
             무료로 시작하기
           </Link>

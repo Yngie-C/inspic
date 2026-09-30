@@ -73,7 +73,7 @@ export function RichTextEditor({
     editorProps: {
       attributes: {
         class:
-          "prose prose-gray max-w-none focus:outline-none min-h-[60vh] text-gray-800 leading-relaxed",
+          "prose prose-gray max-w-none focus:outline-none min-h-[60vh] text-primary leading-relaxed",
       },
     },
     onUpdate: ({ editor: ed }) => {
@@ -176,12 +176,12 @@ export function RichTextEditor({
       </div>
 
       {/* Status bar */}
-      <div className="flex items-center justify-between gap-3 border-t border-gray-100 px-8 py-2">
+      <div className="flex items-center justify-between gap-3 border-t border-line px-8 py-2">
         <span className="truncate text-xs">
-          {uploadingImage && <span className="text-gray-400">이미지 올리는 중...</span>}
-          {imageError && <span className="text-red-600">{imageError}</span>}
+          {uploadingImage && <span className="text-muted">이미지 올리는 중...</span>}
+          {imageError && <span className="text-danger">{imageError}</span>}
         </span>
-        <span className="shrink-0 text-xs text-gray-400">
+        <span className="shrink-0 text-xs text-muted">
           {wordCount.toLocaleString()} 단어
         </span>
       </div>
