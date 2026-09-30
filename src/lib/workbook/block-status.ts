@@ -64,5 +64,26 @@ export function describeChecklist(total: number, done: number): BlockStatus {
 export function describeScale(selected: number | null): BlockStatus {
   return selected === null
     ? { text: "작성 전", tone: "muted" }
-    : { text: `${selected} 선택됨`, tone: "ok" };
+    : { text: `${selected} 선택됨`, tone: "muted" };
+}
+
+/**
+ * 진행을 말하는 블록(체크리스트·척도)의 상태에 저장 결과를 얹습니다.
+ * 진행 문구만 보이면 실패한 선택이 저장된 것처럼, 저장된 선택이 아직
+ * 안 된 것처럼 읽히기 때문입니다. "저장됨"은 `describeSave`와 같이
+ * 이번 세션에서 저장에 성공한 경우에만 붙입니다.
+ */
+export function withSaveState(
+  progress: BlockStatus,
+  {
+    pending,
+    failed,
+    savedAt,
+  }: { pending: boolean; failed: boolean; savedAt: number | null },
+): BlockStatus {
+  if (pending && failed) return { text: "저장 안 됨", tone: "danger" };
+  if (!pending && savedAt !== null) {
+    return { ...progress, text: `${progress.text} · 저장됨` };
+  }
+  return progress;
 }

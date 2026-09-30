@@ -176,18 +176,24 @@ components:
     typography: "{typography.code}"
     rounded: "{rounded.md}"
     padding: 16px 18px
-  cover-rosewood:
-    backgroundColor: "{colors.accent}"
-    textColor: "{colors.chiffon}"
+  cover-chiffon:
+    backgroundColor: "{colors.chiffon}"
+    textColor: "{colors.accent}"
     rounded: "{rounded.sm}"
-  cover-coffee:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.botticelli}"
+  cover-mark:
+    backgroundColor: "{colors.mark}"
+    textColor: "{colors.primary}"
     rounded: "{rounded.sm}"
   cover-botticelli:
     backgroundColor: "{colors.botticelli}"
-    textColor: "{colors.accent}"
+    textColor: "{colors.primary}"
     rounded: "{rounded.sm}"
+  cover-border:
+    backgroundColor: "{colors.line}"
+  callout-rule:
+    backgroundColor: "{colors.line-strong}"
+    textColor: "{colors.primary}"
+    typography: "{typography.body}"
   toast:
     backgroundColor: "{colors.primary}"
     textColor: "{colors.chiffon}"
@@ -254,7 +260,7 @@ Inspic은 "읽는 책이 아니라 적용하는 책"이다. 화면의 일은 두
 - **mark (#F3EDE0)**: 현재 위치(목차의 현재 장), 본문 `strong` 하이라이트, hover 면이다.
 - **line (#E8E0D2) / line-strong (#CFC3B1)**: 1px 선이다. `line`은 구획과 블록 테두리에, `line-strong`은 컨트롤 테두리 hover와 강한 구분선에 쓴다.
 - **field (#EFF6F8) / field-line (#BCD6DC)**: 옅은 Botticelli다. **"내가 쓰는 영역"**을 뜻하며, 독자와 저자가 입력하는 모든 필드(textarea, input, 척도 칸)에 쓴다.
-- **chiffon, botticelli**: 원색 그대로 쓰는 곳은 표지 플레이스홀더와 코드 블록 텍스트뿐이다.
+- **chiffon, botticelli**: 원색 그대로 쓰는 곳은 표지 플레이스홀더와 코드 블록 텍스트뿐이다. 표지 면은 옅은 색만 쓴다(chiffon, mark, botticelli). 짙은 면(accent, primary)을 표지에 칠하지 않는 이유는, 표지가 여러 권 모이면 로즈우드와 커피 판이 화면을 덮어 "로즈우드 한 점"이 무너지기 때문이다(2026-10-01 결정).
 - **상태색 (danger #B42318, success #2F6B3A, warning #8A5A00, info #2C5B66)**: 텍스트, 아이콘, 1px 테두리로만 쓴다. **면을 칠하지 않는다.**
   - danger는 accent와 색상이 가깝다(대비 1.9). 그래서 항상 오류 문장과 함께 쓴다.
   - 파괴적 동작은 `button-danger`(흰 면 + danger 텍스트 + danger 테두리)로 만든다.
@@ -291,8 +297,9 @@ Inspic은 "읽는 책이 아니라 적용하는 책"이다. 화면의 일은 두
   - 데스크톱: 왼쪽 목차 레일(248px, 오른쪽 1px 선)과 본문 열로 나눈다. 본문 여백은 48px 위, 56px 좌우다. 문단과 블록 사이 간격은 22px이다.
   - 모바일(600px 이하): 목차를 숨기고 한 열로 둔다. 좌우 여백은 16px이다.
 - 상단 바: 높이 약 48px에 아래 1px 선을 둔다. 진행률은 바 하단의 2px accent 선으로 표시한다.
-- 책 상세: 표지(220px, 3:4)와 메타 열로 된 2열이다. 모바일에서는 표지 156px로 한 열이 된다. 사실 정보(읽는 시간, 구성, 대상)는 위아래 1px 선 사이에 한 줄로 둔다.
-- 탐색 그리드: 데스크톱 3열, 모바일 2열이다. 카드 사이 간격은 24px, 모바일 16px이다.
+- 책 상세: 표지(220px, 3:4)와 메타 열로 된 2열이다. 모바일에서는 표지 156px로 한 열이 된다. 사실 정보(읽는 시간, 구성, 대상)는 위아래 1px 선 사이에 한 줄로 둔다. 목차는 메타 열과 같은 오른쪽 끝에서 끝난다. "이 저자의 다른 책" 표지는 144px로, 본 표지보다 크게 두지 않는다.
+- 탐색 그리드: 데스크톱(900px 초과) 4열, 태블릿 3열, 모바일 2열이다. 카드 사이 간격은 24px, 모바일 16px이다. 표지가 화면을 뒤덮지 않도록 한 표지의 폭은 약 210px를 넘기지 않는다. "많이 읽는 책" 줄은 데스크톱에서 6칸 격자(잘리지 않음), 모바일에서 가로 스크롤이다.
+- 헤더: 로고와 내비는 왼쪽에 붙이고, 검색과 계정은 오른쪽에 둔다. 헤더 버튼은 모두 secondary나 ghost다(accent는 본문의 주요 행동 몫). 탐색 페이지에서는 본문 검색창과 겹치므로 헤더 검색을 숨긴다.
 - 가운데 정렬은 빈 상태와 인증 폼에만 쓴다. 나머지는 왼쪽 정렬이다.
 
 ## Elevation & Depth
@@ -310,7 +317,7 @@ Inspic은 "읽는 책이 아니라 적용하는 책"이다. 화면의 일은 두
   - md 6px: 버튼, 입력, 코드 블록, 토스트
   - lg 8px: 워크북 블록, 모달. **이것이 최대값이다**
 - full은 상태 점(6px 원)과 아바타에만 쓴다. 알약 모양 버튼과 배지는 쓰지 않는다.
-- 선은 1px이다. 2px는 진행 바와 focus ring에만 쓴다.
+- 선은 1px이다. 2px는 진행 바, focus ring, Callout의 왼쪽 세로선에만 쓴다.
 
 ## Components
 
@@ -320,20 +327,22 @@ Inspic은 "읽는 책이 아니라 적용하는 책"이다. 화면의 일은 두
   - danger: surface 면에 danger 텍스트와 테두리다.
   - hover에서 이동이나 그림자 변화를 주지 않는다. 색만 바뀐다.
 - **입력**: field 면에 field-line 1px 테두리를 쓴다. focus는 2px accent outline(offset 1px)이다. placeholder는 muted다. 오류는 테두리를 danger로 바꾸고, 필드 아래에 danger 텍스트로 이유와 해결 방법을 쓴다.
-- **워크북 블록 (5종 공통)**: 면색 없이 paper 위에 `line` 1px 박스(radius lg, padding 18px 20px)를 둔다. 내부 구성은 다음과 같다.
+- **워크북 블록 (입력 블록 4종: 체크리스트·척도·성찰·목표)**: 면색 없이 paper 위에 `line` 1px 박스(radius lg, padding 18px 20px)를 둔다. **박스는 "내가 쓰는 영역"이 있는 블록 전용이다.** 내부 구성은 다음과 같다.
   1. 머리 줄: 왼쪽에 종류 라벨(label, muted), 오른쪽에 상태(caption)를 둔다.
   2. 질문: subtitle로 쓴다.
   3. 입력 영역: field 면이다.
   4. 선택: 보조 버튼이 있다면 오른쪽 끝에 둔다.
   - 라벨 문구: `체크리스트` · `척도` · `성찰` · `목표` · `참고`/`팁`/`주의`/`정보`(Callout 유형별)
-  - 상태 문구: `작성 전`(muted), `저장됨 · 방금`(accent, 600), `3개 중 2개`(모두 완료되면 accent)
+  - 상태 문구: `작성 전`(muted), `저장됨 · 방금`(accent, 600), `작성함`(muted, 불러온 답. 서버 답인지 캐시에만 있는 답인지 구분할 수 없어 "저장됨"이라 하지 않는다), `3개 중 2개`(모두 완료되면 accent), `7 선택됨`(muted, 칸이 이미 선택을 보여 준다)
+  - 진행 문구(체크리스트·척도)는 이번 세션에서 저장에 성공하면 뒤에 `· 저장됨`을 붙인다.
+  - 저장 실패: 상태는 `저장 안 됨`(danger, 600)이고, 블록 아래에 이유와 해결 방법을 danger 문장으로 쓴다("이 답을 저장하지 못했어요. 연결을 확인한 뒤 다시 시도하세요. [다시 시도]"). 네트워크 실패이므로 입력 테두리는 바꾸지 않는다(입력 오류처럼 읽힌다).
   - 블록 종류를 **면색이나 아이콘 색으로 구분하지 않는다.** 구분은 라벨 텍스트가 한다.
-  - Callout은 입력이 없는 블록이다. 같은 박스를 쓰되, `주의` 라벨만 warning 색이다. 이모지는 쓰지 않는다.
+  - **Callout**(참고·팁·주의·정보)은 입력이 없는 "책이 말하는 영역"이라 박스를 쓰지 않는다. 왼쪽 2px `line-strong` 세로선, 왼쪽 여백 16px, 위아래 4px에 라벨 줄과 본문(body)만 둔다. 면색과 radius는 없다. `주의` 라벨만 warning 색이다. 이모지는 쓰지 않는다(2026-10-01 결정: 박스가 연달아 이어져 입력 블록과 구분되지 않았다).
   - 편집 뷰(`editor/extensions/templates/*NodeView.tsx`)와 읽기 뷰(`reader/templates/*`)는 같은 시각 언어를 쓴다. 편집 뷰에는 라벨 줄 오른쪽에 편집 컨트롤만 추가한다.
-- **척도**: 10칸 격자다. 칸은 field 면에 field-line 테두리, radius sm이다. 선택된 칸은 accent 면에 on-accent 굵은 숫자다. 양 끝 라벨은 칸 아래에 caption muted로 둔다.
+- **척도**: 10칸 격자다. 모바일에서 7칸을 넘으면 두 줄(5×2)로 접어 칸 높이 44px를 지킨다. 칸은 field 면에 field-line 테두리, radius sm이다. 선택된 칸은 accent 면에 on-accent 굵은 숫자다. 양 끝 라벨은 칸 아래에 caption muted로 둔다.
 - **체크리스트**: 네이티브 checkbox에 `accent-color: accent`를 준다. 체크된 항목은 muted 색에 1px 취소선이다.
 - **코드 블록**: 잉크 면에 chiffon 텍스트, radius md다. 인라인 코드는 surface 면에 `line` 테두리, radius sm, 0.86em이다.
-- **책 표지 플레이스홀더** (`BookCover` 하나로 통일한다): 단색 면 3종(rosewood/chiffon, coffee/botticelli, botticelli/rosewood) 중 하나를 책 id 해시로 고른다. 제목은 표지 위에 700으로, 하단에 `INSPIC`를 label로 둔다. 그라디언트는 쓰지 않는다.
+- **책 표지 플레이스홀더** (`BookCover` 하나로 통일한다): 옅은 단색 면 3종(chiffon/rosewood 글자, mark/잉크 글자, botticelli/잉크 글자) 중 하나를 책 id 해시로 고른다. paper와 대비가 낮으므로 항상 1px 테두리(`line` 또는 잉크 10%)와 함께 쓴다. 제목은 표지 위에 700으로, 하단에 `INSPIC`를 label로 둔다. 그라디언트는 쓰지 않는다.
 - **탐색 카드**: 표지, 제목(subtitle), 메타(caption muted) 순이다. 카드 테두리와 면은 없다. hover 시 제목에 밑줄만 생긴다.
 - **목차 항목**: 현재 장은 mark 면에 600 굵기이고, 번호는 accent다. 완료된 장은 muted다.
 - **토스트**: 잉크 면에 chiffon 텍스트, radius md다. 떠 있는 레이어 그림자를 쓴다. 문구는 결과를 말한다("저장했어요", "링크를 복사했어요").

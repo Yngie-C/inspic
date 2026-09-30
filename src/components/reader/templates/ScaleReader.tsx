@@ -2,12 +2,14 @@
 
 import type { Element } from "html-react-parser";
 import {
+  BlockSaveError,
   BlockStatusText,
   WorkbookBlock,
   scaleCellClass,
+  scaleGridClass,
   scaleGridStyle,
 } from "@/components/ui/workbook-block";
-import { describeScale } from "@/lib/workbook/block-status";
+import { describeScale, withSaveState } from "@/lib/workbook/block-status";
 import { SCALE_FIELD_KEY } from "@/lib/workbook/types";
 import { cn } from "@/lib/utils";
 import { registerTemplate } from "./TemplateRenderer";
@@ -24,8 +26,14 @@ function ScaleReader({ element }: Props) {
   const labelMin = element.attribs["data-label-min"] || "";
   const labelMax = element.attribs["data-label-max"] || "";
 
-  const { answers, setAnswer } = useBlockAnswers(blockId);
+  const block = useBlockAnswers(blockId);
+  const { answers, setAnswer } = block;
   const selected = numberAnswer(answers, SCALE_FIELD_KEY);
+  const status = withSaveState(describeScale(selected), {
+    pending: block.save.pending,
+    failed: block.saveState === "error",
+    savedAt: block.save.savedAt,
+  });
 
   const steps: number[] = [];
   for (let i = min; i <= max; i++) steps.push(i);
@@ -34,12 +42,12 @@ function ScaleReader({ element }: Props) {
     <section className="template-scale">
       <WorkbookBlock
         kind="척도"
-        aside={<BlockStatusText status={describeScale(selected)} />}
+        aside={<BlockStatusText status={status} />}
       >
         <div
           role="group"
           aria-label={`${min}부터 ${max}까지`}
-          className="grid gap-1 max-[600px]:gap-[3px]"
+          className={scaleGridClass}
           style={scaleGridStyle(steps.length)}
         >
           {steps.map((val) => (
@@ -66,6 +74,7 @@ function ScaleReader({ element }: Props) {
             <span className="text-right">{labelMax}</span>
           </div>
         )}
+        {status.tone === "danger" && <BlockSaveError onRetry={block.retry} />}
       </WorkbookBlock>
     </section>
   );

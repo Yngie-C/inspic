@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import type { BlockStatus } from "@/lib/workbook/block-status";
 
@@ -17,6 +17,8 @@ interface WorkbookBlockProps {
   kindTone?: "muted" | "warning";
   /** 머리 줄 오른쪽. 읽기 뷰는 상태, 편집 뷰는 편집 컨트롤. */
   aside?: ReactNode;
+  /** Callout 모양 비교용(단계 5, 임시). 기본은 box. */
+  variant?: "box" | "line" | "mark";
   className?: string;
   children: ReactNode;
 }
@@ -25,13 +27,18 @@ export function WorkbookBlock({
   kind,
   kindTone = "muted",
   aside,
+  variant = "box",
   className,
   children,
 }: WorkbookBlockProps) {
   return (
     <div
       className={cn(
-        "my-6 flex flex-col gap-3 rounded-lg border border-line bg-paper px-5 py-[18px] text-body text-primary max-[600px]:p-3.5",
+        "my-6 flex flex-col gap-3 text-body text-primary",
+        variant === "box" &&
+          "rounded-lg border border-line bg-paper px-5 py-[18px] max-[600px]:p-3.5",
+        variant === "line" && "gap-2 border-l-2 border-line-strong py-1 pl-4",
+        variant === "mark" && "rounded-lg bg-mark px-5 py-[18px] max-[600px]:p-3.5",
         className,
       )}
     >
@@ -66,6 +73,25 @@ export function BlockStatusText({ status }: { status: BlockStatus }) {
   );
 }
 
+/**
+ * 저장 실패를 블록 안에서 말한다. 무엇이 잘못됐고 어떻게 고치는지를 함께 쓴다
+ * (DESIGN.md "danger는 항상 오류 문장과 함께").
+ */
+export function BlockSaveError({ onRetry }: { onRetry: () => void }) {
+  return (
+    <p className="m-0 flex flex-wrap items-baseline gap-x-2 text-body-sm text-danger">
+      이 답을 저장하지 못했어요. 연결을 확인한 뒤 다시 시도하세요.
+      <button
+        type="button"
+        onClick={onRetry}
+        className="font-semibold underline decoration-1 underline-offset-3"
+      >
+        다시 시도
+      </button>
+    </p>
+  );
+}
+
 export function BlockQuestion({ children }: { children: ReactNode }) {
   return <p className="m-0 text-subtitle text-primary">{children}</p>;
 }
@@ -77,7 +103,7 @@ export const blockFieldClass =
 /** 척도 칸. 선택 여부에 따라 면이 바뀝니다. */
 export function scaleCellClass(selected: boolean) {
   return cn(
-    "flex h-11 w-full items-center justify-center max-[600px]:h-auto max-[600px]:aspect-square rounded-sm border p-0 text-body-sm tabular-nums transition-colors duration-150 ease-out",
+    "flex h-11 w-full items-center justify-center rounded-sm border p-0 text-body-sm tabular-nums transition-colors duration-150 ease-out",
     selected
       ? "border-accent bg-accent font-bold text-on-accent"
       : "border-field-line bg-field text-primary",
@@ -85,6 +111,33 @@ export function scaleCellClass(selected: boolean) {
 }
 
 /** 척도 칸 격자. 칸 수(min~max)가 책마다 달라 열 수를 인라인으로 줍니다. */
+/**
+ * 척도 격자 열 수. 모바일에서 7칸을 넘으면 두 줄로 접어 칸이 44px 탭 영역을 지키게 한다.
+ * `scaleGridClass`가 `--scale-cols`/`--scale-cols-sm`을 읽는다.
+ */
+export const scaleGridClass =
+  "grid grid-cols-[repeat(var(--scale-cols),minmax(0,1fr))] gap-1 max-[600px]:grid-cols-[repeat(var(--scale-cols-sm),minmax(0,1fr))] max-[600px]:gap-1.5";
+
 export function scaleGridStyle(count: number) {
-  return { gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` };
+  const sm = count > 7 ? Math.ceil(count / 2) : count;
+  return {
+    "--scale-cols": count,
+    "--scale-cols-sm": sm,
+  } as CSSProperties;
+}
+
+/** SMART 목표 문항 라벨: 한글 질문을 앞에, 영어 용어를 뒤에 둔다. */
+export function SmartFieldLabel({
+  term,
+  question,
+}: {
+  term: string;
+  question: string;
+}) {
+  return (
+    <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+      <span className="text-body-sm font-semibold text-primary">{question}</span>
+      <span className="text-caption text-muted">{term}</span>
+    </span>
+  );
 }

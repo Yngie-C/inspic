@@ -1,8 +1,12 @@
 "use client";
 
 import type { Element } from "html-react-parser";
-import { BlockStatusText, WorkbookBlock } from "@/components/ui/workbook-block";
-import { describeChecklist } from "@/lib/workbook/block-status";
+import {
+  BlockSaveError,
+  BlockStatusText,
+  WorkbookBlock,
+} from "@/components/ui/workbook-block";
+import { describeChecklist, withSaveState } from "@/lib/workbook/block-status";
 import { parseChecklistItems } from "@/lib/workbook/extract-blocks";
 import { cn } from "@/lib/utils";
 import { registerTemplate } from "./TemplateRenderer";
@@ -15,14 +19,20 @@ interface Props {
 function ChecklistReader({ element }: Props) {
   const blockId = element.attribs["data-node-id"] || "";
   const items = parseChecklistItems(element.attribs["data-items"]);
-  const { answers, setAnswer } = useBlockAnswers(blockId);
+  const block = useBlockAnswers(blockId);
+  const { answers, setAnswer } = block;
   const done = items.filter((item) => boolAnswer(answers, item.id)).length;
+  const status = withSaveState(describeChecklist(items.length, done), {
+    pending: block.save.pending,
+    failed: block.saveState === "error",
+    savedAt: block.save.savedAt,
+  });
 
   return (
     <section className="template-checklist">
       <WorkbookBlock
         kind="체크리스트"
-        aside={<BlockStatusText status={describeChecklist(items.length, done)} />}
+        aside={<BlockStatusText status={status} />}
       >
         <ul className="m-0 flex list-none flex-col gap-2 p-0">
           {items.map((item) => {
@@ -49,6 +59,7 @@ function ChecklistReader({ element }: Props) {
             );
           })}
         </ul>
+        {status.tone === "danger" && <BlockSaveError onRetry={block.retry} />}
       </WorkbookBlock>
     </section>
   );

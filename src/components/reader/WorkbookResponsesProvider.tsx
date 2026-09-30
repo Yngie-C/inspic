@@ -344,6 +344,7 @@ export function useBlockResponses(blockId: string) {
     answers: answers[blockId] ?? NO_ANSWERS,
     save: context.blockSaves[blockId] ?? NO_SAVE,
     saveState: context.saveState,
+    retry: context.retry,
     setAnswer: (fieldKey: string, value: WorkbookAnswer) =>
       setAnswer(blockId, fieldKey, value),
   };

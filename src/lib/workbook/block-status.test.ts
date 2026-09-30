@@ -3,6 +3,7 @@ import {
   describeChecklist,
   describeSave,
   describeScale,
+  withSaveState,
   type SaveStatusInput,
 } from "./block-status";
 
@@ -73,6 +74,38 @@ describe("describeChecklist", () => {
 describe("describeScale", () => {
   it("고른 값을 말한다", () => {
     expect(describeScale(null)).toEqual({ text: "작성 전", tone: "muted" });
-    expect(describeScale(4)).toEqual({ text: "4 선택됨", tone: "ok" });
+    // 칸 자체가 선택을 보여 주므로 문구는 accent로 겹쳐 말하지 않는다.
+    expect(describeScale(4)).toEqual({ text: "4 선택됨", tone: "muted" });
+  });
+});
+
+describe("withSaveState", () => {
+  const progress = { text: "3개 중 1개", tone: "muted" } as const;
+
+  it("보내지 못한 응답이 있고 저장이 실패했으면 진행 문구 대신 실패를 말한다", () => {
+    expect(
+      withSaveState(progress, { pending: true, failed: true, savedAt: NOW }),
+    ).toEqual({ text: "저장 안 됨", tone: "danger" });
+  });
+
+  it("실패 상태여도 이 블록에 보낼 응답이 없으면 실패라 하지 않는다", () => {
+    expect(
+      withSaveState(progress, { pending: false, failed: true, savedAt: null }),
+    ).toBe(progress);
+  });
+
+  it("이번 세션에서 저장에 성공했으면 진행 문구 뒤에 저장됨을 붙인다", () => {
+    expect(
+      withSaveState(progress, { pending: false, failed: false, savedAt: NOW }),
+    ).toEqual({ text: "3개 중 1개 · 저장됨", tone: "muted" });
+  });
+
+  it("저장 중이거나 불러온 답뿐이면 진행 문구를 그대로 둔다", () => {
+    expect(
+      withSaveState(progress, { pending: true, failed: false, savedAt: NOW }),
+    ).toBe(progress);
+    expect(
+      withSaveState(progress, { pending: false, failed: false, savedAt: null }),
+    ).toBe(progress);
   });
 });

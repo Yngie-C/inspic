@@ -67,13 +67,13 @@ function PopularBooksSection() {
   return (
     <section className="mb-12">
       <h2 className="mb-3.5 text-label text-muted">많이 읽는 책</h2>
-      <div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-2 min-[601px]:mx-0 min-[601px]:px-0">
+      <div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-2 min-[901px]:mx-0 min-[901px]:grid min-[901px]:grid-cols-6 min-[901px]:overflow-visible min-[901px]:px-0 min-[901px]:[&>:nth-child(n+7)]:hidden">
         {books.map((book) => (
           <BookPreviewCard
             key={book.id}
             book={book}
             size="sm"
-            className="w-36 flex-none"
+            className="w-36 flex-none min-[901px]:w-auto"
           />
         ))}
       </div>
@@ -129,11 +129,12 @@ function ExploreContent() {
         </p>
       </div>
 
-      <PopularBooksSection />
-
-      <div className="mb-6">
+      <div className="mb-10">
         <SearchBar filters={filters} onFiltersChange={handleFiltersChange} />
       </div>
+
+      {/* 찾는 중에는 결과가 바로 이어지도록 인기 줄을 숨긴다. */}
+      {!filters.query && !filters.priceRange && <PopularBooksSection />}
 
       {!isLoading && !isError && total > 0 && (
         <p className="mb-4 text-caption tabular-nums text-muted">

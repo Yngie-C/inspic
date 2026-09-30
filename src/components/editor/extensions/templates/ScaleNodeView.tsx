@@ -2,6 +2,7 @@ import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import {
   WorkbookBlock,
   scaleCellClass,
+  scaleGridClass,
   scaleGridStyle,
 } from "@/components/ui/workbook-block";
 
@@ -24,7 +25,7 @@ export function ScaleNodeView({ node, updateAttributes }: NodeViewProps) {
         {/* 눈금은 독자가 고를 자리입니다. 저작 화면에서는 미리보기만 합니다. */}
         <div
           aria-hidden="true"
-          className="grid gap-1"
+          className={scaleGridClass}
           style={scaleGridStyle(steps.length)}
         >
           {steps.map((n) => (

@@ -4,7 +4,9 @@ import { useEffect, useRef } from "react";
 import type { Element } from "html-react-parser";
 import {
   BlockQuestion,
+  BlockSaveError,
   BlockStatusText,
+  SmartFieldLabel,
   WorkbookBlock,
   blockFieldClass,
 } from "@/components/ui/workbook-block";
@@ -27,14 +29,9 @@ function SmartGoalReader({ element }: Props) {
       <WorkbookBlock kind="목표" aside={<BlockStatusText status={status} />}>
         <BlockQuestion>SMART 목표를 세워 보세요</BlockQuestion>
         <div className="flex flex-col gap-4">
-          {SMART_GOAL_FIELDS.map(({ key, label }) => (
+          {SMART_GOAL_FIELDS.map(({ key, term, question }) => (
             <label key={key} className="flex flex-col gap-1.5">
-              <span className="text-caption text-muted">
-                <span className="mr-1.5 font-bold text-primary">
-                  {key.toUpperCase()}
-                </span>
-                {label}
-              </span>
+              <SmartFieldLabel term={term} question={question} />
               <AutoResizeTextarea
                 value={textAnswer(block.answers, key)}
                 onChange={(next) => block.setAnswer(key, next)}
@@ -42,6 +39,7 @@ function SmartGoalReader({ element }: Props) {
             </label>
           ))}
         </div>
+        {status.tone === "danger" && <BlockSaveError onRetry={block.retry} />}
       </WorkbookBlock>
     </section>
   );
@@ -67,7 +65,7 @@ function AutoResizeTextarea({
     <textarea
       ref={ref}
       className={cn(blockFieldClass, "resize-none overflow-hidden")}
-      rows={2}
+      rows={1}
       value={value}
       onChange={(e) => onChange(e.target.value)}
     />

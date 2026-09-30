@@ -61,14 +61,25 @@ export interface ChecklistItem {
   text: string;
 }
 
-/** SMART 목표의 문항 키와 라벨. 키는 고정이므로 항목 추가·삭제가 없습니다. */
-export const SMART_GOAL_FIELDS: ReadonlyArray<{ key: string; label: string }> = [
-  { key: "s", label: "Specific — 구체적으로 무엇을 달성할 것인가?" },
-  { key: "m", label: "Measurable — 어떻게 측정할 것인가?" },
-  { key: "a", label: "Achievable — 달성 가능한가?" },
-  { key: "r", label: "Relevant — 목표와 관련이 있는가?" },
-  { key: "t", label: "Time-bound — 언제까지 달성할 것인가?" },
-];
+/**
+ * SMART 목표의 문항 키와 라벨. 키는 고정이므로 항목 추가·삭제가 없습니다.
+ * `label`은 응답 추출·폴백 HTML에 쓰이는 값이라 형식을 바꾸지 않습니다.
+ * 화면은 한글 질문(`question`)을 앞에, 영어 용어(`term`)를 뒤에 둡니다.
+ */
+const SMART_GOAL_TERMS = [
+  { key: "s", term: "Specific", question: "구체적으로 무엇을 달성할 것인가?" },
+  { key: "m", term: "Measurable", question: "어떻게 측정할 것인가?" },
+  { key: "a", term: "Achievable", question: "달성 가능한가?" },
+  { key: "r", term: "Relevant", question: "목표와 관련이 있는가?" },
+  { key: "t", term: "Time-bound", question: "언제까지 달성할 것인가?" },
+] as const;
+
+export const SMART_GOAL_FIELDS: ReadonlyArray<{
+  key: string;
+  label: string;
+  term: string;
+  question: string;
+}> = SMART_GOAL_TERMS.map((f) => ({ ...f, label: `${f.term} — ${f.question}` }));
 
 /** 문항이 하나뿐인 블록의 고정 field_key. */
 export const REFLECTION_FIELD_KEY = "answer";

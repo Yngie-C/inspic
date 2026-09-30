@@ -1,12 +1,29 @@
+"use client";
+
 import Image from "next/image";
+import { useDesignVariants, type CoverVariant } from "@/components/ui/design-variants";
 import { cn } from "@/lib/utils";
 
 // DESIGN.md Components > 책 표지 플레이스홀더. 단색 면 3종 중 하나를 책 id 해시로 고른다.
-const COVER_TONES = [
-  "bg-accent text-chiffon",
-  "bg-primary text-botticelli",
-  "bg-botticelli text-accent",
-] as const;
+const COVER_TONES: Record<CoverVariant, readonly string[]> = {
+  current: [
+    "bg-accent text-chiffon",
+    "bg-primary text-botticelli",
+    "bg-botticelli text-accent",
+  ],
+  // 비교용(단계 5, 임시): 로즈우드 면을 빼고 chiffon 면을 넣는다.
+  "no-rosewood": [
+    "bg-chiffon text-primary",
+    "bg-primary text-botticelli",
+    "bg-botticelli text-accent",
+  ],
+  // 비교용(단계 5, 임시): 짙은 면 없이 옅은 면만 쓴다.
+  light: [
+    "bg-chiffon text-accent",
+    "bg-mark text-primary",
+    "bg-botticelli text-primary",
+  ],
+};
 
 const TITLE_SIZE = {
   sm: "text-body-sm",
@@ -14,12 +31,16 @@ const TITLE_SIZE = {
   lg: "text-title",
 } as const;
 
-export function getCoverTone(bookId: string): string {
+export function getCoverTone(
+  bookId: string,
+  variant: CoverVariant = "current",
+): string {
   let hash = 0;
   for (let i = 0; i < bookId.length; i++) {
     hash = (hash * 31 + bookId.charCodeAt(i)) | 0;
   }
-  return COVER_TONES[Math.abs(hash) % COVER_TONES.length];
+  const tones = COVER_TONES[variant];
+  return tones[Math.abs(hash) % tones.length];
 }
 
 interface BookCoverProps {
@@ -44,6 +65,7 @@ export function BookCover({
   priority,
   className,
 }: BookCoverProps) {
+  const { cover } = useDesignVariants();
   if (coverImageUrl) {
     return (
       <Image
@@ -61,7 +83,7 @@ export function BookCover({
     <div
       className={cn(
         "flex h-full w-full select-none flex-col justify-between p-[12%]",
-        getCoverTone(bookId),
+        getCoverTone(bookId, cover),
         className,
       )}
     >

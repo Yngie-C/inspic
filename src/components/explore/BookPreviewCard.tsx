@@ -39,7 +39,7 @@ export function BookPreviewCard({
           sizes={
             size === "sm"
               ? "144px"
-              : "(max-width: 600px) 50vw, (max-width: 1024px) 33vw, 280px"
+              : "(max-width: 600px) 50vw, (max-width: 900px) 33vw, 210px"
           }
           size={size}
         />

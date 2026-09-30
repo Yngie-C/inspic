@@ -18,7 +18,7 @@ export function BookGrid({ books }: BookGridProps) {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-4 min-[601px]:grid-cols-3 min-[601px]:gap-6">
+    <div className="grid grid-cols-2 gap-4 min-[601px]:grid-cols-3 min-[601px]:gap-6 min-[901px]:grid-cols-4">
       {books.map((book) => (
         <BookPreviewCard key={book.id} book={book} />
       ))}

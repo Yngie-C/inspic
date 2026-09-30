@@ -1,5 +1,9 @@
 import { NodeViewWrapper } from "@tiptap/react";
-import { BlockQuestion, WorkbookBlock } from "@/components/ui/workbook-block";
+import {
+  BlockQuestion,
+  SmartFieldLabel,
+  WorkbookBlock,
+} from "@/components/ui/workbook-block";
 import { SMART_GOAL_FIELDS } from "@/lib/workbook/types";
 
 /**
@@ -14,15 +18,10 @@ export function SmartGoalNodeView() {
       >
         <BlockQuestion>SMART 목표를 세워 보세요</BlockQuestion>
         <div className="flex flex-col gap-4">
-          {SMART_GOAL_FIELDS.map(({ key, label }) => (
+          {SMART_GOAL_FIELDS.map(({ key, term, question }) => (
             <div key={key} className="flex flex-col gap-1.5">
-              <span className="text-caption text-muted">
-                <span className="mr-1.5 font-bold text-primary">
-                  {key.toUpperCase()}
-                </span>
-                {label}
-              </span>
-              <div className="h-14 rounded-md border border-field-line bg-field" />
+              <SmartFieldLabel term={term} question={question} />
+              <div className="h-11 rounded-md border border-field-line bg-field" />
             </div>
           ))}
         </div>

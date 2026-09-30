@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import type { Element } from "html-react-parser";
 import {
   BlockQuestion,
+  BlockSaveError,
   BlockStatusText,
   WorkbookBlock,
   blockFieldClass,
@@ -49,6 +50,7 @@ function ReflectionReader({ element }: Props) {
           rows={3}
           className={cn(blockFieldClass, "min-h-24 resize-none overflow-hidden")}
         />
+        {status.tone === "danger" && <BlockSaveError onRetry={block.retry} />}
       </WorkbookBlock>
     </section>
   );

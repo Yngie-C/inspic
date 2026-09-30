@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Check, Share2 } from "lucide-react";
 import { BookCover } from "@/components/ui/book-cover";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   BookPreviewCard,
@@ -67,7 +68,14 @@ export function BookDetailView({
 
         <div className="flex max-w-[640px] flex-col gap-3.5">
           {isOwner && (
-            <p className="text-caption font-semibold text-muted">
+            <p className="flex items-center gap-1.5 text-caption font-semibold text-primary">
+              <span
+                aria-hidden
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full",
+                  isPublished ? "bg-success" : "bg-faint",
+                )}
+              />
               {isPublished ? "공개 중" : "비공개 · 나만 볼 수 있음"}
             </p>
           )}
@@ -93,7 +101,8 @@ export function BookDetailView({
             </p>
           )}
 
-          <div className="mt-1 flex flex-wrap gap-2 max-[600px]:[&>*]:flex-1">
+          {/* 모바일: 주요 버튼은 한 줄 전체, 보조 버튼은 그 아래에 나눠 둔다. */}
+          <div className="mt-1 flex flex-wrap gap-2 max-[600px]:[&>*]:flex-1 max-[600px]:[&>:first-child]:basis-full">
             <Actions
               book={book}
               isOwner={isOwner}
@@ -107,7 +116,7 @@ export function BookDetailView({
         </div>
       </div>
 
-      <section className="max-w-[640px]">
+      <section>
         <h2 className="mb-3.5 text-label text-muted">목차</h2>
         {chapters.length === 0 ? (
           <p className="text-body-sm text-muted">아직 공개된 장이 없습니다.</p>
@@ -151,9 +160,15 @@ export function BookDetailView({
       {otherBooks.length > 0 && (
         <section>
           <h2 className="mb-3.5 text-label text-muted">이 저자의 다른 책</h2>
-          <div className="grid max-w-[840px] grid-cols-2 gap-4 min-[601px]:grid-cols-3 min-[601px]:gap-6 max-[600px]:[&>:nth-child(3)]:hidden">
-            {otherBooks.slice(0, 3).map((b) => (
-              <BookPreviewCard key={b.id} book={b} />
+          {/* 본 표지(220px)보다 작게 둬서 위계를 지킨다. */}
+          <div className="grid grid-cols-3 gap-4 min-[601px]:grid-cols-[repeat(4,144px)] min-[601px]:gap-6">
+            {otherBooks.slice(0, 4).map((b) => (
+              <BookPreviewCard
+                key={b.id}
+                book={b}
+                size="sm"
+                className="max-[600px]:[&:nth-child(4)]:hidden"
+              />
             ))}
           </div>
         </section>

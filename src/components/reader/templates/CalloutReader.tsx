@@ -1,6 +1,7 @@
 "use client";
 
 import type { Element } from "html-react-parser";
+import { useDesignVariants } from "@/components/ui/design-variants";
 import { WorkbookBlock } from "@/components/ui/workbook-block";
 import { registerTemplate } from "./TemplateRenderer";
 
@@ -26,12 +27,14 @@ function CalloutReader({ element }: Props) {
   const calloutType: CalloutType =
     rawType in CALLOUT_LABEL ? (rawType as CalloutType) : "note";
   const content = element.attribs["data-content"] || "";
+  const { callout } = useDesignVariants();
 
   return (
     <section className="template-callout">
       <WorkbookBlock
         kind={CALLOUT_LABEL[calloutType]}
         kindTone={calloutType === "warning" ? "warning" : "muted"}
+        variant={callout}
       >
         <p className="m-0 whitespace-pre-line">{content}</p>
       </WorkbookBlock>

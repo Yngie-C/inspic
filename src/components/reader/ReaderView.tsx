@@ -269,8 +269,21 @@ function UnsavedNotice({
       };
 
   return (
-    <div className="mb-10 flex flex-col items-start gap-2 rounded-lg border border-warning/40 px-5 py-4">
-      <p className="text-body-sm font-semibold text-warning">{title}</p>
+    // 미리보기는 예정된 상태라 info, 로그인 안 한 독자의 로컬 저장은 잃을 수 있어 warning이다.
+    <div
+      className={cn(
+        "mb-10 flex flex-col items-start gap-2 rounded-lg border px-5 py-4",
+        isPreview ? "border-info/40" : "border-warning/40",
+      )}
+    >
+      <p
+        className={cn(
+          "text-body-sm font-semibold",
+          isPreview ? "text-info" : "text-warning",
+        )}
+      >
+        {title}
+      </p>
       <p className="text-body-sm text-muted">{description}</p>
       <Button asChild variant="secondary" size="sm" className="mt-1">
         <Link href={href}>{label}</Link>
