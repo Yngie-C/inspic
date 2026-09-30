@@ -59,7 +59,7 @@ export default function AboutPage() {
     <div className="mx-auto max-w-5xl px-4 py-20">
       {/* Hero */}
       <section className="mb-20 text-center">
-        <h1 className="mb-4 font-logo text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
+        <h1 className="mb-4 text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
           읽는 책이 아니라 적용하는 책
         </h1>
         <p className="mx-auto max-w-2xl text-lg leading-relaxed text-gray-600">
@@ -80,7 +80,7 @@ export default function AboutPage() {
               key={feature.title}
               className="rounded-2xl border border-gray-100 bg-white p-6 hover:-translate-y-2 hover:shadow-lg transition-all duration-300"
             >
-              <feature.icon className="mb-3 h-8 w-8 text-brand-600" />
+              <feature.icon className="mb-3 h-8 w-8 text-accent" />
               <h3 className="mb-2 text-lg font-semibold text-gray-900">
                 {feature.title}
               </h3>
@@ -119,7 +119,7 @@ export default function AboutPage() {
             },
           ].map((item) => (
             <div key={item.step} className="text-center">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-brand-600 text-lg font-bold text-white">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-accent text-lg font-bold text-on-accent">
                 {item.step}
               </div>
               <h3 className="mb-2 text-lg font-semibold text-gray-900">
@@ -134,9 +134,7 @@ export default function AboutPage() {
       </section>
 
       {/* CTA */}
-      <section className="relative overflow-hidden rounded-2xl border-2 border-brand-100 bg-white px-6 py-14 text-center">
-        <div className="absolute -top-20 -right-20 h-40 w-40 rounded-full bg-brand-200 opacity-30 blur-3xl" />
-        <div className="absolute -bottom-20 -left-20 h-40 w-40 rounded-full bg-brand-200 opacity-30 blur-3xl" />
+      <section className="relative overflow-hidden rounded-2xl border border-line bg-white px-6 py-14 text-center">
         <div className="relative">
           <h2 className="mb-3 text-2xl font-bold text-gray-900 sm:text-3xl">
             나만의 콘텐츠를 출판해보세요
@@ -146,7 +144,7 @@ export default function AboutPage() {
           </p>
           <Link
             href="/auth/signup"
-            className="inline-block rounded-full bg-brand-600 px-8 py-3 font-semibold text-white transition-colors hover:bg-brand-700"
+            className="inline-block rounded-full bg-accent px-8 py-3 font-semibold text-on-accent transition-colors hover:bg-accent-hover"
           >
             무료로 시작하기
           </Link>

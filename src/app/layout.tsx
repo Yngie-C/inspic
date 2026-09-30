@@ -1,25 +1,10 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
+// Pretendard dynamic subset: 한글 글리프를 unicode-range 조각(92개)으로 나눠 필요한 것만 받는다.
+import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "./globals.css";
 import { Providers } from "@/lib/providers";
 import { ToastProvider } from "@/components/ui/toast";
 import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const playfair = Playfair_Display({
-  variable: "--font-playfair",
-  subsets: ["latin"],
-  weight: ["700"],
-});
 
 export const metadata: Metadata = {
   title: {
@@ -50,10 +35,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} antialiased`}
-
-      >
+      <body className="antialiased">
         <GoogleAnalytics />
         <Providers>
           <ToastProvider>{children}</ToastProvider>

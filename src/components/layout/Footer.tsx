@@ -6,7 +6,7 @@ export function Footer() {
     <footer className="border-t border-gray-200 bg-white">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-          <span className="font-logo text-lg font-bold italic text-gray-900">inspic</span>
+          <span className="text-lg font-extrabold tracking-tight text-accent">inspic</span>
 
           <nav className="flex gap-6 text-sm text-gray-500">
             <Link href="/about" className="hover:text-gray-900 transition-colors">

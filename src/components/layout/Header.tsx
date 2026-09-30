@@ -44,7 +44,7 @@ export function Header() {
     <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/80 backdrop-blur-sm">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
         {/* Logo */}
-        <Link href="/" className="font-logo text-xl font-bold italic text-gray-900">
+        <Link href="/" className="text-xl font-extrabold tracking-tight text-accent">
           inspic
         </Link>
 

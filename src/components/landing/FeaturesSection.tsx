@@ -12,7 +12,7 @@ export function FeaturesSection() {
       <div className="mx-auto grid max-w-7xl gap-12 px-4 md:grid-cols-3">
         {features.map((f, i) => (
           <div key={i} className="group flex flex-col items-center text-center">
-            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 transition-transform group-hover:-translate-y-1">
+            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-mark text-accent transition-transform group-hover:-translate-y-1">
               <f.icon className="h-8 w-8" />
             </div>
             <h3 className="text-lg font-bold text-gray-900">{f.title}</h3>

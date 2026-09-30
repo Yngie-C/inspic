@@ -48,11 +48,9 @@ export default function LoginPage() {
 
   return (
     <div className="relative">
-      <div className="absolute top-1/4 -left-20 h-60 w-60 rounded-full bg-brand-100 opacity-40 blur-3xl" />
-      <div className="absolute bottom-1/4 -right-20 h-60 w-60 rounded-full bg-brand-200 opacity-30 blur-3xl" />
       <Card className="rounded-2xl border border-gray-100 shadow-sm">
         <CardHeader>
-          <CardTitle className="font-logo text-2xl">로그인</CardTitle>
+          <CardTitle className="text-2xl">로그인</CardTitle>
           <CardDescription>inspic 계정으로 로그인하세요.</CardDescription>
         </CardHeader>
         <CardContent>

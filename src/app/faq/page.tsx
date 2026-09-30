@@ -42,7 +42,7 @@ const faqItems: FaqItem[] = [
 export default function FaqPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-20">
-      <h1 className="mb-2 font-logo text-4xl font-bold text-gray-900">자주 묻는 질문</h1>
+      <h1 className="mb-2 text-4xl font-bold text-gray-900">자주 묻는 질문</h1>
       <p className="mb-8 text-gray-500">
         inspic 이용에 대해 궁금한 점을 확인하세요.
       </p>

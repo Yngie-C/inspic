@@ -189,7 +189,7 @@ export default function CheckoutPage() {
           isLoading={paying}
           disabled={paying || !agreed}
           size="lg"
-          className="w-full rounded-full bg-brand-600 hover:bg-brand-700 text-white"
+          className="w-full rounded-full bg-accent hover:bg-accent-hover text-on-accent"
         >
           {book.price.toLocaleString("ko-KR")}원 결제하기
         </Button>

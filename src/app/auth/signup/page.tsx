@@ -60,7 +60,7 @@ export default function SignupPage() {
     return (
       <Card className="rounded-2xl border border-gray-100 shadow-sm">
         <CardHeader>
-          <CardTitle className="font-logo text-2xl">이메일을 확인해주세요</CardTitle>
+          <CardTitle className="text-2xl">이메일을 확인해주세요</CardTitle>
           <CardDescription>
             가입 확인 이메일을 발송했습니다. 이메일의 링크를 클릭해 계정을
             활성화하세요.
@@ -80,11 +80,9 @@ export default function SignupPage() {
 
   return (
     <div className="relative">
-      <div className="absolute top-1/4 -left-20 h-60 w-60 rounded-full bg-brand-100 opacity-40 blur-3xl" />
-      <div className="absolute bottom-1/4 -right-20 h-60 w-60 rounded-full bg-brand-200 opacity-30 blur-3xl" />
       <Card className="rounded-2xl border border-gray-100 shadow-sm">
         <CardHeader>
-          <CardTitle className="font-logo text-2xl">회원가입</CardTitle>
+          <CardTitle className="text-2xl">회원가입</CardTitle>
           <CardDescription>새 inspic 계정을 만드세요.</CardDescription>
         </CardHeader>
         <CardContent>

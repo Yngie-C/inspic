@@ -19,7 +19,6 @@ export function HeroSection({ totalBooks }: { totalBooks?: number }) {
   return (
     <section className="relative overflow-hidden bg-white pt-20 pb-16 md:pt-32 md:pb-24">
       {/* 배경 장식 (심플한 그라데이션 블러) */}
-      <div className="absolute top-0 left-1/2 -z-10 h-[400px] w-[800px] -translate-x-1/2 opacity-20 blur-[120px] bg-gradient-to-r from-brand-400 to-orange-300" />
 
       <div className="mx-auto max-w-5xl px-4 text-center">
         <motion.div
@@ -27,9 +26,9 @@ export function HeroSection({ totalBooks }: { totalBooks?: number }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          <h1 className="font-logo text-5xl font-bold tracking-tight text-gray-900 md:text-7xl">
+          <h1 className="text-5xl font-bold tracking-tight text-gray-900 md:text-7xl">
             읽고, 쓰고, <br />
-            <span className="text-brand-600">적용하세요</span>
+            <span className="text-accent">적용하세요</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-500 md:text-xl">
             워크시트와 질문이 담긴 워크북형 전자책. <br className="hidden md:block" />
@@ -50,7 +49,7 @@ export function HeroSection({ totalBooks }: { totalBooks?: number }) {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="관심 있는 주제 검색..."
-                className="h-14 w-full rounded-full border border-gray-200 bg-gray-50 pl-12 pr-6 text-sm outline-none transition-all focus:border-brand-300 focus:bg-white focus:ring-4 focus:ring-brand-50"
+                className="h-14 w-full rounded-full border border-gray-200 bg-gray-50 pl-12 pr-6 text-sm outline-none transition-all focus:border-field-line focus:bg-white focus:outline-2 focus:outline-offset-1 focus:outline-accent"
               />
             </form>
           </div>

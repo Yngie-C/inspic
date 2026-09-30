@@ -39,8 +39,8 @@ export function SideNavLayout({ navItems, children }: SideNavLayoutProps) {
                       className={cn(
                         "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                         isActive
-                          ? "bg-brand-50 text-brand-700"
-                          : "text-gray-600 hover:bg-brand-50/50 hover:text-gray-900",
+                          ? "bg-mark font-semibold text-primary"
+                          : "text-gray-600 hover:bg-mark hover:text-gray-900",
                       )}
                     >
                       <Icon className="h-4 w-4" />

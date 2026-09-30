@@ -4,7 +4,7 @@ import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import Image from "next/image";
+import { BookCover } from "@/components/ui/book-cover";
 import { BookGrid } from "@/components/explore/BookGrid";
 import { SearchBar, type SearchFilters } from "@/components/explore/SearchBar";
 import { Spinner } from "@/components/ui/spinner";
@@ -24,21 +24,6 @@ interface ExploreApiResponse {
     page: number;
     per_page: number;
   };
-}
-
-const GRADIENT_COLORS = [
-  "from-blue-400 to-indigo-600",
-  "from-purple-400 to-pink-600",
-  "from-green-400 to-teal-600",
-  "from-orange-400 to-red-600",
-];
-
-function getGradient(title: string): string {
-  let hash = 0;
-  for (let i = 0; i < title.length; i++) {
-    hash = (hash * 31 + title.charCodeAt(i)) & 0xffffffff;
-  }
-  return GRADIENT_COLORS[Math.abs(hash) % GRADIENT_COLORS.length];
 }
 
 async function fetchPublicBooks(
@@ -80,7 +65,7 @@ function PopularBooksSection() {
   if (isLoading) {
     return (
       <div className="mb-10">
-        <h2 className="mb-4 font-logo text-xl font-bold text-gray-900">인기 책</h2>
+        <h2 className="mb-4 text-xl font-bold text-gray-900">인기 책</h2>
         <div className="flex gap-4 overflow-x-auto pb-2">
           {Array.from({ length: 6 }).map((_, i) => (
             <div
@@ -97,10 +82,9 @@ function PopularBooksSection() {
 
   return (
     <div className="mb-10">
-      <h2 className="mb-4 font-logo text-xl font-bold text-gray-900">인기 책</h2>
+      <h2 className="mb-4 text-xl font-bold text-gray-900">인기 책</h2>
       <div className="flex gap-4 overflow-x-auto pb-2">
         {books.map((book) => {
-          const gradient = getGradient(book.title);
           return (
             <Link
               key={book.id}
@@ -108,23 +92,13 @@ function PopularBooksSection() {
               className="group flex-shrink-0 w-36 flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm hover:-translate-y-2 hover:shadow-lg transition-all duration-300"
             >
               <div className="relative h-48 w-full overflow-hidden">
-                {book.cover_image_url ? (
-                  <Image
-                    src={book.cover_image_url}
-                    alt={book.title}
-                    fill
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
-                    sizes="144px"
-                  />
-                ) : (
-                  <div
-                    className={`flex h-full w-full items-center justify-center bg-gradient-to-br ${gradient}`}
-                  >
-                    <span className="text-3xl font-bold text-white/80 select-none">
-                      {book.title.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                )}
+                <BookCover
+                  bookId={book.id}
+                  title={book.title}
+                  coverImageUrl={book.cover_image_url}
+                  sizes="144px"
+                  size="sm"
+                />
               </div>
               <div className="p-2">
                 <p className="line-clamp-2 text-xs font-medium text-gray-900 group-hover:text-gray-700">
@@ -259,7 +233,7 @@ function ExploreContent() {
                   onClick={() => setPage(pageNum)}
                   className={`h-9 w-9 rounded-full text-sm font-medium transition-colors ${
                     pageNum === page
-                      ? "bg-brand-600 text-white"
+                      ? "bg-accent text-on-accent"
                       : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                   }`}
                 >

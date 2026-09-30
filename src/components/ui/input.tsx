@@ -19,7 +19,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label
             htmlFor={inputId}
-            className="text-sm font-medium text-gray-700"
+            className="text-body-sm font-semibold text-primary"
           >
             {label}
           </label>
@@ -27,17 +27,18 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         <input
           ref={ref}
           id={inputId}
+          aria-invalid={error ? true : undefined}
           className={cn(
-            "h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 transition-colors",
-            "focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/20",
-            "disabled:cursor-not-allowed disabled:opacity-50",
-            error && "border-red-500 focus:border-red-500 focus:ring-red-500/20",
+            "h-10 w-full rounded-md border border-field-line bg-field px-3 text-body text-primary placeholder:text-muted transition-colors duration-150 ease-out",
+            "focus:outline-2 focus:outline-offset-1 focus:outline-accent",
+            "disabled:cursor-not-allowed disabled:text-faint",
+            error && "border-danger",
             className,
           )}
           {...props}
         />
         {error && (
-          <p className="text-xs text-red-600">{error}</p>
+          <p className="text-caption text-danger">{error}</p>
         )}
       </div>
     );

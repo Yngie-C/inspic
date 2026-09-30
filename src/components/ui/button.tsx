@@ -3,27 +3,29 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 
+// DESIGN.md Components > 버튼. hover에서는 색만 바뀐다(이동·그림자 없음).
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center gap-2 rounded-md border font-semibold transition-colors duration-150 ease-out disabled:pointer-events-none disabled:border-line disabled:bg-surface disabled:text-faint",
   {
     variants: {
       variant: {
+        // primary: accent 면. 한 화면(또는 한 블록)에 하나만 둔다.
         default:
-          "bg-gray-900 text-white hover:bg-gray-700 focus-visible:ring-gray-900",
+          "border-transparent bg-accent text-on-accent hover:bg-accent-hover",
         secondary:
-          "bg-gray-100 text-gray-900 hover:bg-gray-200 focus-visible:ring-gray-500",
+          "border-line bg-surface text-primary hover:border-primary",
         outline:
-          "border border-gray-300 bg-white text-gray-900 hover:bg-gray-50 focus-visible:ring-gray-500",
+          "border-line bg-surface text-primary hover:border-primary",
         ghost:
-          "text-gray-700 hover:bg-gray-100 hover:text-gray-900 focus-visible:ring-gray-500",
+          "border-transparent text-primary hover:bg-mark",
         destructive:
-          "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600",
-        link: "text-gray-900 underline-offset-4 hover:underline focus-visible:ring-gray-500",
+          "border-danger/50 bg-surface text-danger hover:border-danger",
+        link: "border-transparent text-primary underline decoration-1 underline-offset-3",
       },
       size: {
-        sm: "h-8 px-3 text-xs",
-        md: "h-10 px-4 text-sm",
-        lg: "h-12 px-6 text-base",
+        sm: "h-8 px-3 text-caption",
+        md: "h-9 px-4 text-button",
+        lg: "h-11 px-5 text-button",
       },
     },
     defaultVariants: {

@@ -96,7 +96,7 @@ export default function PaymentSuccessPage() {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
         <Info className="mb-4 h-16 w-16 text-gray-400" />
-        <h1 className="font-logo text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-gray-900">
           결제하지 않았습니다
         </h1>
         <p className="mt-2 max-w-sm text-sm text-gray-500">{message}</p>
@@ -117,7 +117,7 @@ export default function PaymentSuccessPage() {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
       <CheckCircle2 className="mb-4 h-16 w-16 text-green-500" />
-      <h1 className="font-logo text-2xl font-bold text-gray-900">결제가 완료되었습니다!</h1>
+      <h1 className="text-2xl font-bold text-gray-900">결제가 완료되었습니다!</h1>
       <p className="mt-2 text-sm text-gray-500">
         구매한 콘텐츠를 바로 읽어보세요.
       </p>

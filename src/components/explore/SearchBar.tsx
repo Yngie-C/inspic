@@ -92,7 +92,7 @@ export function SearchBar({ filters, onFiltersChange, className }: SearchBarProp
           className={cn(
             "flex h-10 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors",
             showFilters
-              ? "border-brand-600 bg-brand-600 text-white"
+              ? "border-accent bg-accent text-on-accent"
               : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50",
           )}
         >
@@ -115,7 +115,7 @@ export function SearchBar({ filters, onFiltersChange, className }: SearchBarProp
                   className={cn(
                     "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
                     filters.sort === opt.value
-                      ? "bg-brand-600 text-white"
+                      ? "bg-accent text-on-accent"
                       : "bg-gray-100 text-gray-700 hover:bg-gray-200",
                   )}
                 >
@@ -138,7 +138,7 @@ export function SearchBar({ filters, onFiltersChange, className }: SearchBarProp
                   className={cn(
                     "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
                     filters.priceRange === range.value
-                      ? "bg-brand-600 text-white"
+                      ? "bg-accent text-on-accent"
                       : "bg-gray-100 text-gray-700 hover:bg-gray-200",
                   )}
                 >

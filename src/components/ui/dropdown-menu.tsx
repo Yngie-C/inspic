@@ -21,11 +21,7 @@ function DropdownMenuContent({
       <DropdownMenuPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
-          "z-50 min-w-[8rem] overflow-hidden rounded-lg border border-gray-200 bg-white p-1 shadow-md",
-          "data-[state=open]:animate-in data-[state=closed]:animate-out",
-          "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-          "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
-          "data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2",
+          "z-50 min-w-[8rem] overflow-hidden rounded-lg border border-line bg-surface p-1 shadow-float",
           className,
         )}
         {...props}
@@ -44,9 +40,9 @@ function DropdownMenuItem({
   return (
     <DropdownMenuPrimitive.Item
       className={cn(
-        "relative flex cursor-pointer select-none items-center rounded-md px-2 py-1.5 text-sm text-gray-700 outline-none transition-colors",
-        "hover:bg-gray-100 focus:bg-gray-100",
-        "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-body-sm text-primary outline-none transition-colors duration-150 ease-out",
+        "hover:bg-mark focus:bg-mark",
+        "data-[disabled]:pointer-events-none data-[disabled]:text-faint",
         inset && "pl-8",
         className,
       )}
@@ -64,7 +60,7 @@ function DropdownMenuCheckboxItem({
   return (
     <DropdownMenuPrimitive.CheckboxItem
       className={cn(
-        "relative flex cursor-pointer select-none items-center rounded-md py-1.5 pl-8 pr-2 text-sm text-gray-700 outline-none transition-colors hover:bg-gray-100 focus:bg-gray-100",
+        "relative flex cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-body-sm text-primary outline-none transition-colors duration-150 ease-out hover:bg-mark focus:bg-mark",
         className,
       )}
       checked={checked}
@@ -88,7 +84,7 @@ function DropdownMenuRadioItem({
   return (
     <DropdownMenuPrimitive.RadioItem
       className={cn(
-        "relative flex cursor-pointer select-none items-center rounded-md py-1.5 pl-8 pr-2 text-sm text-gray-700 outline-none transition-colors hover:bg-gray-100 focus:bg-gray-100",
+        "relative flex cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-body-sm text-primary outline-none transition-colors duration-150 ease-out hover:bg-mark focus:bg-mark",
         className,
       )}
       {...props}
@@ -113,7 +109,7 @@ function DropdownMenuLabel({
   return (
     <DropdownMenuPrimitive.Label
       className={cn(
-        "px-2 py-1.5 text-xs font-semibold text-gray-500",
+        "px-2 py-1.5 text-caption font-semibold text-muted",
         inset && "pl-8",
         className,
       )}
@@ -128,7 +124,7 @@ function DropdownMenuSeparator({
 }: React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Separator>) {
   return (
     <DropdownMenuPrimitive.Separator
-      className={cn("-mx-1 my-1 h-px bg-gray-100", className)}
+      className={cn("-mx-1 my-1 h-px bg-line", className)}
       {...props}
     />
   );
@@ -145,7 +141,7 @@ function DropdownMenuSubTrigger({
   return (
     <DropdownMenuPrimitive.SubTrigger
       className={cn(
-        "flex cursor-pointer select-none items-center rounded-md px-2 py-1.5 text-sm text-gray-700 outline-none hover:bg-gray-100 focus:bg-gray-100",
+        "flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-body-sm text-primary outline-none hover:bg-mark focus:bg-mark",
         inset && "pl-8",
         className,
       )}
@@ -164,9 +160,7 @@ function DropdownMenuSubContent({
   return (
     <DropdownMenuPrimitive.SubContent
       className={cn(
-        "z-50 min-w-[8rem] overflow-hidden rounded-lg border border-gray-200 bg-white p-1 shadow-md",
-        "data-[state=open]:animate-in data-[state=closed]:animate-out",
-        "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+        "z-50 min-w-[8rem] overflow-hidden rounded-lg border border-line bg-surface p-1 shadow-float",
         className,
       )}
       {...props}

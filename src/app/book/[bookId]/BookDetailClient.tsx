@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
+import { BookCover } from "@/components/ui/book-cover";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   BookOpen,
@@ -28,21 +28,6 @@ import type { Book, Chapter } from "@/types";
 interface BookDetailData {
   book: Book & { author_name?: string | null; price: number; is_free: boolean };
   chapters: Chapter[];
-}
-
-const GRADIENT_COLORS = [
-  "from-blue-400 to-indigo-600",
-  "from-purple-400 to-pink-600",
-  "from-green-400 to-teal-600",
-  "from-orange-400 to-red-600",
-];
-
-function getGradient(title: string): string {
-  let hash = 0;
-  for (let i = 0; i < title.length; i++) {
-    hash = (hash * 31 + title.charCodeAt(i)) & 0xffffffff;
-  }
-  return GRADIENT_COLORS[Math.abs(hash) % GRADIENT_COLORS.length];
 }
 
 async function fetchBookDetail(bookId: string): Promise<BookDetailData> {
@@ -138,7 +123,6 @@ export function BookDetailClient() {
   const isOwner = viewAs === "customer" ? false : user?.id === book.owner_id;
   const isPublished = book.status === "published";
   const readingMinutes = Math.max(1, Math.round(book.total_words / 200));
-  const gradient = getGradient(book.title);
   const displayChapters = showAllChapters ? chapters : chapters.slice(0, 5);
 
   return (
@@ -148,27 +132,14 @@ export function BookDetailClient() {
         {/* Cover */}
         <div className="flex-shrink-0 self-start">
           <div className="relative h-72 w-48 overflow-hidden rounded-xl shadow-lg sm:h-80 sm:w-56">
-            {book.cover_image_url ? (
-              <Image
-                src={book.cover_image_url}
-                alt={book.title}
-                fill
-                className="object-cover"
-                sizes="(max-width: 640px) 192px, 224px"
-                priority
-              />
-            ) : (
-              <div
-                className={cn(
-                  "flex h-full w-full items-center justify-center bg-gradient-to-br",
-                  gradient,
-                )}
-              >
-                <span className="text-7xl font-bold text-white/80 select-none">
-                  {book.title.charAt(0).toUpperCase()}
-                </span>
-              </div>
-            )}
+            <BookCover
+              bookId={book.id}
+              title={book.title}
+              coverImageUrl={book.cover_image_url}
+              sizes="(max-width: 640px) 192px, 224px"
+              size="lg"
+              priority
+            />
           </div>
         </div>
 
@@ -188,7 +159,7 @@ export function BookDetailClient() {
             )}
           </div>
 
-          <h1 className="mb-1 font-logo text-2xl font-bold text-gray-900 sm:text-3xl">
+          <h1 className="mb-1 text-2xl font-bold text-gray-900 sm:text-3xl">
             {book.title}
           </h1>
 
@@ -414,7 +385,6 @@ function OtherBooksByAuthor({
       </h2>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {books.map((b) => {
-          const gradient = getGradient(b.title);
           return (
             <Link
               key={b.id}
@@ -422,26 +392,13 @@ function OtherBooksByAuthor({
               className="group flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm hover:-translate-y-2 hover:shadow-lg transition-all duration-300"
             >
               <div className="relative aspect-[3/4] w-full overflow-hidden">
-                {b.cover_image_url ? (
-                  <Image
-                    src={b.cover_image_url}
-                    alt={b.title}
-                    fill
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
-                    sizes="(max-width: 640px) 50vw, 25vw"
-                  />
-                ) : (
-                  <div
-                    className={cn(
-                      "flex h-full w-full items-center justify-center bg-gradient-to-br",
-                      gradient,
-                    )}
-                  >
-                    <span className="text-4xl font-bold text-white/80 select-none">
-                      {b.title.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                )}
+                <BookCover
+                  bookId={b.id}
+                  title={b.title}
+                  coverImageUrl={b.cover_image_url}
+                  sizes="(max-width: 640px) 50vw, 25vw"
+                  size="md"
+                />
               </div>
               <div className="p-3">
                 <p className="line-clamp-2 text-sm font-medium text-gray-900 group-hover:text-gray-700">
