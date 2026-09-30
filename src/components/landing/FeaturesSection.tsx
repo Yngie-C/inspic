@@ -1,10 +1,10 @@
-import { FileText, Headphones, Globe } from "lucide-react";
+import { FileText, PenLine, Download } from "lucide-react";
 
 export function FeaturesSection() {
   const features = [
-    { icon: FileText, title: "전자책", desc: "어디서든 편하게 읽을 수 있는 모던한 리딩 경험." },
-    { icon: Headphones, title: "오디오북", desc: "눈이 바쁠 때, 귀로 듣는 고품질 낭독." },
-    { icon: Globe, title: "매일 새로운 발견", desc: "다양한 크리에이터의 이야기를 만나보세요." },
+    { icon: FileText, title: "읽기", desc: "어디서든 편하게 읽을 수 있는 챕터 단위 리딩 경험." },
+    { icon: PenLine, title: "직접 쓰기", desc: "책 속 체크리스트·성찰 질문·목표 시트에 바로 답하세요. 다른 기기에서도 이어집니다." },
+    { icon: Download, title: "내 답 간직하기", desc: "작성한 답을 책 내용과 함께 PDF로 내려받을 수 있어요." },
   ];
 
   return (

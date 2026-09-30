@@ -8,7 +8,7 @@ export default function PrivacyPage() {
   return (
     <main className="max-w-3xl mx-auto px-4 py-12">
       <h1 className="text-3xl font-bold mb-2">개인정보처리방침</h1>
-      <p className="text-sm text-gray-500 mb-10">최종 수정일: 2025년 1월 1일</p>
+      <p className="text-sm text-gray-500 mb-10">최종 수정일: 2026년 9월 30일</p>
 
       <p className="mb-8 text-gray-700 leading-relaxed">
         inspic(이하 &quot;회사&quot;)는 이용자의 개인정보를 중요하게 생각하며, 「개인정보 보호법」 및
@@ -47,7 +47,7 @@ export default function PrivacyPage() {
         <h2 className="text-xl font-semibold mb-4">2. 개인정보 수집 및 이용 목적</h2>
         <ul className="list-disc list-inside space-y-2 text-gray-700 leading-relaxed pl-2">
           <li>회원 가입, 본인 확인 등 회원 관리</li>
-          <li>콘텐츠 제공, 오디오북 생성 등 서비스 제공</li>
+          <li>콘텐츠 제공, 워크북 응답 저장 등 서비스 제공</li>
           <li>유료 콘텐츠 구매 및 결제 처리</li>
           <li>서비스 관련 공지사항 전달 및 고객 지원</li>
           <li>서비스 개선을 위한 통계 분석 및 이용 현황 파악</li>
@@ -103,11 +103,6 @@ export default function PrivacyPage() {
                 <td className="border border-gray-200 px-4 py-2">토스페이먼츠(주)</td>
                 <td className="border border-gray-200 px-4 py-2">결제 처리 및 정산</td>
                 <td className="border border-gray-200 px-4 py-2">법령에 따른 보관 기간</td>
-              </tr>
-              <tr>
-                <td className="border border-gray-200 px-4 py-2">OpenAI, L.L.C.</td>
-                <td className="border border-gray-200 px-4 py-2">AI 오디오북 생성을 위한 텍스트 처리</td>
-                <td className="border border-gray-200 px-4 py-2">처리 완료 즉시 파기</td>
               </tr>
             </tbody>
           </table>

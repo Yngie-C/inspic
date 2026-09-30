@@ -47,7 +47,6 @@ async function fetchPublicBooks(
 ): Promise<{ books: BookWithAuthor[]; total: number }> {
   const params = new URLSearchParams();
   if (filters.query) params.set("q", filters.query);
-  if (filters.language) params.set("language", filters.language);
   params.set("sort", filters.sort);
   if (filters.priceRange) params.set("priceRange", filters.priceRange);
   params.set("page", String(page));
@@ -168,7 +167,6 @@ function ExploreContent() {
 
   const [filters, setFilters] = useState<SearchFilters>(() => ({
     query: searchParams.get("q") ?? "",
-    language: searchParams.get("language") ?? "",
     sort: (searchParams.get("sort") as SearchFilters["sort"]) ?? "newest",
     priceRange: searchParams.get("priceRange") ?? "",
   }));

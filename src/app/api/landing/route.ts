@@ -59,16 +59,7 @@ export async function GET(): Promise<NextResponse> {
   try {
     const admin = createAdminClient();
 
-    const [
-      purchasesResult,
-      newestResult,
-      freeResult,
-      totalBooksResult,
-      authorsResult,
-    ] = await Promise.all([
-      // 1. Purchase counts for featured
-      admin.from("purchases").select("book_id").eq("status", "completed"),
-      // 2. Newest books
+    const [newestResult, totalBooksResult] = await Promise.all([
       admin
         .from("books")
         .select(BOOK_SELECT)
@@ -76,108 +67,25 @@ export async function GET(): Promise<NextResponse> {
         .eq("visibility", "public")
         .order("published_at", { ascending: false })
         .limit(8),
-      // 3. Free books
-      admin
-        .from("books")
-        .select(BOOK_SELECT)
-        .eq("status", "published")
-        .eq("visibility", "public")
-        .eq("price", 0)
-        .order("published_at", { ascending: false })
-        .limit(8),
-      // 4a. Total published books count
       admin
         .from("books")
         .select("id", { count: "exact", head: true })
-        .eq("status", "published")
-        .eq("visibility", "public"),
-      // 4b. All owner_ids for unique author count
-      admin
-        .from("books")
-        .select("owner_id")
         .eq("status", "published")
         .eq("visibility", "public"),
     ]);
 
     // supabase-js는 연결·쿼리 실패를 던지지 않고 error로 돌려줍니다.
     // 그대로 넘기면 DB에 닿지 못해도 "책 0권"인 정상 응답이 나가서 장애가 가려집니다.
-    const failed = [
-      purchasesResult,
-      newestResult,
-      freeResult,
-      totalBooksResult,
-      authorsResult,
-    ].find((r) => r.error);
+    const failed = [newestResult, totalBooksResult].find((r) => r.error);
     if (failed?.error) throw failed.error;
 
-    // --- Collect all books for batch author lookup ---
-    const allRawBooks: Record<string, unknown>[] = [
-      ...((newestResult.data ?? []) as Record<string, unknown>[]),
-      ...((freeResult.data ?? []) as Record<string, unknown>[]),
-    ];
-
-    // --- Featured: derive from purchase counts ---
-    let featuredRaw: Record<string, unknown>[] = [];
-    {
-      const purchases = purchasesResult.data ?? [];
-
-      if (purchases.length > 0) {
-        const countMap: Record<string, number> = {};
-        for (const p of purchases) {
-          const bid = p.book_id as string;
-          countMap[bid] = (countMap[bid] ?? 0) + 1;
-        }
-        const topBookIds = Object.entries(countMap)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 8)
-          .map(([id]) => id);
-
-        const { data: featuredData } = await admin
-          .from("books")
-          .select(BOOK_SELECT)
-          .in("id", topBookIds)
-          .eq("status", "published")
-          .eq("visibility", "public");
-
-        featuredRaw = (featuredData ?? []) as Record<string, unknown>[];
-      } else {
-        const { data: fallbackData } = await admin
-          .from("books")
-          .select(BOOK_SELECT)
-          .eq("status", "published")
-          .eq("visibility", "public")
-          .order("total_words", { ascending: false })
-          .limit(8);
-
-        featuredRaw = (fallbackData ?? []) as Record<string, unknown>[];
-      }
-    }
-    allRawBooks.push(...featuredRaw);
-
-    // --- Batch fetch author names ---
-    const authorMap = await fetchAuthorMap(admin, allRawBooks);
-
-    // --- Map to BookWithAuthor ---
-    const featured = featuredRaw.map((b) => toBookWithAuthor(b, authorMap));
-    const newest = ((newestResult.data ?? []) as Record<string, unknown>[]).map(
-      (b) => toBookWithAuthor(b, authorMap),
-    );
-    const free = ((freeResult.data ?? []) as Record<string, unknown>[]).map(
-      (b) => toBookWithAuthor(b, authorMap),
-    );
-
-    // --- Stats ---
-    const totalBooks = totalBooksResult.count ?? 0;
-    const ownerIds = (authorsResult.data ?? []).map(
-      (r) => (r as Record<string, unknown>).owner_id as string,
-    );
-    const totalAuthors = new Set(ownerIds).size;
+    const newestRaw = (newestResult.data ?? []) as Record<string, unknown>[];
+    const authorMap = await fetchAuthorMap(admin, newestRaw);
+    const newest = newestRaw.map((b) => toBookWithAuthor(b, authorMap));
 
     return apiSuccess({
-      featured,
       newest,
-      free,
-      stats: { totalBooks, totalAuthors },
+      stats: { totalBooks: totalBooksResult.count ?? 0 },
     });
   } catch (err) {
     console.error("[landing/route] error:", err);

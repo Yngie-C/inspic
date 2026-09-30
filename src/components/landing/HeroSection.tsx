@@ -28,12 +28,12 @@ export function HeroSection({ totalBooks }: { totalBooks?: number }) {
           transition={{ duration: 0.6 }}
         >
           <h1 className="font-logo text-5xl font-bold tracking-tight text-gray-900 md:text-7xl">
-            읽고, 듣고, <br />
-            <span className="text-brand-600">발견하세요</span>
+            읽고, 쓰고, <br />
+            <span className="text-brand-600">적용하세요</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-500 md:text-xl">
-            전자책부터 오디오북까지. <br className="hidden md:block" />
-            당신의 다음 이야기가 여기 있습니다.
+            워크시트와 질문이 담긴 워크북형 전자책. <br className="hidden md:block" />
+            읽으면서 직접 쓰고, 쓴 답은 계정에 남습니다.
           </p>
 
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">

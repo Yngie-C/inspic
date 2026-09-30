@@ -18,7 +18,6 @@ function UploadContent() {
   const searchParams = useSearchParams();
   const title = searchParams.get("title") ?? "";
   const description = searchParams.get("description") ?? "";
-  const language = searchParams.get("language") ?? "ko";
 
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -45,7 +44,6 @@ function UploadContent() {
       formData.append("file", file);
       formData.append("title", title);
       formData.append("description", description);
-      formData.append("language", language);
 
       // Simulate progress ticks
       const ticker = setInterval(() => {

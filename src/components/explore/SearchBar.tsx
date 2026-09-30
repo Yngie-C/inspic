@@ -8,7 +8,6 @@ export type SortOrder = "newest" | "popular" | "title" | "price_asc" | "price_de
 
 export interface SearchFilters {
   query: string;
-  language: string;
   sort: SortOrder;
   priceRange: string;
 }
@@ -18,8 +17,6 @@ interface SearchBarProps {
   onFiltersChange: (filters: SearchFilters) => void;
   className?: string;
 }
-
-const LANGUAGES: { value: string; label: string }[] = [];
 
 const SORT_OPTIONS: { value: SortOrder; label: string }[] = [
   { value: "newest", label: "최신순" },
@@ -58,10 +55,6 @@ export function SearchBar({ filters, onFiltersChange, className }: SearchBarProp
     setLocalQuery("");
     if (debounceRef.current) clearTimeout(debounceRef.current);
     onFiltersChange({ ...filters, query: "" });
-  };
-
-  const handleLanguageChange = (language: string) => {
-    onFiltersChange({ ...filters, language });
   };
 
   const handleSortChange = (sort: SortOrder) => {

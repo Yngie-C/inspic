@@ -1,34 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PenLine, Upload } from "lucide-react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Header } from "@/components/layout/Header";
-import { isWizardCompleted } from "@/lib/wizard-utils";
-
-const LANGUAGES = [
-  { value: "ko", label: "한국어" },
-  { value: "en", label: "English" },
-  { value: "ja", label: "日本語" },
-  { value: "zh", label: "中文" },
-];
 
 export default function CreatePage() {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [language, setLanguage] = useState("ko");
   const [error, setError] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [price, setPrice] = useState<number>(0);
-  const [showWizardBanner, setShowWizardBanner] = useState(false);
-
-  useEffect(() => {
-    setShowWizardBanner(!isWizardCompleted());
-  }, []);
 
   const validate = (): boolean => {
     if (!title.trim()) {
@@ -41,7 +26,7 @@ export default function CreatePage() {
 
   const handleUpload = () => {
     if (!validate()) return;
-    const params = new URLSearchParams({ title, description, language, price: String(price) });
+    const params = new URLSearchParams({ title, description, price: String(price) });
     router.push(`/create/upload?${params.toString()}`);
   };
 
@@ -57,7 +42,6 @@ export default function CreatePage() {
         body: JSON.stringify({
           title: title.trim(),
           description: description.trim() || null,
-          language,
           source_type: "text",
           price,
         }),
@@ -113,32 +97,6 @@ export default function CreatePage() {
           </p>
         </div>
 
-        {/* Wizard prompt for first-time users */}
-        {showWizardBanner && (
-          <div className="mb-6 rounded-2xl border border-brand-200 bg-gradient-to-r from-brand-50 to-orange-50 p-5">
-            <div className="flex items-start gap-4">
-              <div className="rounded-xl bg-brand-100 p-3 text-2xl">
-                📖
-              </div>
-              <div className="flex-1">
-                <h2 className="font-semibold text-gray-900">
-                  처음이신가요? 단계별로 책을 만들어보세요!
-                </h2>
-                <p className="mt-1 text-sm text-gray-500">
-                  첫 책은 가이드를 따라 단계별로 쉽게 만들고, 이후에는 빠르게 생성할 수 있어요.
-                </p>
-                <Button
-                  asChild
-                  size="sm"
-                  className="mt-3 rounded-full bg-gray-900 hover:bg-gray-800"
-                >
-                  <Link href="/create/wizard">가이드 따라 만들기</Link>
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
           <div className="flex flex-col gap-5">
             {error && (
@@ -168,20 +126,6 @@ export default function CreatePage() {
               />
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-gray-700">언어</label>
-              <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-                className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/20"
-              >
-                {LANGUAGES.map((lang) => (
-                  <option key={lang.value} value={lang.value}>
-                    {lang.label}
-                  </option>
-                ))}
-              </select>
-            </div>
 
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-gray-700">

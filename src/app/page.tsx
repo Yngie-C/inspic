@@ -14,12 +14,9 @@ interface BookWithAuthor extends Book {
 }
 
 interface LandingData {
-  featured: BookWithAuthor[];
   newest: BookWithAuthor[];
-  free: BookWithAuthor[];
   stats: {
     totalBooks: number;
-    totalAuthors: number;
   };
 }
 
@@ -56,19 +53,6 @@ export default function LandingPage() {
           </div>
         )}
 
-        {/* Featured / Popular */}
-        {isLoading ? (
-          <div className="mb-24"><BookSectionSkeleton /></div>
-        ) : data?.featured && data.featured.length > 0 ? (
-          <div className="mb-24">
-            <BookSection
-              title="지금 주목받는 콘텐츠"
-              moreHref="/explore?sort=popular"
-              books={data.featured}
-            />
-          </div>
-        ) : null}
-
         {/* Newest */}
         {isLoading ? (
           <div className="mb-24"><BookSectionSkeleton /></div>
@@ -78,19 +62,6 @@ export default function LandingPage() {
               title="새로 나온 콘텐츠"
               moreHref="/explore?sort=newest"
               books={data.newest}
-            />
-          </div>
-        ) : null}
-
-        {/* Free */}
-        {isLoading ? (
-          <div className="mb-24"><BookSectionSkeleton /></div>
-        ) : data?.free && data.free.length > 0 ? (
-          <div className="mb-24">
-            <BookSection
-              title="무료 콘텐츠"
-              moreHref="/explore?priceRange=free"
-              books={data.free}
             />
           </div>
         ) : null}

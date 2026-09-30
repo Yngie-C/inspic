@@ -48,9 +48,9 @@ M4에서 그 앞단인 **판매**를 닫았다. 결제 승인 뒤 어디서 끊�
 - **리더**: 챕터 단위 읽기 + 워크북 작성. 답은 `workbook_responses`에 저장되고 다른 기기에서 이어집니다. 저장 상태를 화면에 표시합니다. 로그인 없이도 열리며, 답이 계정에 남지 않는 동안에는 화면이 그렇게 말합니다
 - **판매**: Toss Payments 결제. 승인 → 구매 반영은 한 트랜잭션이고 멱등하며, 반영하지 못하면 결제를 자동 취소합니다. webhook이 창을 닫은 경우를 메웁니다
 - **접근 제어**: 소유자 / 구매자 / 무료 공개 / **첫 챕터 미리보기** 네 갈래. 구매 기록은 서버만 만들 수 있습니다
-- **내보내기**: PDF (`@react-pdf/renderer`), EPUB (자체 생성기)
-- **탐색**: 검색, 언어/가격 필터, 정렬
-- **크리에이터 스튜디오**: 내 작품 관리, 판매 현황, 기본 분석
+- **내보내기**: PDF (`@react-pdf/renderer`). EPUB(자체 생성기)은 `/api/epub`으로 남아 있지만 화면에서는 가려 두었습니다 — 응답을 싣지 않아 워크북 루프에 쓰이지 않습니다
+- **탐색**: 검색, 가격 필터, 정렬. 언어는 고르지 않고 모두 `ko`로 만듭니다(`books.language` 기본값)
+- **크리에이터 스튜디오**: 내 작품 관리, 판매 현황, 워크북 참여 지표(`/creator/analytics`)
 - **공개 전 검수**: `/create/preview/[bookId]`에서 차단·경고 항목을 확인한 뒤 공개. 차단 항목은 서버(`PUT /api/books/[bookId]`)도 다시 검사합니다
 
 ## MVP 범위에서 제외된 것
@@ -84,12 +84,12 @@ XSS 방지      DOMPurify (isomorphic-dompurify)
 ```
 src/
 ├── app/
-│   ├── api/              # API 라우트 21개
-│   │   ├── analytics/    #   분석 + 판매
+│   ├── api/              # API 라우트 22개
+│   │   ├── analytics/    #   판매 + 워크북 참여 지표
 │   │   ├── books/        #   책 CRUD, 접근 권한, 커버, 본문 이미지, 상세,
 │   │   │                 #   공개 전 검수, 독자 응답
 │   │   ├── chapters/     #   챕터 CRUD
-│   │   ├── epub/ pdf/    #   내보내기
+│   │   ├── epub/ pdf/    #   내보내기 (EPUB은 화면에서 가림)
 │   │   ├── explore/      #   탐색
 │   │   ├── landing/      #   랜딩 데이터
 │   │   ├── payments/     #   결제 요청/승인/webhook
@@ -97,7 +97,7 @@ src/
 │   │   └── upload/       #   파일 업로드
 │   ├── auth/             # 로그인/회원가입/콜백
 │   ├── book/[bookId]/    # 책 상세 (공개, 서버 컴포넌트 + 메타데이터)
-│   ├── create/           # 생성 · 업로드 · 편집 · 미리보기 · 위저드
+│   ├── create/           # 생성 · 업로드 · 편집 · 미리보기
 │   ├── creator/          # 크리에이터 스튜디오 (+ 분석)
 │   ├── explore/          # 탐색
 │   ├── my/               # 내 서재 · 구매 내역 · 설정
@@ -106,7 +106,7 @@ src/
 ├── components/
 │   ├── editor/           # Tiptap 에디터 + 워크북 노드 5종
 │   ├── reader/           # 본문 렌더러 + 응답 provider + 워크북 템플릿 5종
-│   ├── landing/ explore/ dashboard/ analytics/ preview/ wizard/ upload/ layout/ ui/
+│   ├── landing/ explore/ dashboard/ analytics/ preview/ upload/ layout/ ui/
 ├── lib/
 │   ├── workbook/         # 워크북 도메인 — 블록 추출·동기화, 응답 검증·병합·
 │   │                     # 복원, 오프라인 캐시, 타입
@@ -187,10 +187,10 @@ npm run lint        # 10개 에러 — 재구성 이전부터 존재하는 부�
 | 항목 | 위치 | 해소 시점 |
 |---|---|---|
 | 미리보기에서 쓴 답(익명 캐시)을 구매·로그인 후 옮겨 주지 않음 | `lib/workbook/response-cache.ts` | 미정 |
-| EPUB 내보내기에는 응답이 담기지 않음 (빈 워크시트) | `api/epub` | 필요해지면 |
+| EPUB 내보내기에는 응답이 담기지 않음 (빈 워크시트) — 그래서 화면에서 가림 | `api/epub`, `dashboard/ExportMenu` | 필요해지면 |
 | 실제 Toss 테스트 결제로 4개 시나리오를 밟아 보지 않음 (DB·보상 로직은 테스트가 덮음) | — | 키 확보 시 |
 | 페이지 대부분이 `"use client"` — 공개 콘텐츠 SEO 부재 | `app/**` | M6 이후 |
-| React Compiler lint 에러 10개 (setState-in-effect, `any` 5개 등) | 아래 파일들 | 별도 정리 |
+| React Compiler lint 에러 9개 (setState-in-effect, `any` 5개 등) | 아래 파일들 | 별도 정리 |
 
 M1에서 해소됨: 응답의 배열 인덱스 매칭 · `data-node-id` 재생성 · 클라이언트 프로필 생성 이중 경로 · 테스트 0개 · SMART 블록의 `data-template-type` 불일치.
 
@@ -202,7 +202,7 @@ M3에서 해소됨: 워크북 응답이 localStorage에만 있던 것(기기 간
 
 M4에서 해소됨: **로그인 사용자가 자기 이름으로 `purchases` 행을 넣어 유료 책을 열 수 있던 것** · 승인 후 구매 기록 생성 실패 시 보상 없던 것 · 재확인(`ALREADY_PROCESSED_PAYMENT`)을 승인 실패로 보고 끝난 결제를 `aborted`로 덮던 것 · 창을 닫으면 결제가 유실되던 것(webhook 없음) · `UNIQUE(user_id, book_id)`가 재구매를 막던 것 · 응답 캐시가 사용자별로 나뉘지 않던 것 · `.env.example`의 Toss 클라이언트 키 이름이 코드와 달랐던 것.
 
-React Compiler 에러 위치: `analytics/StatsCard`, `editor/SlashCommandMenu`, `editor/extensions/SlashCommand`(any 5개), `explore/SearchBar`, `preview/PreviewFrame`, `upload/FileDropzone`
+React Compiler 에러 위치: `editor/SlashCommandMenu`, `editor/extensions/SlashCommand`(any 5개), `explore/SearchBar`, `preview/PreviewFrame`, `upload/FileDropzone`
 
 ---
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Plus,
@@ -20,7 +20,6 @@ import { Header } from "@/components/layout/Header";
 import { RichTextEditor } from "@/components/editor";
 import { BookMetadataForm } from "@/components/dashboard/BookMetadataForm";
 import { ExportMenu } from "@/components/dashboard/ExportMenu";
-import { WizardBanner } from "@/components/wizard/WizardBanner";
 import type { Book, Chapter } from "@/types";
 
 async function fetchBook(id: string): Promise<Book> {
@@ -40,10 +39,7 @@ async function fetchChapters(bookId: string): Promise<Chapter[]> {
 export function EditPageContent() {
   const { bookId } = useParams<{ bookId: string }>();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const qc = useQueryClient();
-
-  const isFromWizard = searchParams.get("wizard") === "1";
 
   const { data: book, isLoading: bookLoading } = useQuery<Book>({
     queryKey: ["book", bookId],
@@ -194,13 +190,10 @@ export function EditPageContent() {
     <div className="flex min-h-screen flex-col bg-white">
       <Header />
 
-      {/* Wizard extended guidance banner */}
-      {isFromWizard && <WizardBanner bookId={bookId} />}
-
       {/* Top bar */}
       <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 sm:px-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => router.push("/dashboard")}>
+          <Button variant="ghost" size="sm" onClick={() => router.push("/creator")}>
             <ArrowLeft className="h-4 w-4 mr-1" />
             대시보드
           </Button>

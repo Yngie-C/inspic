@@ -9,7 +9,7 @@ export default function TermsPage() {
     <div className="mx-auto max-w-3xl px-4 py-12">
       <h1 className="mb-2 text-3xl font-bold text-gray-900">이용약관</h1>
       <p className="mb-10 text-sm text-gray-500">
-        시행일: 2025년 1월 1일 &nbsp;|&nbsp; 최종 수정일: 2025년 1월 1일
+        시행일: 2026년 9월 30일 &nbsp;|&nbsp; 최종 수정일: 2026년 9월 30일
       </p>
 
       <p className="mb-10 text-sm leading-relaxed text-gray-600">
@@ -64,7 +64,7 @@ export default function TermsPage() {
         </h2>
         <div className="space-y-3 text-sm leading-relaxed text-gray-700">
           <p>
-            1. 크리에이터가 inspic 플랫폼에 업로드한 모든 콘텐츠(전자책, 오디오북,
+            1. 크리에이터가 inspic 플랫폼에 업로드한 모든 콘텐츠(전자책, 워크북,
             이미지, 텍스트 등)의 저작권은 해당 콘텐츠를 창작한 크리에이터에게
             귀속됩니다.
           </p>
@@ -102,8 +102,8 @@ export default function TermsPage() {
             철회에 일부 제한이 적용됩니다.
           </p>
           <p>
-            2. <strong>환불 불가 조건:</strong> 이용자가 구매한 전자책 또는
-            오디오북 콘텐츠를 1페이지 이상 열람하거나 재생한 경우, 콘텐츠의
+            2. <strong>환불 불가 조건:</strong> 이용자가 구매한 전자책
+            콘텐츠를 1페이지 이상 열람한 경우, 콘텐츠의
             특성상 복제가 가능하여 환불이 제한됩니다. 단, 결제 시 이 사실이
             사전에 고지되어야 합니다.
           </p>
@@ -128,45 +128,10 @@ export default function TermsPage() {
         </div>
       </section>
 
-      {/* 4. AI 오디오북(TTS) 이용 동의 */}
+      {/* 4. 면책 조항 */}
       <section className="mb-10">
         <h2 className="mb-4 text-xl font-semibold text-gray-900">
-          제4조 AI 오디오북(TTS) 이용 동의
-        </h2>
-        <div className="space-y-3 text-sm leading-relaxed text-gray-700">
-          <p>
-            1. inspic은 크리에이터가 업로드한 텍스트 콘텐츠를 기반으로, AI
-            텍스트 음성 변환(TTS, Text-to-Speech) 기술을 활용하여 오디오북을
-            자동 생성하는 기능을 제공합니다.
-          </p>
-          <p>
-            2. 크리에이터는 텍스트 콘텐츠를 업로드하는 행위를 통해, 해당 텍스트
-            콘텐츠가 AI TTS 기술을 이용한 오디오북 생성에 사용될 수 있음에
-            동의합니다.
-          </p>
-          <p>
-            3. AI TTS로 생성된 오디오북의 저작권은 원본 텍스트 콘텐츠의 저작권자인
-            크리에이터에게 귀속됩니다.
-          </p>
-          <p>
-            4. 회사는 TTS 생성에 사용되는 AI 기술 및 음성 모델의 품질을 보장하지
-            않으며, 생성된 오디오북에 오류나 부정확한 발음이 포함될 수 있습니다.
-          </p>
-          <p>
-            5. 크리에이터는 TTS 오디오북 생성 기능의 활성화 또는 비활성화를 콘텐츠
-            설정에서 직접 선택할 수 있습니다.
-          </p>
-          <p>
-            6. 회사는 서비스 운영상 필요에 따라 TTS 생성 기능의 지원 범위 및 정책을
-            변경할 수 있으며, 변경 시 사전에 공지합니다.
-          </p>
-        </div>
-      </section>
-
-      {/* 5. 면책 조항 */}
-      <section className="mb-10">
-        <h2 className="mb-4 text-xl font-semibold text-gray-900">
-          제5조 면책 조항
+          제4조 면책 조항
         </h2>
         <div className="space-y-3 text-sm leading-relaxed text-gray-700">
           <p>
@@ -194,10 +159,10 @@ export default function TermsPage() {
         </div>
       </section>
 
-      {/* 6. 이용약관 변경 */}
+      {/* 5. 이용약관 변경 */}
       <section className="mb-10">
         <h2 className="mb-4 text-xl font-semibold text-gray-900">
-          제6조 이용약관 변경
+          제5조 이용약관 변경
         </h2>
         <div className="space-y-3 text-sm leading-relaxed text-gray-700">
           <p>

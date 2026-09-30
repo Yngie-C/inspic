@@ -5,7 +5,6 @@ import { apiError, apiSuccess } from "@/lib/api-utils";
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q") ?? "";
-  const language = searchParams.get("language") ?? "";
   const sort = searchParams.get("sort") ?? "newest";
   const priceRange = searchParams.get("priceRange") ?? "";
   const authorId = searchParams.get("author_id") ?? "";
@@ -38,10 +37,6 @@ export async function GET(request: NextRequest) {
     dbQuery = dbQuery.or(
       `title.ilike.%${query.trim()}%,description.ilike.%${query.trim()}%`,
     );
-  }
-
-  if (language) {
-    dbQuery = dbQuery.eq("language", language);
   }
 
   if (priceRange === "free") {

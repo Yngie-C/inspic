@@ -108,7 +108,7 @@ export function Header() {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/settings" className="flex items-center gap-2">
+                  <Link href="/my/settings" className="flex items-center gap-2">
                     <Settings className="h-4 w-4" />
                     설정
                   </Link>
@@ -192,7 +192,7 @@ export function Header() {
                   내 서재
                 </Link>
                 <Link
-                  href="/settings"
+                  href="/my/settings"
                   className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
                   onClick={() => setMobileOpen(false)}
                 >

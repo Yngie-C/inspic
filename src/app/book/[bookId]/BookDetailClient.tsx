@@ -30,13 +30,6 @@ interface BookDetailData {
   chapters: Chapter[];
 }
 
-const LANGUAGE_LABELS: Record<string, string> = {
-  ko: "한국어",
-  en: "English",
-  ja: "日本語",
-  zh: "中文",
-};
-
 const GRADIENT_COLORS = [
   "from-blue-400 to-indigo-600",
   "from-purple-400 to-pink-600",
@@ -145,7 +138,6 @@ export function BookDetailClient() {
   const isOwner = viewAs === "customer" ? false : user?.id === book.owner_id;
   const isPublished = book.status === "published";
   const readingMinutes = Math.max(1, Math.round(book.total_words / 200));
-  const langLabel = LANGUAGE_LABELS[book.language] ?? book.language;
   const gradient = getGradient(book.title);
   const displayChapters = showAllChapters ? chapters : chapters.slice(0, 5);
 
@@ -183,9 +175,6 @@ export function BookDetailClient() {
         {/* Info */}
         <div className="flex flex-1 flex-col">
           <div className="mb-2 flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
-              {langLabel}
-            </span>
             {isPublished ? (
               <span className="flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
                 <Globe className="h-3 w-3" />

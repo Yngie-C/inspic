@@ -26,7 +26,7 @@ export default function LoginPage() {
   const redirectTarget = () =>
     safeInternalPath(
       new URLSearchParams(window.location.search).get("redirect"),
-      "/dashboard",
+      "/creator",
     );
 
   const handleSubmit = async (e: React.FormEvent) => {

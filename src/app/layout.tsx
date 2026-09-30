@@ -27,11 +27,11 @@ export const metadata: Metadata = {
     template: "%s | inspic",
   },
   description:
-    "콘텐츠를 만들고, 읽고, 오디오북으로 변환하세요. inspic와 함께 당신의 이야기를 세상에 공유하세요.",
-  keywords: ["콘텐츠", "오디오북", "글쓰기", "출판", "ebook"],
+    "읽는 책이 아니라 적용하는 책. 워크시트·체크리스트·성찰 질문을 담은 워크북형 전자책을 만들고, 읽으면서 직접 작성하세요.",
+  keywords: ["워크북", "전자책", "워크시트", "출판", "ebook"],
   openGraph: {
     title: "inspic",
-    description: "텍스트를 전자책과 오디오북으로. 지식 콘텐츠 제작 및 출판 플랫폼",
+    description: "읽는 책이 아니라 적용하는 책 — 인터랙티브 워크북 출판 플랫폼",
     type: "website",
     siteName: "inspic",
     locale: "ko_KR",
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "inspic",
-    description: "텍스트를 전자책과 오디오북으로. 지식 콘텐츠 제작 및 출판 플랫폼",
+    description: "읽는 책이 아니라 적용하는 책 — 인터랙티브 워크북 출판 플랫폼",
   },
 };
 

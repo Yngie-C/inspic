@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, FileText, BookMarked, ChevronDown, Loader2 } from "lucide-react";
+import { Download, FileText, ChevronDown, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { downloadExport, type ExportFormat } from "@/lib/download-export";
 
@@ -79,22 +79,8 @@ export function ExportMenu({ bookId, bookTitle }: ExportMenuProps) {
               </div>
             </button>
 
-            <button
-              type="button"
-              onClick={() => handleExport("epub")}
-              disabled={loading !== null}
-              className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            >
-              {loading === "epub" ? (
-                <Loader2 className="h-4 w-4 shrink-0 animate-spin text-gray-400" />
-              ) : (
-                <BookMarked className="h-4 w-4 shrink-0 text-blue-500" />
-              )}
-              <div className="text-left">
-                <p className="font-medium">EPUB으로 내보내기</p>
-                <p className="text-xs text-gray-400">전자책 리더기용 EPUB 3.0</p>
-              </div>
-            </button>
+            {/* EPUB은 가려 둡니다. 독자 응답을 싣지 않아 워크북 루프에 쓰이지 않고,
+                `/api/epub`은 남아 있어 버튼만 되살리면 다시 쓸 수 있습니다. */}
           </div>
         </>
       )}

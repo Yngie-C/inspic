@@ -24,7 +24,7 @@ Inspic은 **인터랙티브 워크북 출판 플랫폼**입니다. "읽는 책"�
 - Tiptap 기반 리치 텍스트 에디터 + 워크북 블록 5종
 - 워크북 리더 — 독자가 읽으며 작성하고, 답은 계정에 남습니다
 - Toss Payments 기반 유료 판매 + 구매 기반 접근 제어
-- PDF/EPUB 내보내기
+- PDF 내보내기 (EPUB은 `/api/epub`만 남기고 화면에서 가림)
 - Supabase Auth/DB/Storage 기반 백엔드
 
 ### MVP 범위에서 제외됨 (M0에서 삭제)
