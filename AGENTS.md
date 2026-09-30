@@ -236,7 +236,7 @@ M4(2026-08-05)에서 확정했습니다. 여기서 지키는 규칙은 하나입
 - 사용자 입력 HTML/Markdown은 렌더링 전 sanitize 처리를 유지하세요.
 - 클라이언트 컴포넌트와 서버 컴포넌트 경계를 명확히 하세요.
 - 브라우저 API, localStorage, window, document 사용이 필요하면 Client Component에서만 사용하세요.
-- 기존 UI 스타일과 Tailwind 유틸리티 패턴을 따르세요.
+- **UI 작업 전에는 루트의 `DESIGN.md`를 읽으세요.** 색·타이포·간격·radius는 그 토큰만 쓰고, Don'ts 목록(그라디언트, blur, 보라·파랑, 이모지 아이콘, 기본 `gray-*` 등)을 지키세요. 리뉴얼 중이라 기존 코드의 스타일이 `DESIGN.md`와 다르면 `DESIGN.md`가 우선합니다.
 - 사용자 노출 문구는 한국어로 직접 씁니다. 다국어(next-intl)는 M0에서 삭제했습니다.
 - 새 타입은 기존 `src/types/` 구조와 가까운 위치에 두세요. 워크북 관련 타입은 `src/lib/workbook/types.ts`에 있습니다.
 - 중복 로직은 `src/lib/` 또는 커스텀 hook으로 분리하세요.
