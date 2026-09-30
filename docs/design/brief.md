@@ -80,6 +80,9 @@
 - 방향 3안(A 절제, B 크림, C 블록 대비)을 단일 HTML 목업으로 비교한다.
 - 세 안은 구조를 공유하고 **색 운용만** 다르게 한다.
 - 목업: https://claude.ai/artifact/JWt3TnvjEoMmCygwfatuGc (비공개)
+- 목업 원본: `docs/design/directions-mockup.html`
+  - 폰트 자리는 `__FONT__`로 비워 두었다. 여기에 Pretendard woff2의 base64를 넣으면 목업이 재현된다.
+  - 폰트는 npm `pretendard@1.3.9`의 `PretendardVariable.woff2`를 `pyftsubset`으로 목업 글자만 남겨 쓴다.
 
 ## 선택
 **A 절제** (2026-09-30, 사용자 선택). 이유: 세 안 중 가장 깔끔하고, 무엇보다 가독성이 가장 좋다.
