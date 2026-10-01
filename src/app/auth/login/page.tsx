@@ -1,97 +1,19 @@
-"use client";
+import { authFailureFromQuery } from "@/lib/auth-errors";
+import LoginForm from "./LoginForm";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { useAuthStore } from "@/stores/auth-store";
-import { safeInternalPath } from "@/lib/safe-redirect";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-
-export default function LoginPage() {
-  const router = useRouter();
-  const signIn = useAuthStore((s) => s.signIn);
-
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-
-  /**
-   * 로그인 후 돌아갈 곳. 리더처럼 로그인이 필요한 화면이 `?redirect=`로
-   * 넘겨 줍니다. `useSearchParams()` 대신 여기서 읽는 것은 Suspense
-   * 경계를 강제하지 않기 위해서이고, 값은 제출 시점에만 필요합니다.
-   */
-  const redirectTarget = () =>
-    safeInternalPath(
-      new URLSearchParams(window.location.search).get("redirect"),
-      "/creator",
-    );
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setIsLoading(true);
-
-    try {
-      const result = await signIn(email, password);
-      if (result.error) {
-        setError(result.error);
-      } else {
-        router.push(redirectTarget());
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return (
-    <div className="relative">
-      <Card className="rounded-lg border border-line">
-        <CardHeader>
-          <CardTitle className="text-2xl">로그인</CardTitle>
-          <CardDescription>이메일과 비밀번호를 입력해 주세요.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            {error && (
-              <div className="rounded-lg px-4 py-3 text-sm text-danger border border-danger/40">
-                {error}
-              </div>
-            )}
-            <Input
-              label="이메일"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-            />
-            <Input
-              label="비밀번호"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-            />
-            <Button type="submit" isLoading={isLoading} className="w-full mt-2">
-              로그인
-            </Button>
-          </form>
-        </CardContent>
-        <CardFooter className="justify-center">
-          <p className="text-sm text-muted">
-            계정이 없나요?{" "}
-            <Link href="/auth/signup" className="font-medium text-primary hover:underline">
-              회원가입
-            </Link>
-          </p>
-        </CardFooter>
-      </Card>
-    </div>
+/**
+ * `?error=`는 메일 링크가 실패했을 때 `/auth/callback`이 붙여 보냅니다.
+ * 서버에서 읽어 넘기면 클라이언트가 이펙트에서 상태를 바꿀 필요가 없습니다.
+ */
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { error } = await searchParams;
+  const initialFailure = authFailureFromQuery(
+    typeof error === "string" ? error : null,
   );
+
+  return <LoginForm initialFailure={initialFailure} />;
 }

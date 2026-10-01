@@ -58,7 +58,14 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (request.nextUrl.pathname.startsWith("/auth") && user) {
+  // 콜백과 비밀번호 재설정은 메일 링크로 세션이 생긴 직후에 거쳐 가는
+  // 곳이라 로그인 상태여도 들어와야 합니다.
+  const authPassthrough = ["/auth/callback", "/auth/reset-password"];
+  const isAuthPassthrough = authPassthrough.some((route) =>
+    request.nextUrl.pathname.startsWith(route),
+  );
+
+  if (request.nextUrl.pathname.startsWith("/auth") && user && !isAuthPassthrough) {
     const url = request.nextUrl.clone();
     url.pathname = "/creator";
     return NextResponse.redirect(url);

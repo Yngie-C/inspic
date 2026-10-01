@@ -36,7 +36,10 @@
 - [ ] B: 비로그인 열람 → 로그인 후 복귀 → 작성 → 다른 기기에서 이어 쓰기 → `/my/workbook`
 - [ ] 배포본에서 PDF를 한 번 받아 보기. 폰트가 서버리스 번들에 들어가는지는 `next.config.ts`의 `outputFileTracingIncludes`에 달려 있고, 빌드 트레이스로는 확인했지만 실제 배포에서 확인한 것은 아닙니다
 - [ ] A: 참여 지표에 B의 응답이 보이고 본인 응답은 빠지는지
-- [ ] 가입 확인 메일의 링크를 누르면 `publedge.vercel.app`으로 돌아와 로그인된 상태가 되는지 (`signUp`은 `emailRedirectTo` 없이 Site URL로 돌아옵니다)
+- [ ] 가입 확인 메일의 링크를 누르면 `/auth/callback`을 거쳐 로그인된 상태가 되는지 (2026-10-01부터 `signUp`·재발송은 `emailRedirectTo`로 콜백에 돌아옵니다)
+- [ ] Supabase Redirect URLs가 `.../auth/callback?next=/auth/reset-password`(쿼리 포함)를 허용하는지. 막히면 `https://publedge.vercel.app/auth/callback**`를 추가
+- [ ] 비밀번호 찾기 → 메일 링크 → `/auth/reset-password`에서 변경 → 새 비밀번호로 로그인
+- [ ] Supabase 최소 비밀번호 길이가 화면 문구의 "6자"와 같은지
 
 ### 2. 테스트 모드 결제 → M4 게이트
 

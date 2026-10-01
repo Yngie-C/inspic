@@ -58,6 +58,7 @@ TTS·오디오북 · 하이라이트/북마크/독서진행률/리더설정 · �
   - `reader/templates/`: 워크북 블록의 리더 컴포넌트 (독자 측)
 - `src/lib/`: Supabase, sanitize, access-control, PDF/EPUB, Toss 등 핵심 유틸리티
   - `workbook/`: 워크북 도메인 — 블록 정의 추출·동기화, 응답 검증·병합·복원, 오프라인 캐시, 공유 타입
+  - `auth-errors.ts`: 인증 실패 → 케이스별 한국어 안내 (화면에 Supabase 원문을 내지 않는 유일한 경로)
   - `payments/`: 결제 이행 — Toss 상태 매핑(순수), 이행·보상 절차, 서버 포트
 - `src/stores/`: Zustand stores
 - `src/types/`: TypeScript 타입 정의
@@ -213,6 +214,18 @@ M4(2026-08-05)에서 확정했습니다. 여기서 지키는 규칙은 하나입
 - **접근 판정은 `checkBookAccess()` 하나입니다.** `hasAccess`(전체 열람) · `canRead`(미리보기 포함) · `canSaveResponses`(로그인까지 필요)는 각각 다른 질문이니 섞어 쓰지 마세요. 응답 저장을 가로막는 것은 `hasAccess`입니다.
 - **미리보기는 맨 앞 published 챕터 하나뿐입니다.** 정책은 `chapters_select_preview`이고 판정은 `book_preview_chapter_id()`가 합니다. 여기를 한 칸이라도 넓히면 유료 콘텐츠가 공짜가 됩니다. 미리보기 챕터의 `workbook_blocks`는 열지 않습니다 — 리더가 블록을 본문 HTML에서 뽑으므로 화면은 그려지고, 응답은 `has_book_access`가 막습니다.
 - **응답 캐시 키에는 보는 사람이 들어갑니다.** 한 기기에서 익명 → 로그인 순으로 같은 책을 여는 것이 정상 경로입니다. 칸을 합치면 익명일 때 쓴 답이 로그인 화면에 뜨는데, 그 값은 서버로 보낼 큐에 없어 저장된 것처럼 보이기만 합니다.
+
+## 인증 에러 안내
+
+2026-10-01에 정했습니다. 로그인·가입·비밀번호 재설정에서 Supabase가 돌려준 영문 시스템 메시지가 그대로 보이던 것을 케이스별 안내로 바꿨습니다.
+
+- **Supabase `error.message`를 화면에 내지 마세요.** 판정과 문구는 `lib/auth-errors.ts`의 `toAuthFailure()` 하나가 정합니다. 판정은 `error.code`로 하고, 모르는 에러는 원문을 콘솔에만 남긴 채 일반 문구로 안내합니다.
+- **`AuthFailure.field`가 있으면 그 필드 아래에, 없으면 폼 위 배너(`FormAlert`)에 띄웁니다.** `action`(`resend` / `login` / `reset`)은 그 실패를 풀 수 있는 다음 동작입니다.
+- **중복 가입은 에러로 오지 않습니다.** 이미 인증을 마친 이메일이면 Supabase가 `identities`가 빈 사용자를 돌려주고 메일은 보내지 않습니다. `signUp`이 이것을 `user_already_exists`로 바꿉니다. 이메일 가입 여부가 드러나는 것은 알고 고른 것입니다.
+- **메일 링크는 `/auth/callback`으로 돌아오게 하세요** (`emailRedirectTo` / `redirectTo`). 콜백을 거쳐야 만료·다른 브라우저·잘못된 링크를 구분해 로그인 화면의 `?error=`로 안내할 수 있습니다.
+- **로그인 화면의 `?error=`는 정해 둔 값만 받습니다** (`authFailureFromQuery`). 쿼리 문자열을 그대로 띄우면 누구나 링크로 아무 문구나 보여 줄 수 있습니다.
+- **비밀번호 규칙은 `auth-errors.ts`의 `PASSWORD_MIN_LENGTH` / `checkPassword()`가 Supabase 대시보드 설정(최소 6자, Letters and digits)을 그대로 옮긴 것입니다.** 대시보드를 바꾸면 여기도 바꾸세요. 72바이트를 넘는 비밀번호는 서버가 `weak_password`가 아니라 `validation_failed`로 거절하므로 화면에서 먼저 막습니다.
+- `/auth/callback`과 `/auth/reset-password`는 로그인 상태여도 미들웨어가 `/creator`로 보내지 않습니다. 재설정 링크로 세션이 생긴 직후 거쳐 가는 곳이기 때문입니다.
 
 ## 출간 경로
 
