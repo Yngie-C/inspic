@@ -18,7 +18,7 @@
 
 - [x] 새 프로젝트에 마이그레이션 `00001`~`00004` 적용 — 아래 "이후 마일스톤"의 지문 쿼리 7개 전부 `true` (2026-09-22)
 - [x] Auth → URL Configuration: Site URL `https://publedge.vercel.app`, Redirect URLs에 `https://publedge.vercel.app/auth/callback` (2026-09-22)
-- [ ] Auth → 이메일 발송: 새 프로젝트는 기본 SMTP입니다. 기본 SMTP는 조직 팀원 주소로만 보내고 시간당 발송량도 작습니다. **OAuth를 걷어내 이메일이 유일한 가입 경로이므로**, 1번의 두 번째 계정부터 여기에 걸립니다. 그 주소를 조직 팀원으로 넣거나 커스텀 SMTP를 붙이세요. 외부 사용자가 들어오는 M6 전에는 커스텀 SMTP가 필수입니다
+- [ ] Auth → 이메일 발송: 새 프로젝트는 기본 SMTP입니다. 기본 SMTP는 조직 팀원 주소로만 보내고 시간당 발송량도 작습니다. **OAuth를 걷어내 이메일이 유일한 가입 경로이므로**, 1번의 두 번째 계정부터 여기에 걸립니다. 그 주소를 조직 팀원으로 넣거나 커스텀 SMTP를 붙이세요. 외부 사용자가 들어오는 M6 전에는 커스텀 SMTP가 필수입니다. 기존 Resend 무료 팀에 도메인을 추가하기로 했습니다 — 절차는 `docs/agent-knowledge/supabase-smtp-setup.md`
 - [ ] Vercel env 교체 — `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`. `NEXT_PUBLIC_*`은 빌드 때 번들에 박히므로 **재배포해야 반영됩니다**
 - [ ] 로컬 `.env.local` 교체
 - [x] GitHub 시크릿 `NEXT_PUBLIC_SUPABASE_URL`·`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` 교체 (keep-alive가 읽음) (2026-09-23)
