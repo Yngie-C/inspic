@@ -65,7 +65,7 @@ function FeatureGrid({ items }: { items: typeof readerFeatures }) {
           key={feature.title}
           className="rounded-lg border border-line bg-surface p-6 transition-all duration-300"
         >
-          <feature.icon className="mb-3 h-8 w-8 text-accent" />
+          <feature.icon className="mb-3 h-8 w-8 text-primary" />
           <h3 className="mb-2 text-lg font-semibold text-primary">
             {feature.title}
           </h3>

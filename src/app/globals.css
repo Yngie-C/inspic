@@ -11,21 +11,20 @@
  * - spacing은 Tailwind 기본(4px 격자)과 같아 따로 두지 않는다.
  */
 @theme static {
-  --color-primary: #2d120d;
-  --color-muted: #6f5b55;
-  --color-faint: #83716a;
-  --color-accent: #6b0b0c;
-  --color-accent-hover: #560809;
-  --color-on-accent: #fff8ca;
-  --color-paper: #fffdf5;
+  --color-primary: #000000;
+  --color-muted: #5e5a54;
+  --color-faint: #736e67;
+  --color-accent: #f95c4b;
+  --color-accent-hover: #e8503f;
+  --color-on-accent: #000000;
+  --color-on-primary: #f6f4f1;
+  --color-paper: #f6f4f1;
   --color-surface: #ffffff;
-  --color-mark: #f3ede0;
-  --color-line: #e8e0d2;
-  --color-line-strong: #cfc3b1;
-  --color-field: #eff6f8;
-  --color-field-line: #bcd6dc;
-  --color-chiffon: #fff8ca;
-  --color-botticelli: #cde3e8;
+  --color-mark: #e4ded2;
+  --color-line: #e4ded2;
+  --color-line-strong: #c9c1b2;
+  --color-field: #ffffff;
+  --color-field-line: #c9c1b2;
   --color-danger: #b42318;
   --color-success: #2f6b3a;
   --color-warning: #8a5a00;
@@ -70,7 +69,7 @@
   --radius-full: 9999px;
 
   /* 떠 있는 레이어(드롭다운, 모달, 토스트) 전용 그림자 */
-  --shadow-float: 0 4px 16px rgba(45, 18, 13, 0.08);
+  --shadow-float: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
 /* ── Base ── */
@@ -94,7 +93,7 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--color-primary);
     outline-offset: 1px;
   }
 
@@ -201,10 +200,10 @@
     text-underline-offset: 3px;
   }
 
-  /* 코드 블록: 잉크 면 + chiffon 텍스트. 인라인 코드: surface 면 + line 테두리 */
+  /* 코드 블록: 잉크 면 + on-primary 텍스트. 인라인 코드: surface 면 + line 테두리 */
   .reader-content pre {
     background: var(--color-primary);
-    color: var(--color-chiffon);
+    color: var(--color-on-primary);
     border-radius: var(--radius-md);
     padding: 16px 18px;
     overflow-x: auto;
@@ -275,7 +274,7 @@
 
   .prose pre {
     background: var(--color-primary);
-    color: var(--color-chiffon);
+    color: var(--color-on-primary);
     border-radius: var(--radius-md);
     padding: 16px 18px;
     overflow-x: auto;

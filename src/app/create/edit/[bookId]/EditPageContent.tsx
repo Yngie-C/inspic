@@ -215,7 +215,7 @@ export function EditPageContent() {
           <button
             type="button"
             onClick={() => setMetaOpen(true)}
-            className="flex h-9 items-center gap-1.5 rounded-lg border border-line-strong bg-surface px-3 text-sm font-medium text-primary hover:border-line-strong hover:bg-mark"
+            className="flex h-9 items-center gap-1.5 rounded-lg border border-line-strong px-3 text-sm font-medium text-primary hover:border-line-strong hover:bg-mark"
             title="책 설정"
           >
             <Settings className="h-4 w-4" />

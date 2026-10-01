@@ -1,12 +1,11 @@
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 
-// DESIGN.md Components > 책 표지 플레이스홀더. 옅은 단색 면 3종 중 하나를 책 id 해시로 고른다.
+// DESIGN.md Components > 책 표지 플레이스홀더. Stone·흰 면 2종 중 하나를 책 id 해시로 고른다.
 // paper와 대비가 낮아 부모 박스가 1px 테두리를 둘러야 한다.
 const COVER_TONES = [
-  "bg-chiffon text-accent",
   "bg-mark text-primary",
-  "bg-botticelli text-primary",
+  "bg-surface text-primary",
 ] as const;
 
 const TITLE_SIZE = {

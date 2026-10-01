@@ -1,23 +1,22 @@
 ---
 version: alpha
 name: Inspic
-description: 적용하는 책을 위한 인터랙티브 워크북 리더와 출판 플랫폼. 명료하고, 도구적이고, 가벼운 화면에 로즈우드 한 점.
+description: 적용하는 책을 위한 인터랙티브 워크북 리더와 출판 플랫폼. 명료하고, 도구적이고, 가벼운 화면에 코랄 한 점.
 colors:
-  primary: "#2D120D"
-  muted: "#6F5B55"
-  faint: "#83716A"
-  accent: "#6B0B0C"
-  accent-hover: "#560809"
-  on-accent: "#FFF8CA"
-  paper: "#FFFDF5"
+  primary: "#000000"
+  muted: "#5E5A54"
+  faint: "#736E67"
+  accent: "#F95C4B"
+  accent-hover: "#E8503F"
+  on-accent: "#000000"
+  on-primary: "#F6F4F1"
+  paper: "#F6F4F1"
   surface: "#FFFFFF"
-  mark: "#F3EDE0"
-  line: "#E8E0D2"
-  line-strong: "#CFC3B1"
-  field: "#EFF6F8"
-  field-line: "#BCD6DC"
-  chiffon: "#FFF8CA"
-  botticelli: "#CDE3E8"
+  mark: "#E4DED2"
+  line: "#E4DED2"
+  line-strong: "#C9C1B2"
+  field: "#FFFFFF"
+  field-line: "#C9C1B2"
   danger: "#B42318"
   success: "#2F6B3A"
   warning: "#8A5A00"
@@ -116,13 +115,13 @@ components:
     backgroundColor: "{colors.accent-hover}"
     textColor: "{colors.on-accent}"
   button-secondary:
-    backgroundColor: "{colors.surface}"
+    backgroundColor: "{colors.paper}"
     textColor: "{colors.primary}"
     typography: "{typography.button}"
     rounded: "{rounded.md}"
     padding: 9px 16px
   button-danger:
-    backgroundColor: "{colors.surface}"
+    backgroundColor: "{colors.paper}"
     textColor: "{colors.danger}"
     typography: "{typography.button}"
     rounded: "{rounded.md}"
@@ -152,7 +151,7 @@ components:
     typography: "{typography.label}"
   workbook-state-saved:
     backgroundColor: "{colors.paper}"
-    textColor: "{colors.accent}"
+    textColor: "{colors.primary}"
     typography: "{typography.caption}"
   scale-cell:
     backgroundColor: "{colors.field}"
@@ -172,20 +171,16 @@ components:
     backgroundColor: "{colors.line-strong}"
   code-block:
     backgroundColor: "{colors.primary}"
-    textColor: "{colors.chiffon}"
+    textColor: "{colors.on-primary}"
     typography: "{typography.code}"
     rounded: "{rounded.md}"
     padding: 16px 18px
-  cover-chiffon:
-    backgroundColor: "{colors.chiffon}"
-    textColor: "{colors.accent}"
-    rounded: "{rounded.sm}"
-  cover-mark:
+  cover-stone:
     backgroundColor: "{colors.mark}"
     textColor: "{colors.primary}"
     rounded: "{rounded.sm}"
-  cover-botticelli:
-    backgroundColor: "{colors.botticelli}"
+  cover-white:
+    backgroundColor: "{colors.surface}"
     textColor: "{colors.primary}"
     rounded: "{rounded.sm}"
   cover-border:
@@ -196,7 +191,7 @@ components:
     typography: "{typography.body}"
   toast:
     backgroundColor: "{colors.primary}"
-    textColor: "{colors.chiffon}"
+    textColor: "{colors.on-primary}"
     typography: "{typography.body-sm}"
     rounded: "{rounded.md}"
     padding: 12px 16px
@@ -234,7 +229,7 @@ Inspic은 "읽는 책이 아니라 적용하는 책"이다. 화면의 일은 두
 - **도구적인**: 상태(작성 전, 저장됨, n개 중 m개, 읽는 중)가 항상 텍스트로 보인다.
 - **가벼운**: 평면이다. 그림자는 없고, 한 화면에 쓰는 색은 적다.
 
-정체성은 색이 맡는다. 종이 톤 바탕에 커피빈 잉크를 쓰고, 로즈우드는 **면**으로만 쓴다. 구조가 조용하기 때문에 로즈우드 한 점이 브랜드가 된다.
+정체성은 색이 맡는다. 네 색뿐이다 — Paper 바탕, Stone 면과 선, 검정 잉크, 그리고 Coral. Coral은 **면·점·선**으로만 쓰고 글자로는 쓰지 않는다. 구조가 조용하기 때문에 코랄 한 점이 브랜드가 된다.
 
 라이트 모드만 지원한다. 다크 모드는 비활성화 상태이며, 추가하려면 이 문서에 팔레트를 먼저 정의한다.
 
@@ -242,31 +237,29 @@ Inspic은 "읽는 책이 아니라 적용하는 책"이다. 화면의 일은 두
 
 색마다 역할이 정해져 있다. 역할 밖에서 쓰지 않는다.
 
-- **primary / 잉크 (#2D120D)**: Coffee Bean. 본문, 헤딩, 링크, 아이콘, 코드 블록 면, 토스트 면에 쓴다. 순검정 `#000`, `#111`, `gray-900`을 대체한다.
-- **muted (#6F5B55)**: 보조 텍스트다. 메타 정보, 블록 라벨, placeholder, 캡션에 쓴다. 대비는 종이 톤 위 6.24다.
-- **faint (#83716A)**: 비활성 텍스트 전용이다. 대비는 4.6으로 AA를 겨우 넘는다. muted와 구분되도록 **비활성 외의 용도에는 쓰지 않는다.**
-- **accent (#6B0B0C)**: Rosewood. 유일한 강조색이다. 쓸 수 있는 곳은 다음뿐이다.
+- **primary / 잉크 (#000000)**: Black. 본문, 헤딩, 링크, 아이콘, 로고, 상태 텍스트, focus ring, 코드 블록 면, 토스트 면에 쓴다.
+- **muted (#5E5A54)**: 따뜻한 회색. 보조 텍스트다. 메타 정보, 블록 라벨, placeholder, 캡션에 쓴다. 대비는 paper 위 6.24다.
+- **faint (#736E67)**: 비활성 텍스트 전용이다. 대비는 4.6으로 AA를 겨우 넘는다. muted와 구분되도록 **비활성 외의 용도에는 쓰지 않는다.**
+- **accent (#F95C4B)**: Coral. 유일한 강조색이고, **면·점·선으로만 쓴다. 글자색으로 쓰지 않는다**(paper 위 2.87). 쓸 수 있는 곳은 다음뿐이다.
   - 주요 버튼 면
   - 진행 바
   - 선택된 척도 칸
   - 체크박스(`accent-color`)
-  - 저장 표시 점
-  - focus ring
-  - 로고
-  - chiffon 표지 플레이스홀더의 제목과 `INSPIC` 라벨(2026-10-01 결정)
-  - 단, 완료나 저장 같은 상태 텍스트는 예외로 accent 글자색을 허용한다.
-- **on-accent (#FFF8CA)**: Lemon Chiffon. accent 면 위의 텍스트다(대비 11.64).
-- **paper (#FFFDF5)**: 페이지 바탕이다. 흰색에 Chiffon을 아주 옅게 섞은 톤이다.
-- **surface (#FFFFFF)**: paper 위에 올라가는 면이다. 드롭다운, 모달, 보조 버튼에 쓴다. paper와 대비가 거의 없으므로 반드시 `line` 테두리와 함께 쓴다.
-- **mark (#F3EDE0)**: 현재 위치(목차의 현재 장), 본문 `strong` 하이라이트, hover 면이다.
-- **line (#E8E0D2) / line-strong (#CFC3B1)**: 1px 선이다. `line`은 구획과 블록 테두리에, `line-strong`은 컨트롤 테두리 hover와 강한 구분선에 쓴다.
-- **field (#EFF6F8) / field-line (#BCD6DC)**: 옅은 Botticelli다. **"내가 쓰는 영역"**을 뜻하며, 독자와 저자가 입력하는 모든 필드(textarea, input, 척도 칸)에 쓴다.
-- **chiffon, botticelli**: 원색 그대로 쓰는 곳은 표지 플레이스홀더와 코드 블록 텍스트뿐이다. 표지 면은 옅은 색만 쓴다(chiffon, mark, botticelli). 짙은 면(accent, primary)을 표지에 칠하지 않는 이유는, 표지가 여러 권 모이면 로즈우드와 커피 판이 화면을 덮어 "로즈우드 한 점"이 무너지기 때문이다(2026-10-01 결정).
+  - 저장 표시 점(상태 문구 앞 6px 점)
+  - focus ring은 **accent가 아니라 잉크**다. Coral은 비텍스트 기준 3:1에도 못 미친다(2.87).
+- **on-accent (#000000)**: accent 면 위의 텍스트다(대비 6.66, hover 면 5.65). 흰 글자는 3.15라 쓰지 않는다.
+- **on-primary (#F6F4F1)**: 잉크 면 위의 텍스트다. 토스트, 툴팁, 코드 블록, 아바타, 에디터 툴바의 활성 버튼에 쓴다(대비 19.13).
+- **paper (#F6F4F1)**: Paper. 페이지 바탕이다.
+- **surface (#FFFFFF)**: paper 위에 올라가는 면이다. 드롭다운, 모달, 입력에 쓴다. paper와 대비가 거의 없으므로(1.1) 반드시 테두리와 함께 쓴다.
+- **mark (#E4DED2)**: Stone. 현재 위치(목차의 현재 장), 본문 `strong` 하이라이트, hover 면, 표지 면이다. paper와 대비가 1.22라 면끼리 붙일 때는 선을 둔다.
+- **line (#E4DED2) / line-strong (#C9C1B2)**: 1px 선이다. `line`(Stone)은 구획과 블록 테두리에, `line-strong`(진한 Stone)은 컨트롤 테두리 hover와 강한 구분선에 쓴다.
+- **field (#FFFFFF) / field-line (#C9C1B2)**: 흰 면 + 진한 Stone 테두리다. **"내가 쓰는 영역"**을 뜻하며, 독자와 저자가 입력하는 모든 필드(textarea, input, 척도 칸)에 쓴다. 토큰 이름은 역할을 가리키므로 값이 surface와 같아도 따로 둔다. 단, **검색창은 예외로 paper 면에 field-line 테두리**를 쓴다. 검색은 길 찾기 도구라 흰 면이 필요 없고, 화면에 순백이 있으면 그것이 흰색 기준이 되어 paper 바탕이 회색으로 읽히기 때문이다(2026-10-01 결정).
+- 표지 면은 옅은 색만 쓴다(Stone, 흰색). 짙은 면(accent, primary)을 표지에 칠하지 않는 이유는, 표지가 여러 권 모이면 코랄과 검정 판이 화면을 덮어 "코랄 한 점"이 무너지기 때문이다(2026-10-01 결정).
 - **상태색 (danger #B42318, success #2F6B3A, warning #8A5A00, info #2C5B66)**: 텍스트, 아이콘, 1px 테두리로만 쓴다. **면을 칠하지 않는다.**
-  - danger는 accent와 색상이 가깝다(대비 1.9). 그래서 항상 오류 문장과 함께 쓴다.
-  - 파괴적 동작은 `button-danger`(흰 면 + danger 텍스트 + danger 테두리)로 만든다.
+  - danger는 accent와 색상이 가깝다(대비 2.09). 그래서 항상 오류 문장과 함께 쓴다.
+  - 파괴적 동작은 `button-danger`(면 없음 + danger 텍스트 + danger 테두리)로 만든다.
 
-금지 조합: Rosewood와 Coffee를 텍스트/배경으로 겹치지 않는다(대비 1.39). Chiffon과 paper·흰색, Botticelli와 흰색은 테두리 없이 면끼리 붙이지 않는다(대비 1.08, 1.33). 조합별 대비는 `docs/design/brief.md`에 표로 있다.
+금지 조합: Coral 글자(paper 위 2.87), Coral 면 위 흰 글자(3.15). 흰색·Stone과 paper는 테두리 없이 면끼리 붙이지 않는다(대비 1.1, 1.22). 조합별 대비는 `docs/design/brief.md`에 표로 있다.
 
 ## Typography
 
@@ -306,8 +299,8 @@ Inspic은 "읽는 책이 아니라 적용하는 책"이다. 화면의 일은 두
 ## Elevation & Depth
 
 - **그림자로 위계를 만들지 않는다.** 구분은 1px `line`과 면색(paper / surface / field / mark)으로 한다.
-- 예외는 떠 있는 레이어(드롭다운 메뉴, 모달, 토스트)뿐이다. 이때 쓰는 그림자는 `0 4px 16px rgba(45, 18, 13, 0.08)` 하나이며, `line` 테두리와 함께 쓴다.
-- 모달 배경막은 `rgba(45, 18, 13, 0.4)`다. blur는 쓰지 않는다.
+- 예외는 떠 있는 레이어(드롭다운 메뉴, 모달, 토스트)뿐이다. 이때 쓰는 그림자는 `0 4px 16px rgba(0, 0, 0, 0.08)` 하나이며, `line` 테두리와 함께 쓴다.
+- 모달 배경막은 `rgba(0, 0, 0, 0.4)`다. blur는 쓰지 않는다.
 - 겹침, 기울임, 떠오르는 카드는 쓰지 않는다.
 
 ## Shapes
@@ -324,17 +317,17 @@ Inspic은 "읽는 책이 아니라 적용하는 책"이다. 화면의 일은 두
 
 - **버튼**:
   - primary: accent 면에 on-accent 텍스트다. 한 화면(또는 한 블록)에 하나만 둔다.
-  - secondary: surface 면에 `line` 테두리다. hover 시 테두리가 잉크색이 된다.
-  - danger: surface 면에 danger 텍스트와 테두리다.
+  - secondary: 면이 없고(투명, 놓인 바탕을 따른다) `line-strong` 테두리다. hover 시 테두리가 잉크색이 된다. 흰 면을 두지 않는 이유는 검색창과 같다 — 화면에 순백이 있으면 paper가 회색으로 읽힌다(2026-10-01 결정).
+  - danger: 면 없이 danger 텍스트와 테두리다.
   - hover에서 이동이나 그림자 변화를 주지 않는다. 색만 바뀐다.
-- **입력**: field 면에 field-line 1px 테두리를 쓴다. focus는 2px accent outline(offset 1px)이다. placeholder는 muted다. 오류는 테두리를 danger로 바꾸고, 필드 아래에 danger 텍스트로 이유와 해결 방법을 쓴다.
+- **입력**: field 면에 field-line 1px 테두리를 쓴다. focus는 2px 잉크 outline(offset 1px)이다. placeholder는 muted다. 오류는 테두리를 danger로 바꾸고, 필드 아래에 danger 텍스트로 이유와 해결 방법을 쓴다.
 - **워크북 블록 (입력 블록 4종: 체크리스트·척도·성찰·목표)**: 면색 없이 paper 위에 `line` 1px 박스(radius lg, padding 18px 20px)를 둔다. **박스는 "내가 쓰는 영역"이 있는 블록 전용이다.** 내부 구성은 다음과 같다.
   1. 머리 줄: 왼쪽에 종류 라벨(label, muted), 오른쪽에 상태(caption)를 둔다.
   2. 질문: subtitle로 쓴다.
   3. 입력 영역: field 면이다.
   4. 선택: 보조 버튼이 있다면 오른쪽 끝에 둔다.
   - 라벨 문구: `체크리스트` · `척도` · `성찰` · `목표` · `참고`/`팁`/`주의`/`정보`(Callout 유형별)
-  - 상태 문구: `작성 전`(muted), `저장됨 · 방금`(accent, 600), `작성함`(muted, 불러온 답. 서버 답인지 캐시에만 있는 답인지 구분할 수 없어 "저장됨"이라 하지 않는다), `3개 중 2개`(모두 완료되면 accent), `7 선택됨`(muted, 칸이 이미 선택을 보여 준다)
+  - 상태 문구: `작성 전`(muted), `저장됨 · 방금`(잉크 600, 앞에 6px accent 점), `작성함`(muted, 불러온 답. 서버 답인지 캐시에만 있는 답인지 구분할 수 없어 "저장됨"이라 하지 않는다), `3개 중 2개`(모두 완료되면 잉크 600), `7 선택됨`(muted, 칸이 이미 선택을 보여 준다)
   - 진행 문구(체크리스트·척도)는 이번 세션에서 저장에 성공하면 뒤에 `· 저장됨`을 붙인다.
   - 저장 실패: 상태는 `저장 안 됨`(danger, 600)이고, 블록 아래에 이유와 해결 방법을 danger 문장으로 쓴다("이 답을 저장하지 못했어요. 연결을 확인한 뒤 다시 시도하세요. [다시 시도]"). 네트워크 실패이므로 입력 테두리는 바꾸지 않는다(입력 오류처럼 읽힌다).
   - 블록 종류를 **면색이나 아이콘 색으로 구분하지 않는다.** 구분은 라벨 텍스트가 한다.
@@ -342,11 +335,11 @@ Inspic은 "읽는 책이 아니라 적용하는 책"이다. 화면의 일은 두
   - 편집 뷰(`editor/extensions/templates/*NodeView.tsx`)와 읽기 뷰(`reader/templates/*`)는 같은 시각 언어를 쓴다. 편집 뷰에는 라벨 줄 오른쪽에 편집 컨트롤만 추가한다.
 - **척도**: 10칸 격자다. 모바일에서 7칸을 넘으면 두 줄(5×2)로 접어 칸 높이 44px를 지킨다. 칸은 field 면에 field-line 테두리, radius sm이다. 선택된 칸은 accent 면에 on-accent 굵은 숫자다. 양 끝 라벨은 칸 아래에 caption muted로 둔다.
 - **체크리스트**: 네이티브 checkbox에 `accent-color: accent`를 준다. 체크된 항목은 muted 색에 1px 취소선이다.
-- **코드 블록**: 잉크 면에 chiffon 텍스트, radius md다. 인라인 코드는 surface 면에 `line` 테두리, radius sm, 0.86em이다.
-- **책 표지 플레이스홀더** (`BookCover` 하나로 통일한다): 옅은 단색 면 3종(chiffon/rosewood 글자, mark/잉크 글자, botticelli/잉크 글자) 중 하나를 책 id 해시로 고른다. paper와 대비가 낮으므로 항상 1px 테두리(`line` 또는 잉크 10%)와 함께 쓴다. 제목은 표지 위에 700으로, 하단에 `INSPIC`를 label로 둔다. 그라디언트는 쓰지 않는다.
+- **코드 블록**: 잉크 면에 on-primary 텍스트, radius md다. 인라인 코드는 surface 면에 `line` 테두리, radius sm, 0.86em이다.
+- **책 표지 플레이스홀더** (`BookCover` 하나로 통일한다): 옅은 단색 면 2종(Stone, 흰색. 둘 다 잉크 글자) 중 하나를 책 id 해시로 고른다. paper와 대비가 낮으므로 항상 1px 테두리(`line` 또는 잉크 10%)와 함께 쓴다. 제목은 표지 위에 700으로, 하단에 `INSPIC`를 label로 둔다. 그라디언트는 쓰지 않는다.
 - **탐색 카드**: 표지, 제목(subtitle), 메타(caption muted) 순이다. 카드 테두리와 면은 없다. hover 시 제목에 밑줄만 생긴다.
 - **목차 항목**: 현재 장은 mark 면에 600 굵기이고, 번호는 잉크다. 다른 장의 번호는 muted다. 현재 장 번호에 accent를 쓰지 않는다 — 상단 바의 진행 선과 겹친다(2026-10-01 결정).
-- **토스트**: 잉크 면에 chiffon 텍스트, radius md다. 떠 있는 레이어 그림자를 쓴다. 문구는 결과를 말한다("저장했어요", "링크를 복사했어요").
+- **토스트**: 잉크 면에 on-primary 텍스트, radius md다. 떠 있는 레이어 그림자를 쓴다. 문구는 결과를 말한다("저장했어요", "링크를 복사했어요").
 - **아이콘**: lucide를 쓴다. 16~18px, stroke 1.75, 색은 텍스트 색을 따른다. 아이콘을 원이나 사각 배경 위에 올리지 않는다.
 
 ## Motion
@@ -395,4 +388,5 @@ Inspic은 "읽는 책이 아니라 적용하는 책"이다. 화면의 일은 두
 - 이탤릭
 - 그림자로 카드 위계를 만드는 것. `rounded-xl` 이상의 radius, 알약 버튼과 배지
 - 가운데 정렬 hero와 배지 조합
-- 순검정(`#000`, `#111`, `black`) 텍스트
+- Coral(`text-accent`) 글자색. 로고와 상태 문구도 잉크로 쓴다
+- Coral 면 위 흰 글자

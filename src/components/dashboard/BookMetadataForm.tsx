@@ -151,7 +151,7 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
                 <button
                   type="button"
                   onClick={handleRemoveCover}
-                  className="hidden rounded-lg bg-danger px-3 py-1.5 text-xs font-medium text-on-accent group-hover:flex"
+                  className="hidden rounded-lg bg-danger px-3 py-1.5 text-xs font-medium text-surface group-hover:flex"
                 >
                   삭제
                 </button>

@@ -45,8 +45,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         {toasts.map((toast) => (
           <ToastPrimitive.Root
             key={toast.id}
-            // DESIGN.md 토스트: 변형과 관계없이 잉크 면 + chiffon 텍스트. 오류만 아이콘으로 구분한다.
-            className="relative flex w-full items-start gap-3 rounded-md bg-primary px-4 py-3 text-chiffon shadow-float"
+            // DESIGN.md 토스트: 변형과 관계없이 잉크 면 + on-primary 텍스트. 오류만 아이콘으로 구분한다.
+            className="relative flex w-full items-start gap-3 rounded-md bg-primary px-4 py-3 text-on-primary shadow-float"
             onOpenChange={(open) => {
               if (!open) removeToast(toast.id);
             }}
@@ -59,7 +59,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 {toast.title}
               </ToastPrimitive.Title>
               {toast.description && (
-                <ToastPrimitive.Description className="mt-1 text-caption text-chiffon/80">
+                <ToastPrimitive.Description className="mt-1 text-caption text-on-primary/80">
                   {toast.description}
                 </ToastPrimitive.Description>
               )}

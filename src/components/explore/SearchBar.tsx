@@ -79,7 +79,7 @@ export function SearchBar({ filters, onFiltersChange, className }: SearchBarProp
             onChange={(e) => handleQueryChange(e.target.value)}
             placeholder="제목이나 설명으로 검색"
             aria-label="책 검색"
-            className="h-10 w-full rounded-md border border-field-line bg-field pl-9 pr-9 text-body text-primary placeholder:text-muted [&::-webkit-search-cancel-button]:hidden"
+            className="h-10 w-full rounded-md border border-field-line bg-paper pl-9 pr-9 text-body text-primary placeholder:text-muted [&::-webkit-search-cancel-button]:hidden"
           />
           {localQuery && (
             <button
@@ -97,8 +97,8 @@ export function SearchBar({ filters, onFiltersChange, className }: SearchBarProp
           onClick={() => setShowFilters((v) => !v)}
           aria-expanded={showFilters}
           className={cn(
-            "flex h-10 items-center gap-2 rounded-md border bg-surface px-3 text-button text-primary transition-colors duration-150 ease-out",
-            showFilters ? "border-primary" : "border-line hover:border-primary",
+            "flex h-10 items-center gap-2 rounded-md border px-3 text-button text-primary transition-colors duration-150 ease-out",
+            showFilters ? "border-primary" : "border-line-strong hover:border-primary",
           )}
         >
           <SlidersHorizontal className="h-4 w-4" strokeWidth={1.75} />

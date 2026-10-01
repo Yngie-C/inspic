@@ -158,7 +158,7 @@ function WorkbookRow({
               style={{ width: `${percent}%` }}
             />
           </div>
-          <span className={cn("shrink-0 text-caption tabular-nums", percent === 100 ? "font-semibold text-accent" : "text-muted")}>
+          <span className={cn("shrink-0 text-caption tabular-nums", percent === 100 ? "font-semibold text-primary" : "text-muted")}>
             {total > 0 ? `${answered}/${total} 문항` : "문항 없음"}
           </span>
         </div>

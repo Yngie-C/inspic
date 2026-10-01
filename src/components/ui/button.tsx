@@ -4,8 +4,9 @@ import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 
 // DESIGN.md Components > 버튼. hover에서는 색만 바뀐다(이동·그림자 없음).
+// 보조 버튼은 면이 없다(투명). 놓인 바탕을 따라가므로 순백이 paper 위에 뜨지 않는다.
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 rounded-md border font-semibold transition-colors duration-150 ease-out disabled:pointer-events-none disabled:border-line disabled:bg-surface disabled:text-faint",
+  "inline-flex items-center justify-center gap-2 rounded-md border font-semibold transition-colors duration-150 ease-out disabled:pointer-events-none disabled:border-line disabled:bg-transparent disabled:text-faint",
   {
     variants: {
       variant: {
@@ -13,13 +14,13 @@ const buttonVariants = cva(
         default:
           "border-transparent bg-accent text-on-accent hover:bg-accent-hover",
         secondary:
-          "border-line bg-surface text-primary hover:border-primary",
+          "border-line-strong bg-transparent text-primary hover:border-primary",
         outline:
-          "border-line bg-surface text-primary hover:border-primary",
+          "border-line-strong bg-transparent text-primary hover:border-primary",
         ghost:
           "border-transparent text-primary hover:bg-mark",
         destructive:
-          "border-danger/50 bg-surface text-danger hover:border-danger",
+          "border-danger/50 bg-transparent text-danger hover:border-danger",
         link: "border-transparent text-primary underline decoration-1 underline-offset-3",
       },
       size: {

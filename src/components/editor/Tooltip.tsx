@@ -143,7 +143,7 @@ export function Tooltip({
               zIndex: 9999,
               pointerEvents: "none",
             }}
-            className="flex items-center gap-1 rounded bg-primary px-2 py-1 text-xs text-on-accent shadow-float whitespace-nowrap"
+            className="flex items-center gap-1 rounded bg-primary px-2 py-1 text-xs text-on-primary shadow-float whitespace-nowrap"
           >
             <span>{label}</span>
             {shortcut && (

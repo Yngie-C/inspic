@@ -65,11 +65,14 @@ export function BlockStatusText({ status }: { status: BlockStatus }) {
     <span
       className={cn(
         "whitespace-nowrap text-caption tabular-nums",
-        status.tone === "ok" && "font-semibold text-accent",
+        status.tone === "ok" && "inline-flex items-center gap-1.5 font-semibold text-primary",
         status.tone === "muted" && "text-muted",
         status.tone === "danger" && "font-semibold text-danger",
       )}
     >
+      {status.tone === "ok" && (
+        <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-accent" />
+      )}
       {status.text}
     </span>
   );

@@ -51,7 +51,7 @@ export function PreviewToolbar({
             className={cn(
               "rounded-lg p-2 transition-colors",
               viewport === key
-                ? "bg-primary text-on-accent"
+                ? "bg-primary text-on-primary"
                 : "text-muted hover:bg-mark hover:text-muted"
             )}
           >

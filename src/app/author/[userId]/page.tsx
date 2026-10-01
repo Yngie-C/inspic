@@ -85,7 +85,7 @@ export default function AuthorPage() {
             </div>
           ) : (
             <div className="flex h-24 w-24 items-center justify-center rounded-full bg-primary">
-              <span className="text-3xl font-bold text-on-accent select-none">
+              <span className="text-3xl font-bold text-on-primary select-none">
                 {initial}
               </span>
             </div>

@@ -23,9 +23,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const SWATCHES = [
-  "primary", "muted", "faint", "accent", "accent-hover", "on-accent",
+  "primary", "muted", "faint", "accent", "accent-hover", "on-accent", "on-primary",
   "paper", "surface", "mark", "line", "line-strong", "field", "field-line",
-  "chiffon", "botticelli", "danger", "success", "warning", "info",
+  "danger", "success", "warning", "info",
 ];
 
 const TYPE_SCALE = [

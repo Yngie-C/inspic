@@ -14,6 +14,17 @@ import { PDF_FONT_FAMILY, registerPdfFonts } from "./pdf-fonts";
 // 성공한 채 한글만 깨지므로, 이 호출이 빠지면 조용히 망가집니다.
 registerPdfFonts();
 
+// 인쇄물 색. DESIGN.md 팔레트의 잉크·회색·Stone 선만 쓰고 Coral은 쓰지 않습니다.
+const PDF_COLORS = {
+  ink: "#000000",
+  muted: "#5E5A54",
+  faint: "#736E67",
+  line: "#E4DED2",
+  lineStrong: "#C9C1B2",
+  codeBg: "#F6F4F1",
+  page: "#FFFFFF",
+} as const;
+
 // 이 문서에는 이탤릭 웨이트가 없습니다. fontStyle: "italic"을 주면
 // react-pdf가 해당 스타일의 소스를 못 찾아 렌더 자체가 실패합니다.
 // 강조는 색과 선으로만 합니다.
@@ -26,7 +37,7 @@ const styles = StyleSheet.create({
     paddingLeft: 72,
     paddingRight: 72,
     lineHeight: 1.6,
-    color: "#1a1a1a",
+    color: PDF_COLORS.ink,
   },
   coverPage: {
     fontFamily: PDF_FONT_FAMILY,
@@ -35,7 +46,7 @@ const styles = StyleSheet.create({
     paddingBottom: 60,
     paddingLeft: 72,
     paddingRight: 72,
-    backgroundColor: "#ffffff",
+    backgroundColor: PDF_COLORS.page,
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
@@ -45,7 +56,7 @@ const styles = StyleSheet.create({
     fontFamily: PDF_FONT_FAMILY,
     fontWeight: "bold",
     textAlign: "center",
-    color: "#111111",
+    color: PDF_COLORS.ink,
     marginBottom: 24,
     lineHeight: 1.3,
   },
@@ -53,20 +64,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: PDF_FONT_FAMILY,
     textAlign: "center",
-    color: "#555555",
+    color: PDF_COLORS.muted,
     marginBottom: 40,
   },
   coverDivider: {
     width: 60,
     height: 2,
-    backgroundColor: "#cccccc",
+    backgroundColor: PDF_COLORS.lineStrong,
     marginBottom: 32,
   },
   coverDescription: {
     fontSize: 12,
     fontFamily: PDF_FONT_FAMILY,
     textAlign: "center",
-    color: "#666666",
+    color: PDF_COLORS.muted,
     lineHeight: 1.6,
     maxWidth: 360,
   },
@@ -82,10 +93,10 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontFamily: PDF_FONT_FAMILY,
     fontWeight: "bold",
-    color: "#111111",
+    color: PDF_COLORS.ink,
     marginBottom: 32,
     borderBottomWidth: 1,
-    borderBottomColor: "#e5e5e5",
+    borderBottomColor: PDF_COLORS.line,
     paddingBottom: 12,
   },
   tocItem: {
@@ -97,7 +108,7 @@ const styles = StyleSheet.create({
   },
   tocItemTitle: {
     fontSize: 11,
-    color: "#333333",
+    color: PDF_COLORS.ink,
     flex: 1,
     paddingRight: 8,
   },
@@ -105,13 +116,13 @@ const styles = StyleSheet.create({
     flex: 1,
     borderBottomWidth: 1,
     borderBottomStyle: "dotted",
-    borderBottomColor: "#cccccc",
+    borderBottomColor: PDF_COLORS.lineStrong,
     marginBottom: 3,
     marginHorizontal: 8,
   },
   tocItemPage: {
     fontSize: 11,
-    color: "#888888",
+    color: PDF_COLORS.faint,
     width: 30,
     textAlign: "right",
   },
@@ -123,16 +134,16 @@ const styles = StyleSheet.create({
     paddingLeft: 72,
     paddingRight: 72,
     lineHeight: 1.6,
-    color: "#1a1a1a",
+    color: PDF_COLORS.ink,
   },
   chapterTitle: {
     fontSize: 22,
     fontFamily: PDF_FONT_FAMILY,
     fontWeight: "bold",
-    color: "#111111",
+    color: PDF_COLORS.ink,
     marginBottom: 32,
     borderBottomWidth: 1,
-    borderBottomColor: "#e5e5e5",
+    borderBottomColor: PDF_COLORS.line,
     paddingBottom: 16,
     lineHeight: 1.3,
   },
@@ -141,13 +152,13 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     lineHeight: 1.7,
     textAlign: "justify",
-    color: "#222222",
+    color: PDF_COLORS.ink,
   },
   heading1: {
     fontSize: 18,
     fontFamily: PDF_FONT_FAMILY,
     fontWeight: "bold",
-    color: "#111111",
+    color: PDF_COLORS.ink,
     marginTop: 24,
     marginBottom: 12,
     lineHeight: 1.3,
@@ -156,7 +167,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: PDF_FONT_FAMILY,
     fontWeight: "bold",
-    color: "#222222",
+    color: PDF_COLORS.ink,
     marginTop: 20,
     marginBottom: 10,
     lineHeight: 1.3,
@@ -165,17 +176,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: PDF_FONT_FAMILY,
     fontWeight: "bold",
-    color: "#333333",
+    color: PDF_COLORS.ink,
     marginTop: 16,
     marginBottom: 8,
     lineHeight: 1.3,
   },
   blockquote: {
     fontSize: 11,
-    color: "#555555",
+    color: PDF_COLORS.muted,
     fontFamily: PDF_FONT_FAMILY,
     borderLeftWidth: 3,
-    borderLeftColor: "#cccccc",
+    borderLeftColor: PDF_COLORS.lineStrong,
     paddingLeft: 16,
     marginBottom: 14,
     marginVertical: 8,
@@ -184,23 +195,23 @@ const styles = StyleSheet.create({
   codeBlock: {
     fontSize: 10,
     fontFamily: PDF_FONT_FAMILY,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: PDF_COLORS.codeBg,
     padding: 12,
     marginBottom: 14,
     lineHeight: 1.5,
-    color: "#333333",
+    color: PDF_COLORS.ink,
   },
   listItem: {
     fontSize: 11,
     marginBottom: 6,
     lineHeight: 1.7,
-    color: "#222222",
+    color: PDF_COLORS.ink,
     flexDirection: "row",
   },
   listBullet: {
     width: 16,
     fontSize: 11,
-    color: "#555555",
+    color: PDF_COLORS.muted,
   },
   listContent: {
     flex: 1,
@@ -209,48 +220,48 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     marginBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "#eeeeee",
+    borderBottomColor: PDF_COLORS.line,
     paddingBottom: 6,
   },
   tableLabel: {
     fontSize: 10,
-    color: "#555555",
+    color: PDF_COLORS.muted,
     width: "42%",
     paddingRight: 10,
     lineHeight: 1.5,
   },
   tableValue: {
     fontSize: 11,
-    color: "#222222",
+    color: PDF_COLORS.ink,
     flex: 1,
     lineHeight: 1.6,
   },
   orphanSection: {
     marginTop: 28,
     borderTopWidth: 1,
-    borderTopColor: "#e5e5e5",
+    borderTopColor: PDF_COLORS.line,
     paddingTop: 14,
   },
   orphanTitle: {
     fontSize: 12,
     fontFamily: PDF_FONT_FAMILY,
     fontWeight: "bold",
-    color: "#555555",
+    color: PDF_COLORS.muted,
     marginBottom: 6,
   },
   orphanNote: {
     fontSize: 9,
-    color: "#999999",
+    color: PDF_COLORS.faint,
     marginBottom: 12,
     lineHeight: 1.6,
   },
   orphanAnswer: {
     fontSize: 11,
-    color: "#222222",
+    color: PDF_COLORS.ink,
     marginBottom: 10,
     lineHeight: 1.7,
     borderLeftWidth: 2,
-    borderLeftColor: "#dddddd",
+    borderLeftColor: PDF_COLORS.lineStrong,
     paddingLeft: 12,
   },
   footer: {
@@ -262,17 +273,17 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     borderTopWidth: 1,
-    borderTopColor: "#e5e5e5",
+    borderTopColor: PDF_COLORS.line,
     paddingTop: 8,
   },
   footerTitle: {
     fontSize: 9,
-    color: "#999999",
+    color: PDF_COLORS.faint,
     flex: 1,
   },
   footerPage: {
     fontSize: 9,
-    color: "#999999",
+    color: PDF_COLORS.faint,
     textAlign: "right",
   },
 });
@@ -515,7 +526,7 @@ function ChapterPage({
       })}
 
       {blocks.length === 0 && (
-        <Text style={{ ...styles.paragraph, color: "#aaaaaa" }}>
+        <Text style={{ ...styles.paragraph, color: PDF_COLORS.faint }}>
           (내용 없음)
         </Text>
       )}

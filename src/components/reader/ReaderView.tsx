@@ -116,7 +116,7 @@ export function ReaderView({
           <div className="fixed inset-0 z-40 min-[601px]:hidden">
             <button
               type="button"
-              className="absolute inset-0 bg-[rgba(45,18,13,0.4)]"
+              className="absolute inset-0 bg-[rgba(0,0,0,0.4)]"
               aria-label="목차 닫기"
               onClick={() => setTocOpen(false)}
             />

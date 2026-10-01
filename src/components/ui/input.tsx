@@ -30,7 +30,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           aria-invalid={error ? true : undefined}
           className={cn(
             "h-10 w-full rounded-md border border-field-line bg-field px-3 text-body text-primary placeholder:text-muted transition-colors duration-150 ease-out",
-            "focus:outline-2 focus:outline-offset-1 focus:outline-accent",
+            "focus:outline-2 focus:outline-offset-1 focus:outline-primary",
             "disabled:cursor-not-allowed disabled:text-faint",
             error && "border-danger",
             className,

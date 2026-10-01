@@ -52,7 +52,7 @@ function ToolbarButton({
         "flex h-8 w-8 items-center justify-center rounded transition-colors",
         "text-muted hover:bg-mark hover:text-primary",
         "disabled:pointer-events-none disabled:opacity-40",
-        isActive && "bg-primary text-on-accent hover:bg-primary hover:text-on-accent",
+        isActive && "bg-primary text-on-primary hover:bg-primary hover:text-on-primary",
       )}
     >
       {children}

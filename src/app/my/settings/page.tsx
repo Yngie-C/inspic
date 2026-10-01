@@ -75,7 +75,7 @@ export default function SettingsPage() {
       <div className="rounded-lg border border-line bg-surface p-8">
         {/* Avatar preview */}
         <div className="mb-6 flex items-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-primary text-xl font-bold text-on-accent">
+          <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-primary text-xl font-bold text-on-primary">
             {avatarUrl ? (
               <img
                 src={avatarUrl}

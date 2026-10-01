@@ -8,7 +8,7 @@ export default function AuthLayout({
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-paper px-4 py-12">
       <div className="mb-8">
-        <Link href="/" className="text-3xl font-extrabold tracking-tight text-accent">
+        <Link href="/" className="text-3xl font-extrabold tracking-tight text-primary">
           inspic
         </Link>
       </div>

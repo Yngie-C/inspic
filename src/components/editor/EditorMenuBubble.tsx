@@ -25,7 +25,7 @@ function BubbleButton({ onClick, isActive, title, children }: BubbleButtonProps)
       className={cn(
         "flex h-7 w-7 items-center justify-center rounded transition-colors",
         "text-primary hover:bg-mark",
-        isActive && "bg-primary text-on-accent hover:bg-primary",
+        isActive && "bg-primary text-on-primary hover:bg-primary",
       )}
     >
       {children}

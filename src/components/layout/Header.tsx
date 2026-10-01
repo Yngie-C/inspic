@@ -50,7 +50,7 @@ export function Header() {
           {/* Logo */}
           <Link
             href="/"
-            className="text-[19px] font-extrabold tracking-[-0.03em] text-accent"
+            className="text-[19px] font-extrabold tracking-[-0.03em] text-primary"
           >
             inspic
           </Link>
@@ -92,7 +92,7 @@ export function Header() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="책 검색"
-                className="h-9 w-full rounded-md border border-field-line bg-field pl-9 pr-3 text-body-sm text-primary placeholder:text-muted"
+                className="h-9 w-full rounded-md border border-field-line bg-paper pl-9 pr-3 text-body-sm text-primary placeholder:text-muted"
               />
             </form>
           )}
@@ -105,7 +105,7 @@ export function Header() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="flex items-center gap-2 rounded-md py-1 pl-1 pr-2 text-body-sm font-semibold text-primary transition-colors duration-150 ease-out hover:bg-mark">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-caption font-bold text-chiffon">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-caption font-bold text-on-primary">
                       {profile?.display_name
                         ? profile.display_name[0].toUpperCase()
                         : (user.email?.[0].toUpperCase() ?? "U")}
@@ -201,7 +201,7 @@ export function Header() {
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="책 검색"
               autoFocus
-              className="h-10 w-full rounded-md border border-field-line bg-field pl-9 pr-3 text-body text-primary placeholder:text-muted"
+              className="h-10 w-full rounded-md border border-field-line bg-paper pl-9 pr-3 text-body text-primary placeholder:text-muted"
             />
           </form>
         </div>
@@ -257,7 +257,7 @@ export function Header() {
                 </Link>
                 <Link
                   href="/auth/signup"
-                  className="mt-1 rounded-md border border-line bg-surface px-3 py-2 text-center text-button text-primary transition-colors duration-150 ease-out hover:border-primary"
+                  className="mt-1 rounded-md border border-line-strong px-3 py-2 text-center text-button text-primary transition-colors duration-150 ease-out hover:border-primary"
                   onClick={() => setMobileOpen(false)}
                 >
                   회원가입

@@ -49,7 +49,7 @@ export function HeroSection({ totalBooks }: { totalBooks?: number }) {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="책 제목이나 주제로 검색"
-                className="h-12 w-full rounded-md border border-field-line bg-field pl-12 pr-6 text-sm outline-none transition-all focus:border-field-line focus:bg-surface focus:outline-2 focus:outline-offset-1 focus:outline-accent"
+                className="h-12 w-full rounded-md border border-field-line bg-paper pl-12 pr-6 text-sm outline-none transition-all focus:outline-2 focus:outline-offset-1 focus:outline-primary"
               />
             </form>
           </div>

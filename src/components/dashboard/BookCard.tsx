@@ -23,7 +23,7 @@ const statusLabel: Record<string, string> = {
 const statusStyle: Record<string, string> = {
   draft: "text-muted",
   processing: "text-warning",
-  published: "font-semibold text-accent",
+  published: "font-semibold text-primary",
   archived: "text-muted",
 };
 
