@@ -12,9 +12,8 @@ export function FeaturesSection() {
       <div className="mx-auto grid max-w-7xl gap-12 px-4 md:grid-cols-3">
         {features.map((f, i) => (
           <div key={i} className="group flex flex-col items-center text-center">
-            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-lg bg-mark text-accent">
-              <f.icon className="h-8 w-8" />
-            </div>
+            {/* 아이콘을 면 위에 올리지 않는다(DESIGN.md Don'ts). */}
+            <f.icon className="mb-4 h-7 w-7 text-primary" strokeWidth={1.75} aria-hidden />
             <h3 className="text-lg font-bold text-primary">{f.title}</h3>
             <p className="mt-2 text-sm leading-relaxed text-muted">{f.desc}</p>
           </div>

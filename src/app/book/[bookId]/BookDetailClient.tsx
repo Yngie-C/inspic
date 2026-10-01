@@ -23,7 +23,7 @@ async function fetchBookDetail(bookId: string): Promise<BookDetailData> {
   const res = await fetch(`/api/books/${bookId}/detail`, {
     credentials: "include",
   });
-  if (!res.ok) throw new Error("콘텐츠 정보를 불러오지 못했습니다.");
+  if (!res.ok) throw new Error("책 정보를 불러오지 못했어요.");
   const json = await res.json();
   return json.data;
 }
@@ -37,7 +37,7 @@ async function togglePublish(bookId: string, publish: boolean): Promise<void> {
       visibility: publish ? "public" : "private",
     }),
   });
-  if (!res.ok) throw new Error("상태 변경에 실패했습니다.");
+  if (!res.ok) throw new Error("상태를 바꾸지 못했어요.");
 }
 
 export function BookDetailClient() {
@@ -99,9 +99,9 @@ export function BookDetailClient() {
   if (isError || !data) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-1 px-4 text-center">
-        <p className="text-subtitle text-primary">책 정보를 불러올 수 없습니다</p>
+        <p className="text-subtitle text-primary">책 정보를 불러올 수 없어요</p>
         <p className="text-body-sm text-muted">
-          삭제됐거나 접근 권한이 없을 수 있습니다.
+          삭제됐거나 접근 권한이 없을 수 있어요.
         </p>
         <Button variant="secondary" size="sm" className="mt-3" onClick={() => router.back()}>
           돌아가기

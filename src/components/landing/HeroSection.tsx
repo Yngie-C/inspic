@@ -28,7 +28,7 @@ export function HeroSection({ totalBooks }: { totalBooks?: number }) {
         >
           <h1 className="text-5xl font-bold tracking-tight text-primary md:text-7xl">
             읽고, 쓰고, <br />
-            <span className="text-accent">적용하세요</span>
+            적용하세요
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-muted md:text-xl">
             워크시트와 질문이 담긴 워크북형 전자책. <br className="hidden md:block" />
@@ -54,9 +54,10 @@ export function HeroSection({ totalBooks }: { totalBooks?: number }) {
             </form>
           </div>
 
-          {totalBooks != null && (
+          {/* 0권일 때 "이미 0권"은 빈 서점을 광고하는 문장이라 숨긴다. */}
+          {totalBooks != null && totalBooks > 0 && (
             <p className="mt-6 text-sm font-medium text-muted">
-              이미 <span className="text-primary">{totalBooks.toLocaleString()}권</span>의 이야기가 출판되었습니다.
+              이미 <span className="text-primary">{totalBooks.toLocaleString()}권</span>의 이야기가 출판됐어요.
             </p>
           )}
         </motion.div>

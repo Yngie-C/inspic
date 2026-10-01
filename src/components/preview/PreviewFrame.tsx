@@ -101,8 +101,8 @@ export function PreviewFrame({ bookId, viewport }: Props) {
     <div ref={containerRef} className="flex flex-1 flex-col items-center px-6 py-6">
       {/* Preview mode banner */}
       <div className="mb-4 flex items-center gap-2 py-2 text-sm text-info">
-        <span className="inline-block h-2 w-2 rounded-full bg-accent" />
-        미리보기 모드 — 고객에게 이렇게 보입니다
+        <span className="inline-block h-2 w-2 rounded-full bg-info" />
+        미리보기 모드 — 독자에게 이렇게 보여요
       </div>
 
       {/* Frame container */}

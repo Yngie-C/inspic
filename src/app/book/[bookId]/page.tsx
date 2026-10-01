@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       .single();
 
     if (!book) {
-      return { title: "콘텐츠를 찾을 수 없습니다" };
+      return { title: "책을 찾을 수 없어요" };
     }
 
     const title = book.title;

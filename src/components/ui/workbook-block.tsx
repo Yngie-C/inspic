@@ -17,8 +17,11 @@ interface WorkbookBlockProps {
   kindTone?: "muted" | "warning";
   /** 머리 줄 오른쪽. 읽기 뷰는 상태, 편집 뷰는 편집 컨트롤. */
   aside?: ReactNode;
-  /** Callout 모양 비교용(단계 5, 임시). 기본은 box. */
-  variant?: "box" | "line" | "mark";
+  /**
+   * `box`는 독자가 쓰는 블록, `line`은 입력이 없는 Callout("책이 말하는 영역")이다.
+   * Callout을 박스로 그리면 입력 블록과 구분되지 않는다(DESIGN.md 워크북 블록).
+   */
+  shape?: "box" | "line";
   className?: string;
   children: ReactNode;
 }
@@ -27,18 +30,17 @@ export function WorkbookBlock({
   kind,
   kindTone = "muted",
   aside,
-  variant = "box",
+  shape = "box",
   className,
   children,
 }: WorkbookBlockProps) {
   return (
     <div
       className={cn(
-        "my-6 flex flex-col gap-3 text-body text-primary",
-        variant === "box" &&
-          "rounded-lg border border-line bg-paper px-5 py-[18px] max-[600px]:p-3.5",
-        variant === "line" && "gap-2 border-l-2 border-line-strong py-1 pl-4",
-        variant === "mark" && "rounded-lg bg-mark px-5 py-[18px] max-[600px]:p-3.5",
+        "my-6 flex flex-col text-body text-primary",
+        shape === "box" &&
+          "gap-3 rounded-lg border border-line bg-paper px-5 py-[18px] max-[600px]:p-3.5",
+        shape === "line" && "gap-2 border-l-2 border-line-strong py-1 pl-4",
         className,
       )}
     >

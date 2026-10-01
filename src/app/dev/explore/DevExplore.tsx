@@ -7,7 +7,7 @@ import { SearchBar, type SearchFilters } from "@/components/explore/SearchBar";
 import { DEV_BOOKS } from "../_mock/book";
 
 /** `app/explore/page.tsx`와 같은 배치를 목 데이터로 그린다. */
-export function DevExplore() {
+export function DevExplore({ showPopular = false }: { showPopular?: boolean }) {
   const [filters, setFilters] = useState<SearchFilters>({
     query: "",
     sort: "newest",
@@ -25,15 +25,21 @@ export function DevExplore() {
       <div className="mb-10">
         <SearchBar filters={filters} onFiltersChange={setFilters} />
       </div>
-      <section className="mb-12">
-        <h2 className="mb-3.5 text-label text-muted">많이 읽는 책</h2>
-        <div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-2 min-[901px]:mx-0 min-[901px]:grid min-[901px]:grid-cols-6 min-[901px]:overflow-visible min-[901px]:px-0 min-[901px]:[&>:nth-child(n+7)]:hidden">
-          {DEV_BOOKS.map((book) => (
-            <BookPreviewCard key={book.id} book={book} size="sm" className="w-36 flex-none min-[901px]:w-auto" />
-          ))}
-        </div>
-      </section>
-      <p className="mb-4 text-caption tabular-nums text-muted">{DEV_BOOKS.length}권</p>
+      {/* 실제 탐색과 같은 규칙: 12권 이하면 인기 줄을 숨긴다(app/explore/page.tsx POPULAR_MIN_TOTAL). ?popular로 강제 표시. */}
+      {(showPopular || DEV_BOOKS.length > 12) && (
+        <section className="mb-12">
+          <h2 className="mb-3.5 text-label text-muted">많이 읽는 책</h2>
+          <div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-2 min-[901px]:mx-0 min-[901px]:grid min-[901px]:grid-cols-6 min-[901px]:overflow-visible min-[901px]:px-0 min-[901px]:[&>:nth-child(n+7)]:hidden">
+            {DEV_BOOKS.map((book) => (
+              <BookPreviewCard key={book.id} book={book} size="sm" className="w-36 flex-none min-[901px]:w-auto" />
+            ))}
+          </div>
+        </section>
+      )}
+      <h2 className="mb-3.5 flex items-baseline gap-2">
+        <span className="text-label text-muted">전체</span>
+        <span className="text-caption tabular-nums text-muted">{DEV_BOOKS.length}권</span>
+      </h2>
       <BookGrid books={DEV_BOOKS} />
       <div className="mt-16">
         <BookGrid books={[]} />

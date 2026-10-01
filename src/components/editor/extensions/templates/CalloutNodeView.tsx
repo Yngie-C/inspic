@@ -24,6 +24,7 @@ export function CalloutNodeView({ node, updateAttributes }: NodeViewProps) {
       <WorkbookBlock
         kind={CALLOUT_LABEL[calloutType]}
         kindTone={calloutType === "warning" ? "warning" : "muted"}
+        shape="line"
         aside={
           <select
             value={calloutType}

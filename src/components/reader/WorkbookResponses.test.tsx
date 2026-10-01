@@ -86,6 +86,7 @@ function renderReflection(
   client: WorkbookResponseClient,
   canSave = true,
   viewerId: string | null = VIEWER,
+  isPreview = false,
 ) {
   return render(
     <WorkbookResponsesProvider
@@ -95,7 +96,7 @@ function renderReflection(
       client={client}
       debounceMs={0}
     >
-      <SaveStatusBadge />
+      <SaveStatusBadge isPreview={isPreview} />
       <ReflectionReader element={reflectionElement()} />
     </WorkbookResponsesProvider>,
   );
@@ -230,6 +231,20 @@ describe("워크북 응답 저장", () => {
     expect(client.save).not.toHaveBeenCalled();
     expect(client.load).not.toHaveBeenCalled();
     expect(await screen.findByText("이 기기에만 저장됨")).toBeInTheDocument();
+  });
+
+  it("미리보기에서는 같은 사실을 경고가 아니라 미리보기로 알린다", async () => {
+    // 본문 안내가 info로 "미리보기로 읽고 있어요"라고 말하는데 상단만
+    // 경고색이면 독자는 무언가 잘못된 줄 압니다.
+    const user = userEvent.setup();
+    const client = fakeClient();
+    renderReflection(client, false, VIEWER, true);
+
+    await user.type(await screen.findByRole("textbox"), "답");
+
+    expect(client.save).not.toHaveBeenCalled();
+    expect(await screen.findByText("미리보기 · 이 기기에만")).toBeInTheDocument();
+    expect(screen.queryByText("이 기기에만 저장됨")).not.toBeInTheDocument();
   });
 
   it("불러오기가 실패하면 캐시를 보여 주고 실패를 알린다", async () => {

@@ -40,7 +40,7 @@ async function fetchReaderBook(bookId: string): Promise<ReaderBook> {
 
 async function fetchAccess(bookId: string): Promise<AccessInfo> {
   const res = await fetch(`/api/books/${bookId}/access`);
-  if (!res.ok) throw new Error("접근 권한을 확인하지 못했습니다.");
+  if (!res.ok) throw new Error("접근 권한을 확인하지 못했어요.");
   return (await res.json()).data;
 }
 
@@ -81,11 +81,11 @@ export default function ReaderPage() {
     const status = error instanceof ReaderLoadError ? error.status : 500;
     return (
       <ReaderNotice
-        title={status === 404 ? "책을 찾을 수 없습니다" : "지금은 읽을 수 없습니다"}
+        title={status === 404 ? "책을 찾을 수 없어요" : "지금은 읽을 수 없어요"}
         description={
           status === 404
-            ? "삭제되었거나 주소가 잘못됐습니다."
-            : "이 책을 볼 권한이 없습니다."
+            ? "삭제됐거나 주소가 잘못됐어요."
+            : "이 책을 볼 권한이 없어요."
         }
         action={{ href: "/explore", label: "둘러보기" }}
       />
@@ -97,8 +97,8 @@ export default function ReaderPage() {
   if (!access.canRead) {
     return (
       <ReaderNotice
-        title="아직 구매하지 않은 책입니다"
-        description="구매하면 워크북을 작성하며 읽을 수 있습니다."
+        title="아직 구매하지 않은 책이에요"
+        description="구매하면 워크북을 작성하며 읽을 수 있어요."
         action={{ href: `/book/${bookId}`, label: "책 정보 보기" }}
       />
     );
@@ -107,8 +107,8 @@ export default function ReaderPage() {
   if (book.chapters.length === 0) {
     return (
       <ReaderNotice
-        title="아직 공개된 챕터가 없습니다"
-        description="저자가 챕터를 공개하면 여기에서 읽을 수 있습니다."
+        title="아직 공개된 챕터가 없어요"
+        description="저자가 챕터를 공개하면 여기에서 읽을 수 있어요."
         action={{ href: `/book/${bookId}`, label: "책 정보 보기" }}
       />
     );

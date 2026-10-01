@@ -87,7 +87,7 @@ export function ReaderView({
             <span className="max-[600px]:hidden"> · {currentChapter.title}</span>
           )}
         </p>
-        <SaveStatusBadge />
+        <SaveStatusBadge isPreview={isPreview} />
         <button
           type="button"
           onClick={() => setTocOpen(!tocOpen)}
@@ -223,7 +223,7 @@ function ChapterList({
                   current ? "bg-mark font-semibold" : "hover:bg-mark",
                 )}
               >
-                <span className={current ? "text-accent" : "text-muted"}>
+                <span className={current ? "text-primary" : "text-muted"}>
                   {index + 1}
                 </span>
                 <span>{chapter.title}</span>
@@ -254,28 +254,32 @@ function UnsavedNotice({
 }) {
   const { title, description, href, label } = isPreview
     ? {
-        title: "미리보기로 읽고 있습니다",
+        title: "미리보기로 읽고 있어요",
         description:
-          "여기에 쓴 답은 이 기기에만 남습니다. 구매하면 계정에 저장되고 다른 기기에서 이어서 쓸 수 있습니다.",
+          "여기에 쓴 답은 이 기기에만 남아요. 구매하면 계정에 저장되고 다른 기기에서 이어서 쓸 수 있어요.",
         href: `/book/${bookId}`,
-        label: "구매하기",
+        label: "책 정보 보기",
       }
-    : {
-        title: "답이 이 기기에만 저장됩니다",
-        description:
-          "로그인하면 지금까지 쓴 답이 계정에 저장되고, 다른 기기에서 이어서 쓸 수 있습니다.",
-        href: `/auth/login?redirect=/reader/${bookId}`,
-        label: isLoggedIn ? "책 정보 보기" : "로그인",
-      };
+    : isLoggedIn
+      ? {
+          title: "답이 이 기기에만 남아요",
+          description:
+            "이 책에서는 답을 계정에 저장할 수 없어요. 책 정보에서 이용 상태를 확인해 주세요.",
+          href: `/book/${bookId}`,
+          label: "책 정보 보기",
+        }
+      : {
+          title: "답이 이 기기에만 남아요",
+          description:
+            "로그인하면 지금까지 쓴 답이 계정에 저장되고, 다른 기기에서 이어서 쓸 수 있어요.",
+          href: `/auth/login?redirect=/reader/${bookId}`,
+          label: "로그인",
+        };
 
   return (
-    // 미리보기는 예정된 상태라 info, 로그인 안 한 독자의 로컬 저장은 잃을 수 있어 warning이다.
-    <div
-      className={cn(
-        "mb-10 flex flex-col items-start gap-2 rounded-lg border px-5 py-4",
-        isPreview ? "border-info/40" : "border-warning/40",
-      )}
-    >
+    // 미리보기는 예정된 상태라 info, 로컬에만 남는 답은 잃을 수 있어 warning이다.
+    // 박스는 입력 블록 전용이라(DESIGN.md) 안내는 message처럼 색 글자와 아래 선만 둔다.
+    <div className="mb-10 flex flex-col items-start gap-2 border-b border-line pb-6">
       <p
         className={cn(
           "text-body-sm font-semibold",
@@ -296,9 +300,9 @@ function UnsavedNotice({
 function PreviewEnd({ bookId, price }: { bookId: string; price: number }) {
   return (
     <div className="mt-16 flex flex-col items-start gap-2 border-t border-line pt-8">
-      <p className="text-subtitle text-primary">미리보기는 여기까지입니다</p>
+      <p className="text-subtitle text-primary">미리보기는 여기까지예요</p>
       <p className="text-body-sm text-muted">
-        나머지 챕터와 워크북 저장은 구매 후에 열립니다.
+        나머지 챕터와 워크북 저장은 구매하면 열려요.
       </p>
       <Button asChild className="mt-3">
         <Link href={`/book/${bookId}`}>

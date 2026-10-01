@@ -48,6 +48,7 @@ export function BookDetailView({
 }: Props) {
   const [showAllChapters, setShowAllChapters] = useState(false);
   const isPublished = book.status === "published";
+  const isPreviewOnly = !isOwner && access?.reason === "preview";
   const displayChapters = showAllChapters
     ? chapters
     : chapters.slice(0, VISIBLE_CHAPTERS);
@@ -93,16 +94,16 @@ export function BookDetailView({
             )}
           </div>
 
-          <Facts book={book} />
+          <Facts book={book} owned={!isOwner && book.price > 0 && !!access?.hasAccess} />
 
           {book.description && (
-            <p className="whitespace-pre-line text-[16px] leading-[1.75] text-primary">
+            <p className="whitespace-pre-line text-body-reader text-primary">
               {book.description}
             </p>
           )}
 
-          {/* 모바일: 주요 버튼은 한 줄 전체, 보조 버튼은 그 아래에 나눠 둔다. */}
-          <div className="mt-1 flex flex-wrap gap-2 max-[600px]:[&>*]:flex-1 max-[600px]:[&>:first-child]:basis-full">
+          {/* 모바일: 주요 버튼은 한 줄 전체, 보조 버튼은 그 아래에 나눠 둔다. 오류 문장은 버튼 규칙에서 뺀다. */}
+          <div className="mt-1 flex flex-wrap gap-2 max-[600px]:[&>:is(a,button)]:flex-1 max-[600px]:[&>:first-child]:basis-full">
             <Actions
               book={book}
               isOwner={isOwner}
@@ -119,11 +120,11 @@ export function BookDetailView({
       <section>
         <h2 className="mb-3.5 text-label text-muted">목차</h2>
         {chapters.length === 0 ? (
-          <p className="text-body-sm text-muted">아직 공개된 장이 없습니다.</p>
+          <p className="text-body-sm text-muted">아직 공개된 장이 없어요.</p>
         ) : (
           <>
             <ol className="border-t border-line">
-              {displayChapters.map((chapter) => (
+              {displayChapters.map((chapter, i) => (
                 <li
                   key={chapter.id}
                   className="grid grid-cols-[36px_minmax(0,1fr)_auto] items-baseline gap-2 border-b border-line py-[11px] text-body tabular-nums"
@@ -131,7 +132,14 @@ export function BookDetailView({
                   <span className="text-caption text-muted">
                     {chapter.order_index + 1}
                   </span>
-                  <span className="truncate">{chapter.title}</span>
+                  <span className="flex min-w-0 items-baseline gap-2">
+                    <span className="truncate">{chapter.title}</span>
+                    {isPreviewOnly && i === 0 && (
+                      <span className="shrink-0 text-caption font-semibold text-info">
+                        미리보기
+                      </span>
+                    )}
+                  </span>
                   <span className="text-caption text-muted">
                     {chapter.estimated_reading_time
                       ? `${chapter.estimated_reading_time}분`
@@ -177,15 +185,20 @@ export function BookDetailView({
   );
 }
 
-/** 사실 정보: 위아래 1px 선 사이의 한 줄. */
-function Facts({ book }: { book: DetailBook }) {
+/**
+ * 사실 정보: 위아래 1px 선 사이의 한 줄.
+ * 산 책이면 가격 대신 보유 상태를 쓴다. 버튼 이름만으로는 산 책인지 읽히지 않는다.
+ */
+function Facts({ book, owned }: { book: DetailBook; owned: boolean }) {
   const minutes = Math.max(1, Math.round(book.total_words / 200));
   const readingTime =
     minutes < 60 ? `약 ${minutes}분` : `약 ${Math.round(minutes / 6) / 10}시간`;
   const facts = [
     ["읽는 시간", readingTime],
     ["구성", `${book.total_chapters}장`],
-    ["가격", book.price > 0 ? `${book.price.toLocaleString("ko-KR")}원` : "무료"],
+    owned
+      ? ["구매", "보유 중"]
+      : ["가격", book.price > 0 ? `${book.price.toLocaleString("ko-KR")}원` : "무료"],
   ];
 
   return (
@@ -266,19 +279,21 @@ function Actions({
 }
 
 function ShareButton() {
-  const [copied, setCopied] = useState(false);
+  const [result, setResult] = useState<"copied" | "failed" | null>(null);
+  const copied = result === "copied";
 
   const handleShare = async () => {
-    const copiedOk = await navigator.clipboard
-      .writeText(window.location.href)
+    // 일부 인앱 브라우저는 clipboard가 없거나 거절한다. 조용히 끝내지 않는다.
+    const copiedOk = await Promise.resolve()
+      .then(() => navigator.clipboard.writeText(window.location.href))
       .then(() => true)
       .catch(() => false);
-    if (!copiedOk) return;
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setResult(copiedOk ? "copied" : "failed");
+    if (copiedOk) setTimeout(() => setResult(null), 2000);
   };
 
   return (
+    <>
     <Button variant="secondary" onClick={handleShare}>
       {copied ? (
         <>
@@ -292,5 +307,11 @@ function ShareButton() {
         </>
       )}
     </Button>
+    {result === "failed" && (
+      <p role="alert" className="basis-full text-body-sm text-danger">
+        링크를 복사하지 못했어요. 주소창의 주소를 직접 복사해 주세요.
+      </p>
+    )}
+    </>
   );
 }

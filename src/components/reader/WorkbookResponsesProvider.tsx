@@ -146,7 +146,7 @@ export function WorkbookResponsesProvider({
         setAnswers(cached);
         setSaveState(canSave ? "error" : "local-only");
         setSaveError(
-          canSave ? "저장된 응답을 불러오지 못했습니다." : null,
+          canSave ? "저장된 답을 불러오지 못했어요." : null,
         );
         return;
       }
@@ -210,7 +210,7 @@ export function WorkbookResponsesProvider({
       if (result.rejected.length > 0) {
         setSaveState("error");
         setSaveError(
-          "일부 항목이 저장되지 않았습니다. 저자가 이 부분을 수정 중일 수 있습니다.",
+          "일부 항목을 저장하지 못했어요. 저자가 이 부분을 수정 중일 수 있어요.",
         );
         return;
       }
@@ -219,7 +219,7 @@ export function WorkbookResponsesProvider({
       setSaveState(pendingRef.current.size > 0 ? "saving" : "saved");
     } catch {
       setSaveState("error");
-      setSaveError("저장하지 못했습니다. 연결을 확인해 주세요.");
+      setSaveError("저장하지 못했어요. 연결을 확인해 주세요.");
     }
   }
 

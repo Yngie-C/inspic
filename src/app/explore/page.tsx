@@ -37,7 +37,7 @@ async function fetchPublicBooks(
   params.set("per_page", "24");
 
   const res = await fetch(`/api/explore?${params.toString()}`);
-  if (!res.ok) throw new Error("탐색 데이터를 불러오지 못했습니다.");
+  if (!res.ok) throw new Error("책 목록을 불러오지 못했어요.");
   const json: ExploreApiResponse = await res.json();
   return {
     books: json.data.books ?? [],
@@ -53,6 +53,12 @@ async function fetchPopularBooks(): Promise<BookWithAuthor[]> {
 }
 
 const PER_PAGE = 24;
+
+/**
+ * 책이 이보다 적으면 인기 줄을 숨긴다. 인기 6권이 전체 목록과 거의 겹쳐
+ * 같은 표지를 두 번 보게 된다. 데스크톱 그리드 세 줄(4열 × 3)이 기준이다.
+ */
+const POPULAR_MIN_TOTAL = 12;
 
 function PopularBooksSection() {
   const { data: books, isLoading } = useQuery({
@@ -133,13 +139,18 @@ function ExploreContent() {
         <SearchBar filters={filters} onFiltersChange={handleFiltersChange} />
       </div>
 
-      {/* 찾는 중에는 결과가 바로 이어지도록 인기 줄을 숨긴다. */}
-      {!filters.query && !filters.priceRange && <PopularBooksSection />}
+      {/* 찾는 중에는 결과가 바로 이어지도록 인기 줄을 숨긴다. 책이 적을 때도 숨긴다. */}
+      {!filters.query && !filters.priceRange && !isLoading && total > POPULAR_MIN_TOTAL && (
+        <PopularBooksSection />
+      )}
 
       {!isLoading && !isError && total > 0 && (
-        <p className="mb-4 text-caption tabular-nums text-muted">
-          {total.toLocaleString()}권
-        </p>
+        <h2 className="mb-3.5 flex items-baseline gap-2">
+          <span className="text-label text-muted">전체</span>
+          <span className="text-caption tabular-nums text-muted">
+            {total.toLocaleString()}권
+          </span>
+        </h2>
       )}
 
       {isLoading ? (
@@ -148,7 +159,7 @@ function ExploreContent() {
         </div>
       ) : isError ? (
         <div className="flex flex-col items-center justify-center gap-1 py-24 text-center">
-          <p className="text-subtitle text-danger">책 목록을 불러오지 못했습니다</p>
+          <p className="text-subtitle text-danger">책 목록을 불러오지 못했어요</p>
           <p className="text-body-sm text-muted">
             연결을 확인하고 페이지를 새로고침해 주세요.
           </p>

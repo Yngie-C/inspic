@@ -2,14 +2,24 @@
 
 # Inspic 프론트엔드 비주얼 리뉴얼 — 리서치 기반 계획
 
-> **단계 5 진행 상황 (2026-10-01, push 완료)**:
-> - 평가는 3회차까지 진행했다. Callout은 `line`, 표지는 `light`로 사용자가 골랐고 DESIGN.md에만 반영했다.
-> - 다음 할 일:
->   1. 임시 스위치를 제거한다: `ui/design-variants.tsx`, dev 페이지 `?callout=`/`?cover=`, `WorkbookBlock` `variant`, `BookCover` 변형 맵.
->   2. 고른 모양을 기본값으로 박는다. 편집 뷰 `CalloutNodeView` 포함.
->   3. 4~5회차 평가를 돌린다.
-> - 남은 결정: accent 허용 범위. 테스트는 332개다. 자세한 내용은 메모리 `frontend-minimal-renewal`에 있다.
->
+> **단계 5 완료 (2026-10-01, 평가 5회차, 미커밋)**:
+> - 임시 변형 스위치(`ui/design-variants.tsx`, dev `?callout=`/`?cover=`)를 지웠다. Callout은 `WorkbookBlock shape="line"`(읽기·편집 뷰 모두), 표지는 옅은 면 3종이 기본값이다.
+> - 4회차 점수: 리더 구성 3점, 책 상세 기능 전달 3점, 나머지 4점. 고친 것: 인용문 1px·16px, 미리보기 안내 버튼 이름("책 정보 보기")과 박스 제거, 해요체 통일, `text-wrap: pretty`, 구매자 "구매 보유 중", 목차 첫 장 "미리보기", "전체 N권".
+> - **5회차: 3그룹 × 6기준 모두 4점. 루프 종료.** 남은 다듬기 후보:
+>   - 리더: 미리보기 중 상단 바가 warning("이 기기에만 저장됨")이라 본문 info 안내와 색이 어긋남(`SaveStatusBadge`). 저장 실패 시 accent 포커스 링과 danger 문장이 붙음. dev 미리보기 목이 2장을 엶.
+>   - 책 상세: "구매 보유 중"이 다른 사실과 같은 무게. 공유 실패가 조용함(`ShareButton`).
+>   - 탐색: 권수가 적을 때 인기 줄과 전체 그리드가 거의 같은 책. 두 번째 섹션에 label 제목이 없음.
+> - **사용자 결정(2026-10-01, 결정 보드 https://claude.ai/artifact/J4i2nN3TmKHv7ydEo8LPWv)**, 반영 완료:
+>   1. chiffon 표지의 제목·`INSPIC` 로즈우드 유지 → DESIGN.md accent 허용 목록에 추가
+>   2. 리더 목차 현재 장 번호는 잉크(accent 제거)
+>   3. 랜딩: 히어로 "적용하세요" 잉크, 기능 아이콘 사각 배경 제거, 책 0권이면 "이미 N권" 문장 숨김. 가운데 정렬 히어로와 3카드 구성은 2차
+>   4. 미리보기 중 상단 바는 info "미리보기 · 이 기기에만"(`SaveStatusBadge isPreview`, 테스트 추가)
+>   5. 공유 링크 복사 실패 시 버튼 줄 아래 danger 문장(`role="alert"`)
+>   6. 탐색: 전체 12권 이하면 인기 줄 숨김(`POPULAR_MIN_TOTAL`), 전체 목록에 label 제목 "전체". `/dev/explore?popular`로 강제 표시
+> - 남은 다듬기 후보(평가 5회차, 결정하지 않음): 저장 실패 시 accent 포커스 링과 danger 문장이 붙음, "구매 보유 중"의 무게, dev 미리보기 목이 2장을 엶.
+> - **환경 주의**: 워크트리 경로가 한글이면 Turbopack(dev·build 모두)이 `start byte index … is not a char boundary`로 패닉한다. `next dev --webpack`, `next build --webpack`을 쓴다.
+> - 캡처 스크립트는 상태를 입력으로 만든 뒤 찍어야 한다(`?mode=error`는 입력 전에는 정상 화면과 같다).
+
 > **다음 세션 시작 가이드** (2026-10-01 갱신, 단계 4 완료 후)
 >
 > **작업 위치**: 워크트리 `~/orca/workspaces/inspic/Frontend-재점검`(브랜치 `Yngie-C/Frontend-재점검`). 트리는 깨끗하고 푸시는 하지 않았다.

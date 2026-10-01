@@ -14,7 +14,7 @@ export function DevBook({ as }: { as: string }) {
           ? { hasAccess: false, reason: "preview" }
           : { hasAccess: true, reason: "purchased" }
       }
-      otherBooks={DEV_BOOKS.slice(1, 4)}
+      otherBooks={DEV_BOOKS.filter((b) => b.author_name === "inspic").slice(1, 5)}
       publishing={false}
       onTogglePublish={() => {}}
     />

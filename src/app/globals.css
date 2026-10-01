@@ -143,6 +143,8 @@
 
   .reader-content p {
     margin-bottom: 1.25em;
+    /* 마지막 줄에 한두 글자만 남지 않게 한다. */
+    text-wrap: pretty;
   }
 
   .reader-content h1,
@@ -168,10 +170,11 @@
     border-radius: var(--radius-xs);
   }
 
+  /* 2px 세로선은 Callout 전용이다. 인용은 1px로 한 단계 낮추고 들여쓰기를 Callout(16px)에 맞춘다. */
   .reader-content blockquote {
-    border-left: 2px solid var(--color-line-strong);
+    border-left: 1px solid var(--color-line-strong);
     margin: 1.5em 0;
-    padding: 0.25em 1.25em;
+    padding: 0.25em 0 0.25em 16px;
     color: var(--reader-muted);
   }
 
@@ -264,9 +267,9 @@
   .prose li > ol { margin: 0.15em 0; }
 
   .prose blockquote {
-    border-left: 2px solid var(--color-line-strong);
+    border-left: 1px solid var(--color-line-strong);
     margin: 1.5em 0;
-    padding: 0.25em 1.25em;
+    padding: 0.25em 0 0.25em 16px;
     color: var(--color-muted);
   }
 
