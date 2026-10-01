@@ -107,8 +107,8 @@ export default function ReaderPage() {
   if (book.chapters.length === 0) {
     return (
       <ReaderNotice
-        title="아직 공개된 챕터가 없어요"
-        description="저자가 챕터를 공개하면 여기에서 읽을 수 있어요."
+        title="아직 공개된 장이 없어요"
+        description="저자가 장을 공개하면 여기에서 읽을 수 있어요."
         action={{ href: `/book/${bookId}`, label: "책 정보 보기" }}
       />
     );

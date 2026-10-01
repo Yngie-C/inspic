@@ -73,7 +73,7 @@ async function tossFetch(
     const error = (payload ?? {}) as { code?: string; message?: string };
     throw new TossApiError(
       error.code ?? "UNKNOWN",
-      error.message ?? "결제 처리에 실패했습니다.",
+      error.message ?? "결제를 처리하지 못했어요.",
       response.status,
     );
   }

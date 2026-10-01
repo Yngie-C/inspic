@@ -109,7 +109,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
     const failed = blockers(result.checks);
     if (failed.length > 0) {
       return apiError(
-        `공개할 수 없습니다: ${failed.map((check) => check.title).join(", ")}`,
+        `공개할 수 없어요: ${failed.map((check) => check.title).join(", ")}`,
         "PUBLISH_BLOCKED",
         422,
         { blockers: failed },

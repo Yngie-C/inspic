@@ -8,7 +8,7 @@ import type { Book } from "@/types";
 
 async function fetchBooks(): Promise<Book[]> {
   const res = await fetch("/api/books");
-  if (!res.ok) throw new Error("책 목록을 불러오지 못했습니다.");
+  if (!res.ok) throw new Error("책 목록을 불러오지 못했어요.");
   const json = await res.json();
   return json.data ?? [];
 }
@@ -27,7 +27,7 @@ export default function AnalyticsPage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-primary">분석</h1>
         <p className="mt-1 text-sm text-muted">
-          독자가 워크북에 얼마나 답하고 있는지 확인하세요
+          독자가 어느 블록에 답했고 어디서 멈췄는지 볼 수 있어요
         </p>
       </div>
 
@@ -38,9 +38,9 @@ export default function AnalyticsPage() {
       ) : isError ? (
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <p className="text-lg font-medium text-primary">
-            데이터를 불러오는 중 오류가 발생했습니다
+            분석 데이터를 불러오지 못했어요
           </p>
-          <p className="mt-1 text-sm text-muted">잠시 후 다시 시도해주세요.</p>
+          <p className="mt-1 text-sm text-muted">페이지를 새로고침해 주세요.</p>
         </div>
       ) : books && books.length > 0 ? (
         <WorkbookEngagementSection
@@ -48,7 +48,7 @@ export default function AnalyticsPage() {
         />
       ) : books ? (
         <p className="py-24 text-center text-sm text-muted">
-          아직 만든 책이 없습니다.
+          아직 만든 책이 없어요.
         </p>
       ) : null}
     </div>

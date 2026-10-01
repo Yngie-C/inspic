@@ -60,14 +60,14 @@ function UploadContent() {
 
       if (!res.ok) {
         const json = await res.json();
-        throw new Error(json.error ?? "업로드에 실패했습니다.");
+        throw new Error(json.error ?? "파일을 올리지 못했어요.");
       }
 
       const json = await res.json();
       setBookId(json.data.id);
       setChapters(json.data.chapters ?? []);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "업로드 중 오류가 발생했습니다.");
+      setError(err instanceof Error ? err.message : "파일을 올리지 못했어요. 잠시 뒤 다시 시도해 주세요.");
     } finally {
       setUploading(false);
     }
@@ -84,7 +84,7 @@ function UploadContent() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-primary">파일 업로드</h1>
           <p className="mt-2 text-muted">
-            &ldquo;{title}&rdquo; 콘텐츠의 원고 파일을 업로드하세요.
+            &ldquo;{title}&rdquo;의 원고 파일을 올려 주세요. 원고의 제목이나 &lsquo;제1장&rsquo; 같은 표시를 기준으로 장이 나뉘어요.
           </p>
         </div>
 
@@ -102,7 +102,7 @@ function UploadContent() {
             {uploading && (
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between text-sm text-muted">
-                  <span>업로드 중...</span>
+                  <span>올리는 중</span>
                   <span>{progress}%</span>
                 </div>
                 <div className="h-2 w-full overflow-hidden rounded-full bg-line">
@@ -120,7 +120,7 @@ function UploadContent() {
                 <div className="mb-3 flex items-center gap-2">
                   <CheckCircle className="h-5 w-5 text-success" />
                   <span className="font-medium text-success">
-                    {chapters.length}개의 챕터가 감지되었습니다
+                    장 {chapters.length}개를 찾았어요
                   </span>
                 </div>
                 <ul className="flex flex-col gap-1.5 text-sm text-success">

@@ -4,9 +4,9 @@ import { cn } from "@/lib/utils";
 
 export function ReflectionNodeView({ node, updateAttributes }: NodeViewProps) {
   const prompt =
-    (node.attrs.prompt as string) ?? "이 챕터에서 가장 인상 깊었던 점은?";
+    (node.attrs.prompt as string) ?? "이 장의 내용을 이번 주에 어디에 써 볼 수 있을까요?";
   const placeholder =
-    (node.attrs.placeholder as string) ?? "여기에 답변을 작성하세요...";
+    (node.attrs.placeholder as string) ?? "여기에 적어 보세요";
 
   return (
     <NodeViewWrapper className="template-reflection" data-template-type="reflection">

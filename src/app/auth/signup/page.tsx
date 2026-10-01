@@ -26,10 +26,10 @@ export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const validate = (): string => {
-    if (!displayName.trim()) return "이름을 입력해주세요.";
-    if (!email.trim()) return "이메일을 입력해주세요.";
-    if (password.length < 6) return "비밀번호는 6자 이상이어야 합니다.";
-    if (password !== confirmPassword) return "비밀번호가 일치하지 않습니다.";
+    if (!displayName.trim()) return "이름을 입력해 주세요.";
+    if (!email.trim()) return "이메일을 입력해 주세요.";
+    if (password.length < 6) return "비밀번호는 6자 이상이어야 해요.";
+    if (password !== confirmPassword) return "비밀번호가 서로 달라요. 다시 확인해 주세요.";
     return "";
   };
 
@@ -60,10 +60,10 @@ export default function SignupPage() {
     return (
       <Card className="rounded-lg border border-line">
         <CardHeader>
-          <CardTitle className="text-2xl">이메일을 확인해주세요</CardTitle>
+          <CardTitle className="text-2xl">메일함을 확인해 주세요</CardTitle>
           <CardDescription>
-            가입 확인 이메일을 발송했습니다. 이메일의 링크를 클릭해 계정을
-            활성화하세요.
+            가입 확인 메일을 보냈어요. 메일의 링크를 누르면 가입이
+            끝나요.
           </CardDescription>
         </CardHeader>
         <CardFooter className="justify-center">
@@ -71,7 +71,7 @@ export default function SignupPage() {
             href="/auth/login"
             className="text-sm font-medium text-primary hover:underline"
           >
-            로그인 페이지로 이동
+            로그인하러 가기
           </Link>
         </CardFooter>
       </Card>
@@ -83,7 +83,7 @@ export default function SignupPage() {
       <Card className="rounded-lg border border-line">
         <CardHeader>
           <CardTitle className="text-2xl">회원가입</CardTitle>
-          <CardDescription>새 inspic 계정을 만드세요.</CardDescription>
+          <CardDescription>가입하면 책에 쓴 답이 계정에 남아요.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -134,7 +134,7 @@ export default function SignupPage() {
         </CardContent>
         <CardFooter className="justify-center">
           <p className="text-sm text-muted">
-            이미 계정이 있으신가요?{" "}
+            이미 계정이 있나요?{" "}
             <Link
               href="/auth/login"
               className="font-medium text-primary hover:underline"

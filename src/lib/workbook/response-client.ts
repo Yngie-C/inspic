@@ -27,7 +27,7 @@ export interface WorkbookResponseClient {
 export const httpResponseClient: WorkbookResponseClient = {
   async load(bookId) {
     const response = await fetch(`/api/books/${bookId}/responses`);
-    if (!response.ok) throw new Error("응답을 불러오지 못했습니다.");
+    if (!response.ok) throw new Error("답을 불러오지 못했어요.");
     const body = (await response.json()) as { data?: WorkbookResponse[] };
     return body.data ?? [];
   },
@@ -42,7 +42,7 @@ export const httpResponseClient: WorkbookResponseClient = {
       keepalive: options?.keepalive ?? false,
     });
 
-    if (!response.ok) throw new Error("응답을 저장하지 못했습니다.");
+    if (!response.ok) throw new Error("답을 저장하지 못했어요.");
 
     const body = (await response.json()) as { data?: SaveResponsesResult };
     return body.data ?? { saved: 0, rejected: [] };

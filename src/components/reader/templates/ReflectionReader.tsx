@@ -22,7 +22,7 @@ function ReflectionReader({ element }: Props) {
   const blockId = element.attribs["data-node-id"] || "";
   const prompt = element.attribs["data-prompt"] || "";
   const placeholder =
-    element.attribs["data-placeholder"] || "여기에 생각을 적어보세요...";
+    element.attribs["data-placeholder"] || "여기에 적어 보세요";
 
   const block = useBlockAnswers(blockId);
   const value = textAnswer(block.answers, REFLECTION_FIELD_KEY);

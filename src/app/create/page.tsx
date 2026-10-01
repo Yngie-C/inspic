@@ -17,7 +17,7 @@ export default function CreatePage() {
 
   const validate = (): boolean => {
     if (!title.trim()) {
-      setError("제목을 입력해주세요.");
+      setError("제목을 입력해 주세요.");
       return false;
     }
     setError("");
@@ -49,7 +49,7 @@ export default function CreatePage() {
 
       if (!bookRes.ok) {
         const json = await bookRes.json();
-        throw new Error(json.error ?? "콘텐츠 생성에 실패했습니다.");
+        throw new Error(json.error ?? "책을 만들지 못했어요. 잠시 뒤 다시 시도해 주세요.");
       }
 
       const bookJson = await bookRes.json();
@@ -62,7 +62,7 @@ export default function CreatePage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             book_id: bookId,
-            title: "챕터 1",
+            title: "새 장",
             content_html: "",
             content_raw: "",
             order_index: 0,
@@ -80,7 +80,7 @@ export default function CreatePage() {
 
       router.push(`/create/edit/${bookId}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "오류가 발생했습니다.");
+      setError(err instanceof Error ? err.message : "책을 만들지 못했어요. 잠시 뒤 다시 시도해 주세요.");
     } finally {
       setIsCreating(false);
     }
@@ -91,9 +91,9 @@ export default function CreatePage() {
       <Header />
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-12 sm:px-6">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-primary">새 콘텐츠 만들기</h1>
+          <h1 className="text-3xl font-bold text-primary">새 책 만들기</h1>
           <p className="mt-2 text-muted">
-            콘텐츠의 기본 정보를 입력하세요.
+            제목과 가격만 정하면 바로 쓸 수 있어요. 둘 다 나중에 바꿀 수 있어요.
           </p>
         </div>
 
@@ -108,7 +108,7 @@ export default function CreatePage() {
             <Input
               label="제목 *"
               type="text"
-              placeholder="콘텐츠 제목을 입력하세요"
+              placeholder="예: 30일 지출 점검 워크북"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
@@ -118,7 +118,7 @@ export default function CreatePage() {
                 설명 (선택)
               </label>
               <textarea
-                placeholder="콘텐츠에 대한 간단한 설명을 입력하세요"
+                placeholder="이 책을 읽고 독자가 할 수 있게 되는 일을 한두 줄로 적어 주세요"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
@@ -147,7 +147,7 @@ export default function CreatePage() {
               </div>
               <p className="text-xs text-muted">
                 {price === 0
-                  ? "무료로 공개됩니다"
+                  ? "무료 책이에요"
                   : `판매 가격: ${price.toLocaleString("ko-KR")}원`}
               </p>
             </div>

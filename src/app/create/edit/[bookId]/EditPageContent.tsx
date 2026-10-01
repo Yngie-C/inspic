@@ -24,7 +24,7 @@ import type { Book, Chapter } from "@/types";
 
 async function fetchBook(id: string): Promise<Book> {
   const res = await fetch(`/api/books/${id}`);
-  if (!res.ok) throw new Error("책을 불러오지 못했습니다.");
+  if (!res.ok) throw new Error("책을 불러오지 못했어요.");
   const json = await res.json();
   const { chapters: _chapters, ...book } = json.data;
   return book as Book;
@@ -32,7 +32,7 @@ async function fetchBook(id: string): Promise<Book> {
 
 async function fetchChapters(bookId: string): Promise<Chapter[]> {
   const res = await fetch(`/api/chapters?bookId=${bookId}`);
-  if (!res.ok) throw new Error("챕터를 불러오지 못했습니다.");
+  if (!res.ok) throw new Error("장 목록을 불러오지 못했어요.");
   return (await res.json()).data ?? [];
 }
 
@@ -115,7 +115,7 @@ export function EditPageContent() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         book_id: bookId,
-        title: `챕터 ${chapters.length + 1}`,
+        title: "새 장",
         content_html: "",
         content_raw: "",
         order_index: chapters.length,
@@ -129,7 +129,7 @@ export function EditPageContent() {
   };
 
   const deleteChapter = async (id: string) => {
-    if (!confirm("이 챕터를 삭제하시겠습니까?")) return;
+    if (!confirm("이 장을 삭제할까요? 되돌릴 수 없어요.")) return;
     await fetch(`/api/chapters/${id}`, { method: "DELETE" });
     qc.invalidateQueries({ queryKey: ["chapters", bookId] });
     if (selectedId === id) {
@@ -169,7 +169,7 @@ export function EditPageContent() {
     });
     if (!res.ok) {
       const json = await res.json().catch(() => ({}));
-      throw new Error(json.error ?? "저장 실패");
+      throw new Error(json.error ?? "저장하지 못했어요.");
     }
     qc.invalidateQueries({ queryKey: ["book", bookId] });
     setMetaOpen(false);
@@ -195,12 +195,12 @@ export function EditPageContent() {
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => router.push("/creator")}>
             <ArrowLeft className="h-4 w-4 mr-1" />
-            대시보드
+            스튜디오
           </Button>
           <span className="hidden text-sm font-medium text-primary sm:block">
             {book?.title}
           </span>
-          {!saved && <span className="text-xs text-muted">저장 중...</span>}
+          {!saved && <span className="text-xs text-muted">저장 중</span>}
           {saved && selectedId && (
             <span className="flex items-center gap-1 text-xs text-success">
               <Check className="h-3.5 w-3.5" />
@@ -234,12 +234,12 @@ export function EditPageContent() {
         <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-paper">
           <div className="flex items-center justify-between border-b border-line px-4 py-3">
             <span className="text-sm font-semibold text-primary">
-              챕터 ({chapters.length})
+              장 ({chapters.length})
             </span>
             <button
               onClick={addChapter}
               className="rounded-lg p-1.5 text-muted hover:bg-mark hover:text-primary"
-              title="챕터 추가"
+              title="장 추가"
             >
               <Plus className="h-4 w-4" />
             </button>
@@ -276,8 +276,8 @@ export function EditPageContent() {
 
             {chapters.length === 0 && (
               <div className="px-4 py-6 text-center text-xs text-muted">
-                챕터가 없습니다.
-                <br />+ 버튼으로 추가하세요.
+                아직 장이 없어요.
+                <br />+ 버튼으로 추가해 주세요.
               </div>
             )}
           </nav>
@@ -292,7 +292,7 @@ export function EditPageContent() {
                   type="text"
                   value={editTitle}
                   onChange={(e) => handleTitleChange(e.target.value)}
-                  placeholder="챕터 제목"
+                  placeholder="장 제목"
                   className="w-full border-none bg-transparent text-2xl font-bold text-primary outline-none placeholder:text-muted"
                 />
               </div>
@@ -304,7 +304,7 @@ export function EditPageContent() {
                   onUpdate={handleContentChange}
                   bookId={bookId}
                   chapterId={selectedChapter.id}
-                  placeholder="내용을 입력하세요..."
+                  placeholder="내용을 입력하거나 /를 눌러 블록을 넣어 보세요"
                   className="flex-1 overflow-hidden"
                 />
               </div>
@@ -313,7 +313,7 @@ export function EditPageContent() {
             <div className="flex flex-1 flex-col items-center justify-center gap-3 text-muted">
               <BookOpen className="h-16 w-16 opacity-30" />
               <p className="text-sm">
-                왼쪽에서 챕터를 선택하거나 새 챕터를 추가하세요.
+                왼쪽에서 장을 고르거나 새 장을 추가해 주세요.
               </p>
             </div>
           )}

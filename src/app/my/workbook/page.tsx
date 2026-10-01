@@ -23,7 +23,7 @@ interface WorkbookSummary {
 
 async function fetchWorkbooks(): Promise<WorkbookSummary[]> {
   const res = await fetch("/api/my/workbooks");
-  if (!res.ok) throw new Error("워크북 목록을 불러오지 못했습니다.");
+  if (!res.ok) throw new Error("워크북 목록을 불러오지 못했어요.");
   const json = await res.json();
   return json.data ?? [];
 }
@@ -50,7 +50,7 @@ export default function MyWorkbookPage() {
     try {
       await downloadExport(workbook.book_id, "pdf", workbook.title);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "PDF를 만들지 못했습니다.");
+      setError(err instanceof Error ? err.message : "PDF를 만들지 못했어요. 잠시 뒤 다시 받아 주세요.");
       setTimeout(() => setError(null), 4000);
     } finally {
       setDownloading(null);
@@ -62,7 +62,7 @@ export default function MyWorkbookPage() {
       <div className="mb-2">
         <h1 className="text-2xl font-bold text-primary">내 워크북</h1>
         <p className="mt-1 text-sm text-muted">
-          답을 쓴 책이 모입니다. PDF로 받으면 내가 쓴 내용이 그대로 담깁니다.
+          답을 쓴 책이 여기 모여요. PDF로 받으면 책 본문과 내 답이 함께 담겨요.
         </p>
       </div>
 
@@ -79,7 +79,7 @@ export default function MyWorkbookPage() {
           </div>
         ) : isError ? (
           <div className="rounded-lg border border-danger/40 p-8 text-center text-body-sm text-danger">
-            워크북 목록을 불러오지 못했습니다.{" "}
+            워크북 목록을 불러오지 못했어요.{" "}
             <button onClick={() => refetch()} className="underline">
               다시 시도
             </button>
@@ -89,14 +89,14 @@ export default function MyWorkbookPage() {
             <PenLine className="h-16 w-16 text-faint" />
             <div>
               <p className="text-lg font-semibold text-primary">
-                아직 쓴 답이 없습니다
+                아직 쓴 답이 없어요
               </p>
               <p className="mt-1 text-sm text-muted">
-                책을 읽으며 워크북에 답을 쓰면 여기 모입니다.
+                책을 읽다가 체크리스트나 질문에 답하면 여기 모여요.
               </p>
             </div>
             <Button asChild>
-              <Link href="/explore">전자책 둘러보기</Link>
+              <Link href="/explore">책 둘러보기</Link>
             </Button>
           </div>
         ) : (

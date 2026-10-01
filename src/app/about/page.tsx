@@ -12,47 +12,71 @@ import {
 export const metadata: Metadata = {
   title: "소개",
   description:
-    "inspic은 읽는 책이 아니라 적용하는 책, 인터랙티브 워크북을 출판하는 플랫폼입니다.",
+    "inspic은 바로 써먹는 지식을 짧게 읽는 워크북을 펴내는 곳이에요. 독자는 읽다가 체크리스트와 질문에 답하고, 그 답은 계정에 남아요.",
 };
 
-const features = [
+const readerFeatures = [
   {
     icon: FileText,
-    title: "원고만 있으면 시작할 수 있습니다",
+    title: "짧게 읽어요",
     description:
-      "에디터에서 직접 쓰거나 파일(TXT, MD, DOCX)을 업로드하세요. 챕터가 자동으로 나뉩니다.",
-  },
-  {
-    icon: ListChecks,
-    title: "워크시트를 끼워 넣으세요",
-    description:
-      "체크리스트, 성찰 질문, SMART 목표, 1–10 스케일, 콜아웃. 본문 사이 어디든 슬래시(/) 명령으로 넣을 수 있습니다.",
+      "장마다 읽는 시간이 적혀 있어요. 필요한 장부터 골라 읽어도 돼요.",
   },
   {
     icon: PenLine,
-    title: "독자는 읽으면서 씁니다",
+    title: "읽다가 바로 써요",
     description:
-      "독자의 답은 계정에 저장되어, 다른 기기에서도 이어서 쓸 수 있습니다.",
+      "본문 사이 체크리스트·질문·목표에 그 자리에서 답해요. 답은 계정에 저장돼 다른 기기에서 이어서 쓸 수 있어요.",
   },
   {
     icon: Download,
-    title: "쓴 답은 독자의 것",
+    title: "쓴 답을 간직해요",
     description:
-      "독자는 책 내용과 자신의 답을 함께 담은 PDF를 내려받을 수 있습니다.",
+      "책 본문과 내 답을 함께 담은 PDF를 받을 수 있어요.",
+  },
+];
+
+const creatorFeatures = [
+  {
+    icon: ListChecks,
+    title: "원고에 질문을 끼워 넣어요",
+    description:
+      "직접 쓰거나 TXT·MD·DOCX 파일을 올리면 장이 나뉘어요. 본문 어디서든 슬래시(/)를 입력해 체크리스트·척도·성찰·목표·참고 블록을 넣을 수 있어요.",
   },
   {
     icon: BarChart3,
-    title: "참여를 확인하세요",
+    title: "독자가 어디까지 했는지 봐요",
     description:
-      "판매 현황과 함께, 독자가 어떤 워크시트에 얼마나 답했는지 볼 수 있습니다.",
+      "판매 현황과 함께, 독자가 어느 질문에 얼마나 답했는지 볼 수 있어요. 답의 내용은 독자 본인만 봐요.",
   },
   {
     icon: Users,
-    title: "크리에이터 중심 구조",
+    title: "가격은 크리에이터가 정해요",
     description:
-      "콘텐츠의 저작권은 크리에이터에게 귀속됩니다. 가격은 크리에이터가 정하고, 무료로 공개할 수도 있습니다.",
+      "저작권은 크리에이터에게 있어요. 무료로 공개할 수도 있어요.",
   },
 ];
+
+function FeatureGrid({ items }: { items: typeof readerFeatures }) {
+  return (
+    <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+      {items.map((feature) => (
+        <div
+          key={feature.title}
+          className="rounded-lg border border-line bg-surface p-6 transition-all duration-300"
+        >
+          <feature.icon className="mb-3 h-8 w-8 text-accent" />
+          <h3 className="mb-2 text-lg font-semibold text-primary">
+            {feature.title}
+          </h3>
+          <p className="text-sm leading-relaxed text-muted">
+            {feature.description}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function AboutPage() {
   return (
@@ -60,62 +84,48 @@ export default function AboutPage() {
       {/* Hero */}
       <section className="mb-20 text-center">
         <h1 className="mb-4 text-4xl font-bold tracking-tight text-primary sm:text-5xl">
-          읽는 책이 아니라 적용하는 책
+          바로 써먹는 지식을, 짧게
         </h1>
         <p className="mx-auto max-w-2xl text-lg leading-relaxed text-muted">
-          inspic은 원고에 워크시트·체크리스트·성찰 질문을 끼워 넣어 워크북으로
-          출간하는 플랫폼입니다. 독자는 읽으면서 직접 쓰고, 그 답은 독자의 계정에
-          남습니다.
+          inspic의 책은 짧은 장과 질문으로 이뤄진 워크북이에요. 독자는 읽다가
+          체크리스트와 질문에 답하고, 그 답은 독자의 계정에 남아요.
         </p>
       </section>
 
-      {/* Features Grid */}
+      {/* Features */}
       <section className="mb-20">
-        <h2 className="mb-10 text-center text-2xl font-bold text-primary">
-          inspic이 제공하는 것
-        </h2>
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-          {features.map((feature) => (
-            <div
-              key={feature.title}
-              className="rounded-lg border border-line bg-surface p-6 transition-all duration-300"
-            >
-              <feature.icon className="mb-3 h-8 w-8 text-accent" />
-              <h3 className="mb-2 text-lg font-semibold text-primary">
-                {feature.title}
-              </h3>
-              <p className="text-sm leading-relaxed text-muted">
-                {feature.description}
-              </p>
-            </div>
-          ))}
-        </div>
+        <h2 className="mb-6 text-2xl font-bold text-primary">독자는</h2>
+        <FeatureGrid items={readerFeatures} />
+      </section>
+      <section className="mb-20">
+        <h2 className="mb-6 text-2xl font-bold text-primary">크리에이터는</h2>
+        <FeatureGrid items={creatorFeatures} />
       </section>
 
       {/* How it works */}
       <section className="mb-20">
         <h2 className="mb-10 text-center text-2xl font-bold text-primary">
-          어떻게 시작하나요?
+          크리에이터는 이렇게 시작해요
         </h2>
         <div className="grid gap-6 sm:grid-cols-3">
           {[
             {
               step: "1",
-              title: "글을 작성하세요",
+              title: "원고를 준비해요",
               description:
-                "에디터에서 직접 쓰거나 파일을 업로드하고, 필요한 곳에 워크시트를 넣으세요.",
+                "직접 쓰거나 파일을 올린 뒤, 독자가 답할 곳에 질문과 체크리스트를 넣어요.",
             },
             {
               step: "2",
-              title: "발행하세요",
+              title: "검수하고 공개해요",
               description:
-                "미리보기에서 공개 전 검수를 통과하면, 가격을 정해 바로 공개할 수 있습니다.",
+                "미리보기에서 공개 전 검수를 통과하면 가격을 정해 바로 공개할 수 있어요.",
             },
             {
               step: "3",
-              title: "독자를 만나세요",
+              title: "반응을 확인해요",
               description:
-                "독자가 읽으며 워크시트를 채우고, 크리에이터는 참여 반응을 확인합니다.",
+                "독자가 어느 질문에 답했고 어디서 멈췄는지 분석 화면에서 볼 수 있어요.",
             },
           ].map((item) => (
             <div key={item.step} className="text-center">
@@ -137,16 +147,16 @@ export default function AboutPage() {
       <section className="relative overflow-hidden rounded-lg border border-line bg-paper px-6 py-14 text-center">
         <div className="relative">
           <h2 className="mb-3 text-2xl font-bold text-primary sm:text-3xl">
-            나만의 콘텐츠를 출판해보세요
+            내 노하우를 워크북으로 내 보세요
           </h2>
           <p className="mb-8 text-muted">
-            누구나 무료로 시작할 수 있습니다. 글만 있으면 충분해요.
+            원고 파일이 있으면 올려서 바로 시작할 수 있어요.
           </p>
           <Link
             href="/auth/signup"
             className="inline-block rounded-md bg-accent px-8 py-3 font-semibold text-on-accent transition-colors hover:bg-accent-hover"
           >
-            무료로 시작하기
+            가입하고 시작하기
           </Link>
         </div>
       </section>

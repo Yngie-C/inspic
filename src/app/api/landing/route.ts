@@ -89,6 +89,6 @@ export async function GET(): Promise<NextResponse> {
     });
   } catch (err) {
     console.error("[landing/route] error:", err);
-    return apiError("랜딩 데이터를 불러오는 중 오류가 발생했습니다.", "SERVER_ERROR", 500);
+    return apiError("책 목록을 불러오지 못했어요.", "SERVER_ERROR", 500);
   }
 }

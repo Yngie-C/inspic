@@ -16,17 +16,17 @@ import type { WorkbookEngagement } from "@/lib/workbook/engagement";
 
 const BLOCK_LABEL: Record<string, string> = {
   checklist: "체크리스트",
-  reflection: "리플렉션",
-  smart_goal: "SMART 목표",
+  reflection: "성찰",
+  smart_goal: "목표",
   scale: "척도",
-  callout: "콜아웃",
+  callout: "참고",
 };
 
 async function fetchEngagement(bookId: string): Promise<WorkbookEngagement> {
   const res = await fetch(
     `/api/analytics/workbook?bookId=${encodeURIComponent(bookId)}`,
   );
-  if (!res.ok) throw new Error("참여 지표를 불러오지 못했습니다.");
+  if (!res.ok) throw new Error("참여 지표를 불러오지 못했어요.");
   const json = await res.json();
   return json.data;
 }
@@ -71,7 +71,7 @@ export function WorkbookEngagementSection({ books }: { books: BookOption[] }) {
       <p className="mb-4 flex items-start gap-1.5 text-xs text-muted">
         <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
         {/* 이 안내가 없으면 저자가 자기 책을 테스트하고 0을 보고 고장 난 줄 압니다. */}
-        본인이 미리보기에서 쓴 답은 집계에서 제외됩니다.
+        미리보기에서 직접 쓴 답은 집계에서 빠져요.
       </p>
 
       {isLoading ? (
@@ -80,15 +80,15 @@ export function WorkbookEngagementSection({ books }: { books: BookOption[] }) {
         </div>
       ) : isError ? (
         <p className="rounded-lg border border-danger/40 px-4 py-3 text-sm text-danger">
-          참여 지표를 불러오지 못했습니다.
+          참여 지표를 불러오지 못했어요.
         </p>
       ) : !data || data.chapters.length === 0 ? (
         <p className="rounded-lg border border-dashed border-line bg-surface px-4 py-8 text-center text-sm text-muted">
-          이 책에는 아직 응답을 받을 워크북 블록이 없습니다.
+          이 책에는 아직 독자가 답할 워크북 블록이 없어요.
         </p>
       ) : data.engaged_readers === 0 ? (
         <p className="rounded-lg border border-dashed border-line bg-surface px-4 py-8 text-center text-sm text-muted">
-          아직 답을 쓴 독자가 없습니다.
+          아직 답을 쓴 독자가 없어요.
         </p>
       ) : (
         <EngagementList engagement={data} />

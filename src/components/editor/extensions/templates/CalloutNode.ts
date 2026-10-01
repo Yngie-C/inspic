@@ -9,8 +9,8 @@ export const CalloutNode = createTemplateNode("callout", "callout", {
     renderHTML: (attrs) => ({ "data-callout-type": attrs.calloutType as string }),
   },
   content: {
-    default: "여기에 내용을 입력하세요.",
-    parseHTML: (el) => el.getAttribute("data-content") || "여기에 내용을 입력하세요.",
+    default: "여기에 내용을 입력해 주세요.",
+    parseHTML: (el) => el.getAttribute("data-content") || "여기에 내용을 입력해 주세요.",
     renderHTML: (attrs) => ({ "data-content": attrs.content as string }),
   },
 }).extend({

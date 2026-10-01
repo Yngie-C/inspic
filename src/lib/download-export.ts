@@ -16,7 +16,7 @@ export async function downloadExport(
 
   if (!res.ok) {
     const json = await res.json().catch(() => ({}));
-    throw new Error(json.error ?? `${format.toUpperCase()} 생성에 실패했습니다.`);
+    throw new Error(json.error ?? `${format.toUpperCase()} 파일을 만들지 못했어요.`);
   }
 
   const blob = await res.blob();

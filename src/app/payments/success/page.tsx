@@ -29,7 +29,7 @@ export default function PaymentSuccessPage() {
 
     if (!paymentKey || !orderId || !amount) {
       setStatus("error");
-      setMessage("결제 정보가 올바르지 않습니다.");
+      setMessage("결제 정보가 올바르지 않아요. 구매 내역에서 결제 상태를 확인해 주세요.");
       return;
     }
 
@@ -48,14 +48,14 @@ export default function PaymentSuccessPage() {
         const json = await res.json();
 
         if (!res.ok) {
-          throw new Error(json.error || "결제 승인에 실패했습니다.");
+          throw new Error(json.error || "결제를 승인하지 못했어요.");
         }
 
         setBookId(json.data.bookId ?? null);
 
         if (json.data.status === "refunded") {
           setStatus("refunded");
-          setMessage(json.data.reason ?? "결제를 자동 취소했습니다.");
+          setMessage(json.data.reason ?? "결제를 자동으로 취소했어요.");
           return;
         }
 
@@ -63,7 +63,7 @@ export default function PaymentSuccessPage() {
       } catch (err) {
         setStatus("error");
         setMessage(
-          err instanceof Error ? err.message : "결제 처리 중 오류가 발생했습니다.",
+          err instanceof Error ? err.message : "결제를 처리하지 못했어요. 구매 내역에서 상태를 확인해 주세요.",
         );
       }
     }
@@ -75,7 +75,7 @@ export default function PaymentSuccessPage() {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
         <Spinner size="lg" />
-        <p className="text-sm text-muted">결제를 확인하고 있습니다...</p>
+        <p className="text-sm text-muted">결제를 확인하고 있어요</p>
       </div>
     );
   }
@@ -83,10 +83,10 @@ export default function PaymentSuccessPage() {
   if (status === "error") {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
-        <p className="text-lg font-medium text-danger">결제 처리 실패</p>
+        <p className="text-lg font-medium text-danger">결제를 끝내지 못했어요</p>
         <p className="mt-2 text-sm text-muted">{message}</p>
         <Button variant="outline" className="mt-6" onClick={() => router.push("/explore")}>
-          둘러보기로 이동
+          책 둘러보기
         </Button>
       </div>
     );
@@ -97,7 +97,7 @@ export default function PaymentSuccessPage() {
       <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
         <Info className="mb-4 h-16 w-16 text-muted" />
         <h1 className="text-2xl font-bold text-primary">
-          결제하지 않았습니다
+          결제를 취소했어요
         </h1>
         <p className="mt-2 max-w-sm text-sm text-muted">{message}</p>
         <div className="mt-6 flex gap-3">
@@ -107,7 +107,7 @@ export default function PaymentSuccessPage() {
             </Button>
           )}
           <Button variant="outline" onClick={() => router.push("/my/library")}>
-            내 서재로 이동
+            내 서재로 가기
           </Button>
         </div>
       </div>
@@ -117,9 +117,9 @@ export default function PaymentSuccessPage() {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
       <CheckCircle2 className="mb-4 h-16 w-16 text-success" />
-      <h1 className="text-2xl font-bold text-primary">결제가 완료되었습니다!</h1>
+      <h1 className="text-2xl font-bold text-primary">결제했어요</h1>
       <p className="mt-2 text-sm text-muted">
-        구매한 콘텐츠를 바로 읽어보세요.
+        이제 이 책의 모든 장을 읽고 답을 저장할 수 있어요.
       </p>
       <div className="mt-6 flex gap-3">
         {bookId && (
@@ -128,7 +128,7 @@ export default function PaymentSuccessPage() {
           </Button>
         )}
         <Button variant="outline" onClick={() => router.push("/my/library")}>
-          내 서재로 이동
+          내 서재로 가기
         </Button>
       </div>
     </div>

@@ -132,7 +132,7 @@ export function PreviewFrame({ bookId, viewport }: Props) {
           {error && (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-surface">
               <AlertCircle className="h-10 w-10 text-muted" />
-              <p className="text-sm text-muted">미리보기를 불러올 수 없습니다.</p>
+              <p className="text-sm text-muted">미리보기를 불러오지 못했어요.</p>
               <Button variant="outline" size="sm" onClick={handleRetry}>
                 <RefreshCw className="h-4 w-4 mr-1.5" />
                 다시 시도

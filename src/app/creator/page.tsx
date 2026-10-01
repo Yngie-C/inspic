@@ -23,14 +23,14 @@ interface SalesData {
 
 async function fetchBooks(): Promise<Book[]> {
   const res = await fetch("/api/books");
-  if (!res.ok) throw new Error("책 목록을 불러오지 못했습니다.");
+  if (!res.ok) throw new Error("책 목록을 불러오지 못했어요.");
   const json = await res.json();
   return json.data ?? [];
 }
 
 async function fetchSalesData(): Promise<SalesData> {
   const res = await fetch("/api/analytics/sales");
-  if (!res.ok) throw new Error("판매 데이터를 불러오지 못했습니다.");
+  if (!res.ok) throw new Error("판매 현황을 불러오지 못했어요.");
   const json = await res.json();
   return json.data;
 }
@@ -56,7 +56,7 @@ export default function CreatorPage() {
   });
 
   const handleDelete = async (id: string) => {
-    if (!confirm("이 콘텐츠를 삭제하시겠습니까?")) return;
+    if (!confirm("이 책을 삭제할까요? 장과 독자의 답까지 모두 지워지고 되돌릴 수 없어요.")) return;
     await fetch(`/api/books/${id}`, { method: "DELETE" });
     refetch();
   };
@@ -73,7 +73,7 @@ export default function CreatorPage() {
           <Button asChild>
             <Link href="/create" className="flex items-center gap-2">
               <PlusCircle className="h-4 w-4" />
-              새 콘텐츠
+              새 책
             </Link>
           </Button>
         </div>
@@ -87,7 +87,7 @@ export default function CreatorPage() {
               <BookOpen className="h-5 w-5 text-info" />
             </div>
             <div>
-              <p className="text-sm text-muted">총 작품</p>
+              <p className="text-sm text-muted">전체</p>
               <p className="text-2xl font-bold text-primary">{books.length}권</p>
             </div>
           </div>
@@ -98,7 +98,7 @@ export default function CreatorPage() {
               <TrendingUp className="h-5 w-5 text-success" />
             </div>
             <div>
-              <p className="text-sm text-muted">출판 작품</p>
+              <p className="text-sm text-muted">공개 중</p>
               <p className="text-2xl font-bold text-primary">{publishedBooks.length}권</p>
             </div>
           </div>
@@ -125,7 +125,7 @@ export default function CreatorPage() {
         </div>
       ) : isError ? (
         <div className="rounded-lg border border-danger/40 p-8 text-center text-danger">
-          콘텐츠 목록을 불러오지 못했습니다.{" "}
+          책 목록을 불러오지 못했어요.{" "}
           <button onClick={() => refetch()} className="underline">
             다시 시도
           </button>
@@ -134,13 +134,13 @@ export default function CreatorPage() {
         <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-line bg-surface py-20 text-center">
           <BookOpen className="h-16 w-16 text-faint" />
           <div>
-            <p className="text-lg font-semibold text-primary">아직 콘텐츠가 없습니다</p>
-            <p className="mt-1 text-sm text-muted">첫 번째 콘텐츠를 만들어보세요!</p>
+            <p className="text-lg font-semibold text-primary">아직 만든 책이 없어요</p>
+            <p className="mt-1 text-sm text-muted">원고가 있다면 파일을 올려서 바로 시작할 수 있어요.</p>
           </div>
           <Button asChild>
             <Link href="/create">
               <PlusCircle className="h-4 w-4 mr-2" />
-              첫 콘텐츠 만들기
+              첫 책 만들기
             </Link>
           </Button>
         </div>

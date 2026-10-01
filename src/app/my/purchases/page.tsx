@@ -19,7 +19,7 @@ interface Purchase {
 
 async function fetchPurchases(): Promise<Purchase[]> {
   const res = await fetch("/api/purchases");
-  if (!res.ok) throw new Error("구매 내역을 불러오지 못했습니다.");
+  if (!res.ok) throw new Error("구매 내역을 불러오지 못했어요.");
   const json = await res.json();
   return json.data ?? [];
 }
@@ -60,7 +60,7 @@ export default function PurchasesPage() {
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-primary">구매 내역</h1>
-        <p className="mt-1 text-sm text-muted">결제한 전자책 내역을 확인하세요.</p>
+        <p className="mt-1 text-sm text-muted">결제한 책과 금액, 처리 상태를 볼 수 있어요.</p>
       </div>
 
       {isLoading ? (
@@ -69,15 +69,15 @@ export default function PurchasesPage() {
         </div>
       ) : isError ? (
         <div className="rounded-lg border border-danger/40 p-8 text-center text-danger">
-          구매 내역을 불러오지 못했습니다.{" "}
+          구매 내역을 불러오지 못했어요.{" "}
           <button onClick={() => refetch()} className="underline">
             다시 시도
           </button>
         </div>
       ) : purchases.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-line-strong bg-surface py-20 text-center">
-          <p className="text-lg font-semibold text-primary">구매 내역이 없습니다</p>
-          <p className="text-sm text-muted">결제가 완료되면 여기에 표시됩니다.</p>
+          <p className="text-lg font-semibold text-primary">아직 구매한 책이 없어요</p>
+          <p className="text-sm text-muted">결제가 끝나면 여기에 표시돼요.</p>
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border border-line bg-surface">

@@ -39,7 +39,7 @@ export default function CheckoutPage() {
     async function loadBook() {
       try {
         const res = await fetch(`/api/books/${bookId}/detail`);
-        if (!res.ok) throw new Error("책 정보를 불러올 수 없습니다.");
+        if (!res.ok) throw new Error("책 정보를 불러오지 못했어요.");
         const json = await res.json();
         const bookData = json.data.book;
 
@@ -58,7 +58,7 @@ export default function CheckoutPage() {
 
         setBook(bookData);
       } catch {
-        setError("책 정보를 불러오는 중 오류가 발생했습니다.");
+        setError("책 정보를 불러오지 못했어요. 페이지를 새로고침해 주세요.");
       } finally {
         setLoading(false);
       }
@@ -82,7 +82,7 @@ export default function CheckoutPage() {
 
       if (!reqRes.ok) {
         const errJson = await reqRes.json();
-        throw new Error(errJson.error || "결제 요청 생성에 실패했습니다.");
+        throw new Error(errJson.error || "결제를 시작하지 못했어요.");
       }
 
       const { data } = await reqRes.json();
@@ -159,14 +159,14 @@ export default function CheckoutPage() {
         {/* 환불 정책 안내 */}
         <div className="mb-4 rounded-lg bg-mark px-4 py-3 text-sm text-muted">
           <p className="mb-1">
-            디지털 콘텐츠 특성상 콘텐츠 열람 후에는 환불이 제한됩니다.
+            책을 한 번이라도 열면 환불이 제한돼요. 열지 않았다면 구매 후 7일 안에 환불받을 수 있어요.
           </p>
           <p className="text-xs text-muted">
             자세한 내용은{" "}
             <Link href="/terms" className="underline hover:text-muted">이용약관</Link>
-            {" "}및{" "}
+            {" "}과{" "}
             <Link href="/privacy" className="underline hover:text-muted">개인정보처리방침</Link>
-            을 확인해 주세요.
+            에서 확인할 수 있어요.
           </p>
         </div>
 
@@ -179,7 +179,7 @@ export default function CheckoutPage() {
             className="mt-0.5 h-4 w-4 flex-shrink-0 cursor-pointer accent-primary"
           />
           <span>
-            위 내용을 확인하였으며, 이용약관 및 개인정보처리방침에 동의합니다.
+            위 내용을 확인했으며, 이용약관과 개인정보처리방침에 동의합니다.
           </span>
         </label>
 
@@ -195,7 +195,7 @@ export default function CheckoutPage() {
         </Button>
 
         <p className="mt-4 text-center text-xs text-muted">
-          Toss Payments를 통해 안전하게 결제됩니다
+          결제는 토스페이먼츠에서 진행돼요
         </p>
       </div>
     </div>

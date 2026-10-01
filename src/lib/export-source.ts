@@ -31,7 +31,7 @@ export type LoadExportSourceResult =
   | { ok: true; source: ExportSource }
   | { ok: false; reason: ExportSourceFailure };
 
-const UNKNOWN_AUTHOR = "이름 없는 작가";
+const UNKNOWN_AUTHOR = "이름 없는 저자";
 
 export async function loadExportSource(
   bookId: string,

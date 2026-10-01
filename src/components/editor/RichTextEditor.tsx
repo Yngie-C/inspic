@@ -32,7 +32,7 @@ export function RichTextEditor({
   onUpdate,
   bookId,
   chapterId,
-  placeholder = "내용을 입력하세요...",
+  placeholder = "내용을 입력하세요",
   className,
 }: RichTextEditorProps) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -135,14 +135,14 @@ export function RichTextEditor({
 
         const json = await res.json().catch(() => ({}));
         if (!res.ok) {
-          throw new Error(json.error ?? "이미지를 올리지 못했습니다.");
+          throw new Error(json.error ?? "이미지를 올리지 못했어요.");
         }
 
         editor.chain().focus().setImage({ src: json.data.url }).run();
       } catch (err) {
         // 조용히 실패하면 크리에이터는 이미지가 사라진 이유를 알 수 없습니다.
         setImageError(
-          err instanceof Error ? err.message : "이미지를 올리지 못했습니다.",
+          err instanceof Error ? err.message : "이미지를 올리지 못했어요.",
         );
       } finally {
         setUploadingImage(false);
@@ -178,7 +178,7 @@ export function RichTextEditor({
       {/* Status bar */}
       <div className="flex items-center justify-between gap-3 border-t border-line px-8 py-2">
         <span className="truncate text-xs">
-          {uploadingImage && <span className="text-muted">이미지 올리는 중...</span>}
+          {uploadingImage && <span className="text-muted">이미지 올리는 중</span>}
           {imageError && <span className="text-danger">{imageError}</span>}
         </span>
         <span className="shrink-0 text-xs text-muted">

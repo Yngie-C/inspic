@@ -23,7 +23,7 @@ export function ExportMenu({ bookId, bookTitle }: ExportMenuProps) {
     try {
       await downloadExport(bookId, format, bookTitle);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "내보내기에 실패했습니다.");
+      setError(err instanceof Error ? err.message : "파일을 만들지 못했어요. 잠시 뒤 다시 시도해 주세요.");
       // Auto-clear error after 4 seconds
       setTimeout(() => setError(null), 4000);
     } finally {
@@ -75,7 +75,7 @@ export function ExportMenu({ bookId, bookTitle }: ExportMenuProps) {
               )}
               <div className="text-left">
                 <p className="font-medium">PDF로 내보내기</p>
-                <p className="text-xs text-muted">인쇄 가능한 PDF 파일</p>
+                <p className="text-xs text-muted">인쇄할 수 있는 PDF 파일</p>
               </div>
             </button>
 

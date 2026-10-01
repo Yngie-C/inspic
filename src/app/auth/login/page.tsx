@@ -51,7 +51,7 @@ export default function LoginPage() {
       <Card className="rounded-lg border border-line">
         <CardHeader>
           <CardTitle className="text-2xl">로그인</CardTitle>
-          <CardDescription>inspic 계정으로 로그인하세요.</CardDescription>
+          <CardDescription>이메일과 비밀번호를 입력해 주세요.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -85,7 +85,7 @@ export default function LoginPage() {
         </CardContent>
         <CardFooter className="justify-center">
           <p className="text-sm text-muted">
-            계정이 없으신가요?{" "}
+            계정이 없나요?{" "}
             <Link href="/auth/signup" className="font-medium text-primary hover:underline">
               회원가입
             </Link>

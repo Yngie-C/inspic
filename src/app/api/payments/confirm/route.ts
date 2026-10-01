@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (!transaction) {
-    return apiError("결제 정보를 찾을 수 없습니다", "NOT_FOUND", 404);
+    return apiError("결제 정보를 찾을 수 없어요", "NOT_FOUND", 404);
   }
 
   // 이미 이행이 끝난 주문. Toss를 다시 부르지 않고 그대로 돌려줍니다.
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (transaction.amount !== amount) {
-    return apiError("결제 금액이 일치하지 않습니다", "VALIDATION_ERROR", 400);
+    return apiError("결제 금액이 주문 금액과 달라요. 결제 화면에서 다시 시도해 주세요.", "VALIDATION_ERROR", 400);
   }
 
   const ports = serverFulfillmentPorts();
@@ -155,7 +155,7 @@ async function approve(params: {
       // 결제입니다. 이행하면 안 됩니다.
       throw new TossApiError(
         payment.status,
-        "이미 종료된 결제입니다.",
+        "이미 취소됐거나 만료된 결제예요.",
         400,
       );
     }
@@ -178,5 +178,5 @@ function describeFailure(error: unknown): {
     };
   }
 
-  return { message: "결제 승인에 실패했습니다", httpStatus: 502 };
+  return { message: "결제를 승인하지 못했어요. 잠시 뒤 다시 시도해 주세요.", httpStatus: 502 };
 }

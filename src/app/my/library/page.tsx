@@ -27,7 +27,7 @@ interface PurchasedBook {
 
 async function fetchPurchases(): Promise<PurchasedBook[]> {
   const res = await fetch("/api/purchases");
-  if (!res.ok) throw new Error("구매 목록을 불러오지 못했습니다.");
+  if (!res.ok) throw new Error("구매한 책을 불러오지 못했어요.");
   const json = await res.json();
   return json.data ?? [];
 }
@@ -44,7 +44,7 @@ export default function LibraryPage() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-primary">구매한 책</h1>
+        <h1 className="text-2xl font-bold text-primary">내 서재</h1>
         <Button variant="outline" asChild>
           <Link href="/explore" className="flex items-center gap-2">
             <ShoppingBag className="h-4 w-4" />
@@ -59,7 +59,7 @@ export default function LibraryPage() {
         </div>
       ) : isError ? (
         <div className="rounded-lg border border-danger/40 p-8 text-center text-body-sm text-danger">
-          구매 목록을 불러오지 못했습니다.{" "}
+          구매한 책을 불러오지 못했어요.{" "}
           <button onClick={() => refetch()} className="underline">
             다시 시도
           </button>
@@ -69,14 +69,14 @@ export default function LibraryPage() {
           <ShoppingBag className="h-16 w-16 text-faint" />
           <div>
             <p className="text-lg font-semibold text-primary">
-              아직 구매한 책이 없습니다
+              아직 구매한 책이 없어요
             </p>
             <p className="mt-1 text-sm text-muted">
-              마음에 드는 전자책을 찾아보세요!
+              필요한 주제의 책을 찾아보세요.
             </p>
           </div>
           <Button asChild>
-            <Link href="/explore">전자책 둘러보기</Link>
+            <Link href="/explore">책 둘러보기</Link>
           </Button>
         </div>
       ) : (

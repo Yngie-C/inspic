@@ -23,7 +23,7 @@ interface ChecksResponse {
 
 async function fetchChecks(bookId: string): Promise<ChecksResponse> {
   const res = await fetch(`/api/books/${bookId}/publish-checks`);
-  if (!res.ok) throw new Error("검수 결과를 불러오지 못했습니다.");
+  if (!res.ok) throw new Error("검수 결과를 불러오지 못했어요.");
   return (await res.json()).data;
 }
 
@@ -50,7 +50,7 @@ export function PublishChecklist({ bookId, isPublished }: Props) {
   });
 
   const handlePublish = async () => {
-    if (!confirm("이 책을 공개하시겠습니까? 공개 후에도 수정할 수 있습니다.")) {
+    if (!confirm("이 책을 공개할까요? 공개한 뒤에도 고칠 수 있어요.")) {
       return;
     }
 
@@ -70,13 +70,13 @@ export function PublishChecklist({ bookId, isPublished }: Props) {
         // 검수를 통과했다고 봤는데 서버가 막았다면 그 사이 본문이 바뀐
         // 것이므로 최신 결과를 다시 보여 줍니다.
         await refetch();
-        throw new Error(json.error ?? "공개하지 못했습니다.");
+        throw new Error(json.error ?? "공개하지 못했어요.");
       }
 
       router.push(`/book/${bookId}`);
     } catch (err) {
       setPublishError(
-        err instanceof Error ? err.message : "공개하지 못했습니다.",
+        err instanceof Error ? err.message : "공개하지 못했어요.",
       );
     } finally {
       setPublishing(false);
@@ -107,7 +107,7 @@ export function PublishChecklist({ bookId, isPublished }: Props) {
 
         {error && (
           <p className="text-sm text-danger">
-            검수 결과를 불러오지 못했습니다.
+            검수 결과를 불러오지 못했어요.
           </p>
         )}
 
@@ -117,7 +117,7 @@ export function PublishChecklist({ bookId, isPublished }: Props) {
               <div className="flex items-start gap-2.5 rounded-lg p-3">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
                 <p className="text-sm text-success">
-                  확인할 항목이 없습니다. 공개할 준비가 됐습니다.
+                  확인할 항목이 없어요. 바로 공개할 수 있어요.
                 </p>
               </div>
             )}
@@ -136,7 +136,7 @@ export function PublishChecklist({ bookId, isPublished }: Props) {
         {publishError && <p className="text-xs text-danger">{publishError}</p>}
 
         {isPublished ? (
-          <p className="text-center text-sm text-muted">이미 공개된 책입니다.</p>
+          <p className="text-center text-sm text-muted">이미 공개한 책이에요.</p>
         ) : (
           <>
             <Button
@@ -149,7 +149,7 @@ export function PublishChecklist({ bookId, isPublished }: Props) {
             </Button>
             {data && !data.can_publish && (
               <p className="text-center text-xs text-muted">
-                차단 항목 {data.blockers.length}개를 해결해야 공개할 수 있습니다.
+                꼭 고쳐야 할 항목 {data.blockers.length}개를 해결하면 공개할 수 있어요.
               </p>
             )}
           </>

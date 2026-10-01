@@ -47,9 +47,9 @@ export default function LandingPage() {
         {isError && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <p className="text-lg font-medium text-primary">
-              데이터를 불러오는 중 오류가 발생했습니다
+              책 목록을 불러오지 못했어요
             </p>
-            <p className="mt-1 text-sm text-muted">잠시 후 다시 시도해주세요.</p>
+            <p className="mt-1 text-sm text-muted">연결을 확인하고 페이지를 새로고침해 주세요.</p>
           </div>
         )}
 
@@ -59,7 +59,7 @@ export default function LandingPage() {
         ) : data?.newest && data.newest.length > 0 ? (
           <div className="mb-24">
             <BookSection
-              title="새로 나온 콘텐츠"
+              title="새로 나온 책"
               moreHref="/explore?sort=newest"
               books={data.newest}
             />

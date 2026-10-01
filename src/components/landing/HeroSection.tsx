@@ -27,18 +27,18 @@ export function HeroSection({ totalBooks }: { totalBooks?: number }) {
           transition={{ duration: 0.6 }}
         >
           <h1 className="text-5xl font-bold tracking-tight text-primary md:text-7xl">
-            읽고, 쓰고, <br />
-            적용하세요
+            바로 써먹는 지식을, <br />
+            짧게 읽으세요
           </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-muted md:text-xl">
-            워크시트와 질문이 담긴 워크북형 전자책. <br className="hidden md:block" />
-            읽으면서 직접 쓰고, 쓴 답은 계정에 남습니다.
+          <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-muted md:text-xl">
+            한 장이 몇 분이면 끝나요. <br className="hidden md:block" />
+            읽다가 나오는 체크리스트와 질문에 답하면 그 답이 내 계정에 남아요.
           </p>
 
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Button size="lg" className="h-12 px-6" asChild>
               <Link href="/explore">
-                콘텐츠 둘러보기 <ArrowRight className="ml-2 h-5 w-5" />
+                책 둘러보기 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
             </Button>
 
@@ -48,16 +48,16 @@ export function HeroSection({ totalBooks }: { totalBooks?: number }) {
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="관심 있는 주제 검색..."
+                placeholder="책 제목이나 주제로 검색"
                 className="h-12 w-full rounded-md border border-field-line bg-field pl-12 pr-6 text-sm outline-none transition-all focus:border-field-line focus:bg-surface focus:outline-2 focus:outline-offset-1 focus:outline-accent"
               />
             </form>
           </div>
 
-          {/* 0권일 때 "이미 0권"은 빈 서점을 광고하는 문장이라 숨긴다. */}
+          {/* 0권일 때 "0권"은 빈 서점을 광고하는 문장이라 숨긴다. */}
           {totalBooks != null && totalBooks > 0 && (
             <p className="mt-6 text-sm font-medium text-muted">
-              이미 <span className="text-primary">{totalBooks.toLocaleString()}권</span>의 이야기가 출판됐어요.
+              지금 읽을 수 있는 책 <span className="text-primary">{totalBooks.toLocaleString()}권</span>
             </p>
           )}
         </motion.div>

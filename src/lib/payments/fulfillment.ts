@@ -61,8 +61,8 @@ export interface FulfillmentPorts {
   report(message: string, detail: unknown): void;
 }
 
-const DUPLICATE_REASON = "이미 보유한 책입니다. 결제를 자동 취소했습니다.";
-const FAILURE_REASON = "구매 기록을 만들지 못해 결제를 자동 취소했습니다.";
+const DUPLICATE_REASON = "이미 가지고 있는 책이라 이번 결제는 자동으로 취소했어요.";
+const FAILURE_REASON = "구매를 처리하지 못해 결제를 자동으로 취소했어요. 다시 결제해 주세요.";
 
 /**
  * 승인이 끝난 결제 하나를 반영합니다.
@@ -163,7 +163,7 @@ async function compensate(
     return {
       kind: "stranded",
       reason:
-        "결제는 됐지만 처리를 끝내지 못했습니다. 고객센터로 문의해 주세요.",
+        "결제는 됐지만 처리를 끝내지 못했어요. contact@inspic.kr로 알려 주시면 바로 확인할게요.",
     };
   }
 

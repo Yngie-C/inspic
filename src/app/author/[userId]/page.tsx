@@ -109,12 +109,12 @@ export default function AuthorPage() {
       <div>
         <h2 className="mb-6 text-lg font-semibold text-primary flex items-center gap-2">
           <BookOpen className="h-5 w-5 text-muted" />
-          이 저자의 전자책
+          이 저자의 책
         </h2>
 
         {!books || books.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <p className="text-sm text-muted">아직 공개된 전자책이 없습니다.</p>
+            <p className="text-sm text-muted">아직 공개된 책이 없어요.</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">

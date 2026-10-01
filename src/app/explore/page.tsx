@@ -131,7 +131,7 @@ function ExploreContent() {
       <div className="mb-8 flex flex-col gap-1">
         <h1 className="text-display text-primary max-[600px]:text-[25px]">탐색</h1>
         <p className="text-body-sm text-muted">
-          읽고, 쓰고, 적용하는 워크북을 찾아보세요.
+          필요한 주제를 골라 짧게 읽어 보세요.
         </p>
       </div>
 

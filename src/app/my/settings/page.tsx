@@ -59,7 +59,7 @@ export default function SettingsPage() {
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "저장에 실패했습니다.");
+      setError(err instanceof Error ? err.message : "저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.");
     } finally {
       setIsLoading(false);
     }
@@ -69,7 +69,7 @@ export default function SettingsPage() {
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-12 sm:px-6">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-primary">설정</h1>
-        <p className="mt-1 text-muted">프로필 정보를 수정하세요.</p>
+        <p className="mt-1 text-muted">이름과 소개를 바꿀 수 있어요. 책을 내면 저자 페이지에 표시돼요.</p>
       </div>
 
       <div className="rounded-lg border border-line bg-surface p-8">
@@ -103,7 +103,7 @@ export default function SettingsPage() {
           {success && (
             <div className="flex items-center gap-2 rounded-lg border border-success/40 px-4 py-3 text-sm text-success">
               <Check className="h-4 w-4" />
-              저장되었습니다.
+              저장했어요.
             </div>
           )}
 
@@ -118,7 +118,7 @@ export default function SettingsPage() {
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-primary">소개</label>
             <textarea
-              placeholder="자신을 소개해주세요"
+              placeholder="어떤 일을 하는 사람인지 한두 줄로 적어 주세요"
               value={bio}
               onChange={(e) => setBio(e.target.value)}
               rows={3}

@@ -34,12 +34,12 @@ export function FileDropzone({
     (file: File): string => {
       const ext = "." + file.name.split(".").pop()?.toLowerCase();
       if (!accept.includes(ext)) {
-        return `지원하지 않는 파일 형식입니다. (지원: ${accept.join(", ")})`;
+        return `지원하지 않는 파일 형식이에요. ${accept.join(", ")} 파일을 올려 주세요.`;
       }
       const maxBytes = getMaxSize(file);
       if (file.size > maxBytes) {
         const mb = Math.round(maxBytes / 1024 / 1024);
-        return `파일 크기가 너무 큽니다. (최대 ${mb}MB)`;
+        return `파일이 너무 커요. ${mb}MB 이하로 올려 주세요.`;
       }
       return "";
     },
@@ -121,7 +121,7 @@ export function FileDropzone({
             </div>
             <div>
               <p className="font-medium text-primary">
-                파일을 드래그하거나 클릭하여 업로드
+                파일을 끌어다 놓거나 눌러서 고르세요
               </p>
               <p className="mt-1 text-sm text-muted">
                 {accept.join(", ")} 지원 &middot; TXT/MD 최대 5MB, DOCX 최대 {maxSizeMB}MB

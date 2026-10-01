@@ -36,10 +36,10 @@ export function PreviewClient({ bookId, bookTitle, isPublished }: Props) {
         <div className="rounded-lg border border-line bg-surface p-8 max-w-sm w-full">
           <Monitor className="mx-auto h-12 w-12 text-faint" />
           <h2 className="mt-4 text-lg font-semibold text-primary">
-            데스크톱에서 이용해주세요
+            넓은 화면에서 열어 주세요
           </h2>
           <p className="mt-2 text-sm text-muted">
-            미리보기 기능은 넓은 화면에서만 사용할 수 있습니다.
+            검수와 공개는 너비 1024px 이상의 화면에서 할 수 있어요.
           </p>
           <div className="mt-6 flex flex-col gap-2">
             <Button asChild>
@@ -50,7 +50,7 @@ export function PreviewClient({ bookId, bookTitle, isPublished }: Props) {
               className="flex items-center justify-center gap-1.5 text-sm text-muted hover:text-muted transition-colors"
             >
               <HelpCircle className="h-4 w-4" />
-              왜 비활성화 되나요?
+              왜 넓은 화면이 필요한가요?
             </button>
           </div>
         </div>
@@ -66,19 +66,19 @@ export function PreviewClient({ bookId, bookTitle, isPublished }: Props) {
                 <X className="h-5 w-5" />
               </button>
               <h3 className="text-lg font-semibold text-primary">
-                미리보기 기능 안내
+                넓은 화면이 필요한 이유
               </h3>
               <div className="mt-4 space-y-3 text-sm text-muted">
                 <p>
-                  미리보기는 고객이 보는 화면을 다양한 기기 크기(데스크톱, 태블릿, 모바일)로
-                  시뮬레이션하는 기능입니다.
+                  미리보기는 독자에게 보일 화면을 데스크톱·태블릿·모바일 크기로 바꿔 가며
+                  보여 주고, 옆에 공개 전 검수 결과를 함께 띄워요.
                 </p>
                 <p>
-                  정확한 시뮬레이션을 위해 화면 안에 가상 기기 프레임을 표시하는데,
-                  이를 위해 <strong>최소 1024px 이상</strong>의 브라우저 너비가 필요합니다.
+                  기기 틀과 검수 패널을 나란히 놓으려면 브라우저 너비가
+                  <strong>1024px 이상</strong>이어야 해요.
                 </p>
                 <p>
-                  데스크톱 브라우저에서 전체 화면으로 접속하면 미리보기를 사용할 수 있습니다.
+                  컴퓨터에서 브라우저 창을 넓혀 다시 열어 주세요.
                 </p>
               </div>
               <Button

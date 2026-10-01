@@ -111,43 +111,43 @@ const SLASH_ITEMS: SlashMenuItem[] = [
     title: "체크리스트",
     aliases: ["checklist", "체크", "할일"],
     icon: CheckSquare,
-    category: "인터랙티브",
+    category: "워크북 블록",
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).insertContent({ type: "checklist" }).run();
     },
   },
   {
-    title: "콜아웃",
-    aliases: ["callout", "알림", "안내"],
+    title: "참고·팁",
+    aliases: ["callout", "콜아웃", "참고", "팁", "주의", "알림", "안내"],
     icon: MessageSquare,
-    category: "인터랙티브",
+    category: "워크북 블록",
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).insertContent({ type: "callout" }).run();
     },
   },
   {
-    title: "리플렉션 프롬프트",
-    aliases: ["reflection", "질문", "성찰"],
+    title: "성찰 질문",
+    aliases: ["reflection", "리플렉션", "질문", "성찰"],
     icon: HelpCircle,
-    category: "인터랙티브",
+    category: "워크북 블록",
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).insertContent({ type: "reflection" }).run();
     },
   },
   {
-    title: "SMART 목표",
+    title: "목표 (SMART)",
     aliases: ["smart", "goal", "목표"],
     icon: Target,
-    category: "인터랙티브",
+    category: "워크북 블록",
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).insertContent({ type: "smartGoal" }).run();
     },
   },
   {
-    title: "1-10 스케일",
+    title: "척도 (1–10)",
     aliases: ["scale", "스케일", "척도", "점수"],
     icon: BarChart3,
-    category: "인터랙티브",
+    category: "워크북 블록",
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).insertContent({ type: "scale" }).run();
     },

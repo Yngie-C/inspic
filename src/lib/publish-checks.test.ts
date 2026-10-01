@@ -205,7 +205,7 @@ describe("경고 항목", () => {
     expect(canPublish(checks)).toBe(true);
   });
 
-  it("제목 없는 챕터는 순번으로 가리킨다", () => {
+  it("제목 없는 장은 순번으로 가리킨다", () => {
     const checks = runPublishChecks(
       input({
         chapters: [chapter({ title: "   ", content_html: "<p></p>", order_index: 2 })],
@@ -213,7 +213,7 @@ describe("경고 항목", () => {
     );
 
     const blocked = blockers(checks).find((check) => check.id === "empty-chapters");
-    expect(blocked?.detail).toContain("3번째 챕터");
+    expect(blocked?.detail).toContain("3장 —");
   });
 });
 

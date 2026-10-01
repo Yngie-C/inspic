@@ -11,7 +11,7 @@ export function BookGrid({ books }: BookGridProps) {
       <div className="flex flex-col items-center justify-center gap-1 py-24 text-center">
         <p className="text-subtitle text-primary">아직 공개된 책이 없어요</p>
         <p className="text-body-sm text-muted">
-          저자가 책을 발행하면 여기에 보여요.
+          저자가 책을 공개하면 여기에 보여요.
         </p>
       </div>
     );

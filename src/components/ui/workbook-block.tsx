@@ -82,7 +82,7 @@ export function BlockStatusText({ status }: { status: BlockStatus }) {
 export function BlockSaveError({ onRetry }: { onRetry: () => void }) {
   return (
     <p className="m-0 flex flex-wrap items-baseline gap-x-2 text-body-sm text-danger">
-      이 답을 저장하지 못했어요. 연결을 확인한 뒤 다시 시도하세요.
+      이 답을 저장하지 못했어요. 연결을 확인한 뒤 다시 시도해 주세요.
       <button
         type="button"
         onClick={onRetry}

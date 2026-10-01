@@ -19,9 +19,9 @@ const LANGUAGE_OPTIONS = [
 ];
 
 const VISIBILITY_OPTIONS: { value: BookVisibility; label: string; description: string }[] = [
-  { value: "private", label: "비공개", description: "나만 볼 수 있습니다" },
-  { value: "unlisted", label: "링크 공유", description: "링크가 있는 사람만 볼 수 있습니다" },
-  { value: "public", label: "공개", description: "모든 사람이 검색하고 볼 수 있습니다" },
+  { value: "private", label: "비공개", description: "나만 볼 수 있어요" },
+  { value: "unlisted", label: "링크 공유", description: "링크를 받은 사람만 볼 수 있어요" },
+  { value: "public", label: "공개", description: "누구나 탐색 화면에서 찾고 볼 수 있어요" },
 ];
 
 export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
@@ -42,7 +42,7 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
 
   const handleSave = async () => {
     if (!title.trim()) {
-      setError("제목을 입력해주세요.");
+      setError("제목을 입력해 주세요.");
       return;
     }
     setSaving(true);
@@ -52,7 +52,7 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch {
-      setError("저장에 실패했습니다. 다시 시도해주세요.");
+      setError("저장하지 못했어요. 다시 시도해 주세요.");
     } finally {
       setSaving(false);
     }
@@ -61,11 +61,11 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
   const uploadCover = useCallback(async (file: File) => {
     const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
     if (!ALLOWED.includes(file.type)) {
-      setCoverError("JPEG, PNG, WebP 이미지만 업로드할 수 있습니다.");
+      setCoverError("JPEG, PNG, WebP 이미지만 올릴 수 있어요.");
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      setCoverError("이미지 크기는 5MB 이하여야 합니다.");
+      setCoverError("이미지는 5MB 이하만 올릴 수 있어요.");
       return;
     }
 
@@ -80,12 +80,12 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
       });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
-        throw new Error(json.error ?? "업로드 실패");
+        throw new Error(json.error ?? "표지를 올리지 못했어요.");
       }
       const json = await res.json();
       setCoverUrl(json.data.cover_image_url);
     } catch (err) {
-      setCoverError(err instanceof Error ? err.message : "업로드에 실패했습니다.");
+      setCoverError(err instanceof Error ? err.message : "표지를 올리지 못했어요.");
     } finally {
       setCoverUploading(false);
     }
@@ -112,7 +112,7 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
   const handleDragLeave = () => setIsDragging(false);
 
   const handleRemoveCover = async () => {
-    if (!confirm("표지 이미지를 삭제하시겠습니까?")) return;
+    if (!confirm("표지 이미지를 삭제할까요?")) return;
     setCoverUploading(true);
     setCoverError(null);
     try {
@@ -120,7 +120,7 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
       if (!res.ok) throw new Error("삭제 실패");
       setCoverUrl("");
     } catch {
-      setCoverError("표지 삭제에 실패했습니다.");
+      setCoverError("표지를 삭제하지 못했어요.");
     } finally {
       setCoverUploading(false);
     }
@@ -182,9 +182,9 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
                 <>
                   <ImageIcon className="h-8 w-8 text-muted" />
                   <div className="text-center">
-                    <p className="text-sm font-medium text-muted">표지 이미지 업로드</p>
+                    <p className="text-sm font-medium text-muted">표지 이미지 올리기</p>
                     <p className="text-xs text-muted">JPEG, PNG, WebP · 최대 5MB</p>
-                    <p className="text-xs text-muted">드래그하거나 클릭하세요</p>
+                    <p className="text-xs text-muted">끌어다 놓거나 눌러서 고르세요</p>
                   </div>
                 </>
               )}
@@ -210,7 +210,7 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="콘텐츠 제목을 입력하세요"
+          placeholder="책 제목"
           className="w-full rounded-lg border border-line-strong px-3 py-2 text-sm text-primary placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
         />
       </div>
@@ -221,7 +221,7 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="콘텐츠 소개를 입력하세요"
+          placeholder="이 책을 읽고 독자가 할 수 있게 되는 일을 적어 주세요"
           rows={4}
           className="w-full resize-none rounded-lg border border-line-strong px-3 py-2 text-sm text-primary placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
         />
@@ -280,7 +280,7 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
         <span className="text-xs font-medium text-primary">
           {book.status === "draft" && "초안"}
           {book.status === "processing" && "처리 중"}
-          {book.status === "published" && "출판됨"}
+          {book.status === "published" && "공개 중"}
           {book.status === "archived" && "보관됨"}
         </span>
       </div>

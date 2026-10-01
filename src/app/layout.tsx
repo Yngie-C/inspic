@@ -12,11 +12,11 @@ export const metadata: Metadata = {
     template: "%s | inspic",
   },
   description:
-    "읽는 책이 아니라 적용하는 책. 워크시트·체크리스트·성찰 질문을 담은 워크북형 전자책을 만들고, 읽으면서 직접 작성하세요.",
-  keywords: ["워크북", "전자책", "워크시트", "출판", "ebook"],
+    "바로 써먹는 지식을 짧게 읽는 워크북. 읽다가 체크리스트와 질문에 답하면 그 답이 계정에 남아요.",
+  keywords: ["워크북", "실용서", "전자책", "체크리스트", "ebook"],
   openGraph: {
     title: "inspic",
-    description: "읽는 책이 아니라 적용하는 책 — 인터랙티브 워크북 출판 플랫폼",
+    description: "바로 써먹는 지식을 짧게 읽는 워크북. 읽다가 체크리스트와 질문에 답하면 그 답이 계정에 남아요.",
     type: "website",
     siteName: "inspic",
     locale: "ko_KR",
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "inspic",
-    description: "읽는 책이 아니라 적용하는 책 — 인터랙티브 워크북 출판 플랫폼",
+    description: "바로 써먹는 지식을 짧게 읽는 워크북. 읽다가 체크리스트와 질문에 답하면 그 답이 계정에 남아요.",
   },
 };
 

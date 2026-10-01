@@ -241,7 +241,7 @@ function Actions({
           <Link href={`/create/edit/${book.id}`}>편집</Link>
         </Button>
         <Button variant="secondary" isLoading={publishing} onClick={onTogglePublish}>
-          {isPublished ? "비공개로 전환" : "발행하기"}
+          {isPublished ? "비공개로 전환" : "공개하기"}
         </Button>
       </>
     );

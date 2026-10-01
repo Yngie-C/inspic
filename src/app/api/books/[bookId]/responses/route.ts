@@ -98,7 +98,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
   // "저장은 조용히 안 됐는데 화면은 저장됨"이 되지 않습니다.
   const access = await checkBookAccess(user.id, bookId);
   if (!access.hasAccess) {
-    return apiError("이 책의 워크북에 응답할 권한이 없습니다.", "FORBIDDEN", 403);
+    return apiError("이 책에 답을 저장할 권한이 없어요. 구매했는지 확인해 주세요.", "FORBIDDEN", 403);
   }
 
   const supabase = await createClient();

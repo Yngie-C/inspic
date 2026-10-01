@@ -165,7 +165,7 @@ export function ReaderView({
               <PreviewEnd bookId={book.id} price={book.price} />
             ) : (
               <nav
-                aria-label="챕터 이동"
+                aria-label="장 이동"
                 className="mt-16 flex items-center justify-between gap-3 border-t border-line pt-8"
               >
                 <Button
@@ -302,7 +302,7 @@ function PreviewEnd({ bookId, price }: { bookId: string; price: number }) {
     <div className="mt-16 flex flex-col items-start gap-2 border-t border-line pt-8">
       <p className="text-subtitle text-primary">미리보기는 여기까지예요</p>
       <p className="text-body-sm text-muted">
-        나머지 챕터와 워크북 저장은 구매하면 열려요.
+        구매하면 나머지 장을 읽고, 쓴 답을 계정에 저장할 수 있어요.
       </p>
       <Button asChild className="mt-3">
         <Link href={`/book/${bookId}`}>

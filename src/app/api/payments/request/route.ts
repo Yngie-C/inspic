@@ -34,17 +34,17 @@ export async function POST(request: NextRequest) {
 
   // 자기 책 구매 방지
   if (book.owner_id === user.id) {
-    return apiError("자신의 책은 구매할 수 없습니다", "VALIDATION_ERROR", 400);
+    return apiError("내가 쓴 책은 구매할 수 없어요", "VALIDATION_ERROR", 400);
   }
 
   // 미발행/비공개 책 구매 방지
   if (book.status !== "published" || book.visibility !== "public") {
-    return apiError("구매할 수 없는 책입니다", "VALIDATION_ERROR", 400);
+    return apiError("지금은 구매할 수 없는 책이에요", "VALIDATION_ERROR", 400);
   }
 
   // 무료 책 구매 방지
   if (book.price === 0) {
-    return apiError("무료 책은 결제가 필요하지 않습니다", "VALIDATION_ERROR", 400);
+    return apiError("무료 책이라 결제하지 않아도 돼요", "VALIDATION_ERROR", 400);
   }
 
   // 이미 구매한 책 중복 방지
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   if (existing) {
-    return apiError("이미 구매한 책입니다", "VALIDATION_ERROR", 400);
+    return apiError("이미 구매한 책이에요", "VALIDATION_ERROR", 400);
   }
 
   // orderId 생성 및 트랜잭션 기록
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (txError) {
-    return apiError("결제 요청 생성에 실패했습니다", "SERVER_ERROR", 500);
+    return apiError("결제를 시작하지 못했어요. 잠시 뒤 다시 시도해 주세요.", "SERVER_ERROR", 500);
   }
 
   return apiSuccess({

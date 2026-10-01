@@ -526,8 +526,8 @@ function ChapterPage({
             저자가 이후 수정한 문항의 답
           </Text>
           <Text style={styles.orphanNote}>
-            아래 답을 받던 문항은 저자가 책을 고치면서 사라졌습니다. 질문
-            문구는 남아 있지 않지만 쓰신 내용은 그대로입니다.
+            아래 답을 받던 문항은 저자가 책을 고치면서 사라졌어요. 질문
+            문구는 남아 있지 않지만 쓰신 내용은 그대로예요.
           </Text>
           {orphans.map((text, i) => (
             <Text key={i} style={styles.orphanAnswer}>

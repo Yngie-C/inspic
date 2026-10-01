@@ -105,7 +105,7 @@ const CALLOUT_PREFIX: Record<string, { emoji: string; text: string }> = {
   info: { emoji: "ℹ️", text: "[정보]" },
   warning: { emoji: "⚠️", text: "[주의]" },
   tip: { emoji: "💡", text: "[팁]" },
-  note: { emoji: "📝", text: "[메모]" },
+  note: { emoji: "📝", text: "[참고]" },
 };
 
 function convertToFallback(
@@ -161,7 +161,7 @@ function convertToFallback(
       const value = answers.value;
       const chosen =
         typeof value === "number" ? ` → <strong>${value}</strong>` : "";
-      return `<p>스케일: ${minPart}${min}-${max}${maxPart}${chosen}</p>`;
+      return `<p>척도: ${minPart}${min}-${max}${maxPart}${chosen}</p>`;
     }
 
     default:

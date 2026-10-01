@@ -15,7 +15,7 @@ interface BookCardProps {
 const statusLabel: Record<string, string> = {
   draft: "초안",
   processing: "처리 중",
-  published: "출판됨",
+  published: "공개 중",
   archived: "보관됨",
 };
 
