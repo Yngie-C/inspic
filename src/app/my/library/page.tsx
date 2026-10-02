@@ -36,7 +36,7 @@ export default function LibraryPage() {
   const user = useAuthStore((s) => s.user);
 
   const { data: purchases = [], isLoading, isError, refetch } = useQuery<PurchasedBook[]>({
-    queryKey: ["purchases"],
+    queryKey: ["purchases", "library"],
     queryFn: fetchPurchases,
     enabled: !!user,
   });

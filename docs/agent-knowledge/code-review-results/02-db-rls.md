@@ -58,12 +58,14 @@
 - 무엇: completed 구매가 있어도 책이 `published` + `public`이어야 통과해요.
 - 결과: 저자가 보관하거나 비공개로 돌리면 구매자의 `chapters_select`가 비고, `workbook_responses` INSERT/UPDATE가 WITH CHECK에서 막혀요. "돈이 나갔으면 책이 열린다"에 어긋나요.
 - 고칠 방향: 구매 확인을 공개 판정보다 먼저. TS `checkBookAccess()`도 함께. `unlisted` 처리(1단계 P1)도 같은 마이그레이션에서 결정.
+- 2026-10-02 WP3: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP3). `00006`의 `has_book_access`가 구매를 먼저 보고, `books_select_purchased`로 책 행도 구매자에게 보임. `unlisted`는 화면에서 숨기고 새로 고르는 것을 거절.
 
 ### P1-2. 유료 챕터 이미지 파일 목록이 익명에게 열림
 - 위치: `00002_workbook_block_sync.sql:198` `chapter_images_select_public`
 - 무엇: anon에게 `chapter-images` 버킷 전체 SELECT를 줘서 Storage list API가 동작해요. "추측할 수 없는 파일명"으로 막으려던 것이 무너져요.
 - 시나리오: `storage.from('chapter-images').list('<유료 bookId>/<chapterId>')` → 파일명 전부 → 공개 URL로 다운로드. book id는 URL에 공개돼 있어요.
 - 고칠 방향: 공개 버킷은 SELECT 정책 없이도 공개 URL을 서빙하므로 정책을 지우거나 소유자로 좁힘. 하네스의 storage 스텁도 확인.
+- 2026-10-02 WP3: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP3). 익명 SELECT 제거, 소유자 SELECT만(`chapter_images_select_own`). 스텁은 그대로 충분했음.
 
 ### P1-3. 같은 블록 ID가 두 문서에 있으면 블록이 오락가락함
 - 위치: `00002_workbook_block_sync.sql:94` 블록 upsert

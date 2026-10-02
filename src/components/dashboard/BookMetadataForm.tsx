@@ -18,11 +18,22 @@ const LANGUAGE_OPTIONS = [
   { value: "zh", label: "中文" },
 ];
 
+// "링크 공유"(unlisted)는 고를 수 없습니다. 열어 주는 경로가 없어 고르면
+// 아무에게도 보이지 않았습니다. 이미 그 값인 책만 현재 상태로 보여 줍니다.
 const VISIBILITY_OPTIONS: { value: BookVisibility; label: string; description: string }[] = [
-  { value: "private", label: "비공개", description: "나만 볼 수 있어요" },
-  { value: "unlisted", label: "링크 공유", description: "링크를 받은 사람만 볼 수 있어요" },
+  {
+    value: "private",
+    label: "비공개",
+    description: "새 독자에게는 보이지 않아요. 이미 구매한 독자는 계속 읽을 수 있어요",
+  },
   { value: "public", label: "공개", description: "누구나 탐색 화면에서 찾고 볼 수 있어요" },
 ];
+
+const RETIRED_UNLISTED_OPTION = {
+  value: "unlisted" as const,
+  label: "링크 공유 (더 이상 고를 수 없음)",
+  description: "지금은 나와 구매한 독자만 볼 수 있어요. 공개나 비공개로 바꿔 주세요",
+};
 
 export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
   const [title, setTitle] = useState(book.title);
@@ -247,7 +258,10 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
       <div>
         <label className="mb-1.5 block text-sm font-medium text-primary">공개 설정</label>
         <div className="flex flex-col gap-2">
-          {VISIBILITY_OPTIONS.map((opt) => (
+          {(book.visibility === "unlisted"
+            ? [RETIRED_UNLISTED_OPTION, ...VISIBILITY_OPTIONS]
+            : VISIBILITY_OPTIONS
+          ).map((opt) => (
             <label
               key={opt.value}
               className={cn(

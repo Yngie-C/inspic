@@ -19,7 +19,13 @@ export type AccessReason =
   /** 유료 책이지만 첫 챕터는 열려 있습니다. */
   | "preview"
   /** 아무것도 볼 수 없습니다. */
-  | "none";
+  | "none"
+  /**
+   * 판정하지 못했습니다(조회 실패). 아무것도 열지 않지만 "권한 없음"과
+   * 다릅니다 — 호출자는 5xx로 다루세요. 403이나 결제 유도로 보이면
+   * 이미 산 독자가 다시 결제하거나, 리더가 보낸 답을 큐에서 버립니다.
+   */
+  | "unavailable";
 
 export interface BookAccessResult {
   /**
@@ -49,7 +55,8 @@ function result(
   reason: AccessReason,
   userId: string | null,
 ): BookAccessResult {
-  const hasAccess = reason !== "none" && reason !== "preview";
+  const hasAccess =
+    reason === "owner" || reason === "purchased" || reason === "free";
   return {
     hasAccess,
     reason,
@@ -64,25 +71,24 @@ export async function checkBookAccess(
 ): Promise<BookAccessResult> {
   const supabase = await createClient();
 
-  const { data: book } = await supabase
+  // 남의 비공개 책은 RLS가 행을 숨기므로 "없는 책"과 같게 보입니다.
+  // 구매자에게는 books_select_purchased가 내려간 책도 보여 줍니다(00006).
+  const { data: book, error: bookError } = await supabase
     .from("books")
     .select("owner_id, price, status, visibility")
     .eq("id", bookId)
-    .single();
+    .maybeSingle();
 
+  if (bookError) return result("unavailable", userId);
   if (!book) return result("none", userId);
 
+  // 판정 순서는 SQL has_book_access와 같습니다(마이그레이션 00006):
+  // 소유자 → 완료된 구매 → 공개 발행본. 구매를 공개 상태보다 먼저 봐야
+  // 저자가 책을 내려도 산 독자가 계속 읽습니다.
   if (userId && book.owner_id === userId) return result("owner", userId);
 
-  // 비공개·미발행 책은 소유자만. 미리보기도 열리지 않습니다.
-  if (book.status !== "published" || book.visibility !== "public") {
-    return result("none", userId);
-  }
-
-  if (book.price === 0) return result("free", userId);
-
   if (userId) {
-    const { data: purchase } = await supabase
+    const { data: purchase, error: purchaseError } = await supabase
       .from("purchases")
       .select("id")
       .eq("user_id", userId)
@@ -90,8 +96,16 @@ export async function checkBookAccess(
       .eq("status", "completed")
       .maybeSingle();
 
+    if (purchaseError) return result("unavailable", userId);
     if (purchase) return result("purchased", userId);
   }
+
+  // 비공개·미발행 책은 소유자와 구매자만. 미리보기도 열리지 않습니다.
+  if (book.status !== "published" || book.visibility !== "public") {
+    return result("none", userId);
+  }
+
+  if (book.price === 0) return result("free", userId);
 
   // 유료 책의 첫 챕터는 누구에게나 열려 있습니다 (마이그레이션 00003의
   // chapters_select_preview). 열어 줄 챕터가 실제로 있는지는 RLS가

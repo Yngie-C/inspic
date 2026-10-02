@@ -17,6 +17,7 @@ const CHAPTER = "55555555-5555-4555-8555-555555555555";
 const BLOCK = "11111111-1111-4111-8111-111111111111";
 
 const mocks = vi.hoisted(() => ({
+  access: { hasAccess: true, reason: "purchased" } as { hasAccess: boolean; reason: string },
   respond: (() => ({ data: null, error: null })) as (query: RecordedQuery) => QueryResult,
   queries: [] as RecordedQuery[],
 }));
@@ -38,7 +39,7 @@ vi.mock("@/lib/api-utils", async (importOriginal) => ({
 }));
 
 vi.mock("@/lib/access-control", () => ({
-  checkBookAccess: async () => ({ hasAccess: true }),
+  checkBookAccess: async () => mocks.access,
 }));
 
 const { PUT } = await import("./route");
@@ -72,6 +73,9 @@ function upserts() {
 }
 
 beforeEach(() => {
+  mocks.access = { hasAccess: true, reason: "purchased" };
+  // 라우트가 클라이언트를 만들기 전에 끝나면 앞 테스트의 기록이 남습니다.
+  mocks.queries = [];
   fields({
     data: [{ block_id: BLOCK, field_key: "answer", input_type: "longtext" }],
     error: null,
@@ -106,5 +110,22 @@ describe("PUT /api/books/[bookId]/responses", () => {
     expect(res.status).toBe(200);
     expect((await res.json()).data).toEqual({ saved: 1, rejected: [] });
     expect(upserts()).toHaveLength(1);
+  });
+
+  it("접근 판정을 못 하면 403이 아니라 500 — 리더가 답을 큐에 남긴다", async () => {
+    mocks.access = { hasAccess: false, reason: "unavailable" };
+
+    const res = await save();
+
+    expect(res.status).toBe(500);
+    expect(upserts()).toEqual([]);
+  });
+
+  it("권한이 없으면 403", async () => {
+    mocks.access = { hasAccess: false, reason: "preview" };
+
+    const res = await save();
+
+    expect(res.status).toBe(403);
   });
 });

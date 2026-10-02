@@ -82,9 +82,13 @@ export function BookDetailClient() {
 
   useEffect(() => {
     if (!bookId) return;
+    // 판정 실패(5xx)는 접근 정보 없음으로 둡니다. 실패 응답을 그대로
+    // 넣으면 산 독자에게 구매 버튼이 뜹니다.
     fetch(`/api/books/${bookId}/access`)
-      .then((r) => r.json())
-      .then((json) => setAccessInfo(json.data))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (json) setAccessInfo(json.data);
+      })
       .catch(() => {});
   }, [bookId]);
 
