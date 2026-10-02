@@ -79,12 +79,14 @@
 - 무엇: INSERT 정책은 `user_id`와 `has_book_access(book_id)`만 봐요. `chapter_id`가 그 책의 챕터인지, `(block_id, field_key)`가 존재하는지 확인하지 않아요. `workbook_blocks_insert_own`도 `chapter_id`와 `book_id`를 묶지 않아요.
 - 결과: 무료 책 독자가 PostgREST로 임의 `block_id`/`field_key`, 또는 다른 저자의 `chapter_id`를 단 행을 넣으면 `workbook_response_stats()`에 유령 문항과 부풀린 응답 수가 잡혀요. 남의 챕터가 삭제될 때 CASCADE로 함께 지워지기도 해요. AGENTS.md "chapter_id와 값 컬럼은 서버가 정한다"에 어긋나요.
 - 고칠 방향: 클라이언트 직접 쓰기 정책을 막고 `PUT /responses`가 service_role/RPC로 쓰게 하거나, WITH CHECK에 `workbook_block_fields` 존재와 챕터-책 일치를 넣음. 3단계(응답 쓰기) 리뷰와 함께.
+- 2026-10-02 WP5: **수정됨** (마이그레이션 `00008`, [수정 계획](../code-review-fix-plan.md) WP5).
 
 ### P1-5. draft 챕터의 문항이 보임
 - 위치: `00001_initial_schema.sql:350` `workbook_blocks_select`, `workbook_block_fields_select`
 - 무엇: `has_book_access`만 보고 챕터 상태를 보지 않아요. `chapters_select`는 draft 본문을 가리는데 문항은 열려 있어요.
 - 결과: 구매자나 무료 책 독자가 `workbook_block_fields` ⨝ `workbook_blocks`로 공개 전 챕터의 질문을 미리 읽어요.
 - 고칠 방향: SELECT 정책에 챕터가 published이거나 소유자일 것을 추가. 미리보기 챕터의 블록은 열지 않는다는 기존 규칙은 유지.
+- 2026-10-02 WP5: **수정됨** (마이그레이션 `00008`, [수정 계획](../code-review-fix-plan.md) WP5).
 
 ## P2 — 정리·효율
 

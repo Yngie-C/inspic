@@ -525,6 +525,11 @@ describe("독자 응답", () => {
   });
 
   it("구매자는 자기 응답을 남기고 고칠 수 있다", async () => {
+    await db.query(
+      `INSERT INTO workbook_block_fields (block_id, field_key, label, input_type)
+       VALUES ($1, 'second', '두 번째 질문', 'longtext')`,
+      [PAID_BLOCK],
+    );
     await asUser(readerA, () =>
       db.query(
         `INSERT INTO workbook_responses
@@ -997,5 +1002,275 @@ describe("chapter-images 파일 목록", () => {
     await expect(
       asUser(creator, () => db.query(`SELECT name FROM storage.objects`)),
     ).resolves.toBeDefined();
+  });
+});
+
+/**
+ * 00008: 응답 행은 지금의 정의를 가리켜야 하고, 공개 전 장의 문항은
+ * 소유자만 봅니다. 라우트(PUT /responses)가 먼저 같은 판정을 하지만,
+ * PostgREST로 직접 쓰면 라우트를 건너뛰므로 정책이 마지막 방어선입니다.
+ */
+describe("응답 쓰기 정책과 공개 전 문항 (00008)", () => {
+  const DRAFT_BLOCK = "aaaaaaaa-0000-0000-0000-000000000081";
+  const SCALE_BLOCK = "aaaaaaaa-0000-0000-0000-000000000082";
+
+  beforeAll(async () => {
+    await seedBlock(DRAFT_BLOCK, paidBook, draftChapter);
+    await db.query(
+      `INSERT INTO workbook_blocks (id, book_id, chapter_id, block_type, config)
+       VALUES ($1, $2, $3, 'scale', '{"min": 1, "max": 5}')`,
+      [SCALE_BLOCK, paidBook, paidChapter],
+    );
+    await db.query(
+      `INSERT INTO workbook_block_fields (block_id, field_key, label, input_type)
+       VALUES ($1, 'value', '', 'integer')`,
+      [SCALE_BLOCK],
+    );
+  });
+
+  function insertAs(
+    userId: string,
+    values: {
+      chapterId?: string;
+      blockId?: string;
+      fieldKey?: string;
+      column?: "value_text" | "value_number" | "value_bool";
+      value?: unknown;
+    },
+  ) {
+    const column = values.column ?? "value_text";
+    return asUser(userId, () =>
+      db.query(
+        `INSERT INTO workbook_responses
+           (user_id, book_id, chapter_id, block_id, field_key, ${column})
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          userId,
+          paidBook,
+          values.chapterId ?? paidChapter,
+          values.blockId ?? PAID_BLOCK,
+          values.fieldKey ?? "answer",
+          values.value ?? "답",
+        ],
+      ),
+    );
+  }
+
+  it("구매자에게 공개 전 장의 블록과 문항은 보이지 않는다", async () => {
+    const seen = await asUser(readerA, async () => ({
+      blocks: await countRows(`SELECT 1 FROM workbook_blocks WHERE id = $1`, [
+        DRAFT_BLOCK,
+      ]),
+      fields: await countRows(
+        `SELECT 1 FROM workbook_block_fields WHERE block_id = $1`,
+        [DRAFT_BLOCK],
+      ),
+    }));
+
+    expect(seen).toEqual({ blocks: 0, fields: 0 });
+  });
+
+  it("소유자는 공개 전 장의 블록과 문항을 본다", async () => {
+    const seen = await asUser(creator, async () => ({
+      blocks: await countRows(`SELECT 1 FROM workbook_blocks WHERE id = $1`, [
+        DRAFT_BLOCK,
+      ]),
+      fields: await countRows(
+        `SELECT 1 FROM workbook_block_fields WHERE block_id = $1`,
+        [DRAFT_BLOCK],
+      ),
+    }));
+
+    expect(seen).toEqual({ blocks: 1, fields: 1 });
+  });
+
+  it("구매자는 공개된 장의 문항을 계속 본다", async () => {
+    const fields = await asUser(readerA, () =>
+      countRows(`SELECT 1 FROM workbook_block_fields WHERE block_id = $1`, [
+        PAID_BLOCK,
+      ]),
+    );
+    expect(fields).toBeGreaterThan(0);
+  });
+
+  it("공개 전 장의 블록에는 답을 쓸 수 없다", async () => {
+    await expect(
+      insertAs(readerA, { chapterId: draftChapter, blockId: DRAFT_BLOCK }),
+    ).rejects.toThrow(/row-level security/);
+  });
+
+  it("소유자는 공개 전 장의 블록에도 답을 쓴다 — 미리보기에서 확인하는 경로", async () => {
+    await insertAs(creator, { chapterId: draftChapter, blockId: DRAFT_BLOCK });
+    await db.query(`DELETE FROM workbook_responses WHERE block_id = $1`, [
+      DRAFT_BLOCK,
+    ]);
+  });
+
+  it("정의가 없는 문항에는 직접 쓸 수 없다", async () => {
+    await expect(
+      insertAs(readerA, { fieldKey: "ghost" }),
+    ).rejects.toThrow(/row-level security/);
+  });
+
+  it("블록이 속하지 않은 장의 ID를 실어 쓸 수 없다", async () => {
+    await expect(
+      insertAs(readerA, { chapterId: previewChapter, fieldKey: "answer" }),
+    ).rejects.toThrow(/row-level security/);
+  });
+
+  it("문항 타입과 다른 값 컬럼에는 쓸 수 없다", async () => {
+    await expect(
+      insertAs(readerA, { column: "value_bool", value: true }),
+    ).rejects.toThrow(/row-level security/);
+  });
+
+  it("정수 문항에 소수는 쓸 수 없고 정수는 쓴다", async () => {
+    await expect(
+      insertAs(readerA, {
+        blockId: SCALE_BLOCK,
+        fieldKey: "value",
+        column: "value_number",
+        value: 3.5,
+      }),
+    ).rejects.toThrow(/row-level security/);
+
+    await insertAs(readerA, {
+      blockId: SCALE_BLOCK,
+      fieldKey: "value",
+      column: "value_number",
+      value: 3,
+    });
+  });
+
+  it("공백뿐인 글은 직접 쓸 수 없다 — 전각 공백도 공백이다", async () => {
+    // 그대로 들어가면 집계는 "답함", 리더는 "작성 전"으로 셉니다. 판정은
+    // 리더의 String.trim과 같은 문자 집합입니다.
+    const notBlank = await db.query<{ blank: boolean }>(
+      `SELECT public.is_blank_text($1) AS blank`,
+      ["tnu 3000"],
+    );
+    expect(notBlank.rows[0].blank).toBe(false);
+    for (const blank of [" \n\t", "\u3000", "\u00a0\ufeff"]) {
+      await expect(
+        insertAs(readerA, { fieldKey: "answer", value: blank }),
+      ).rejects.toThrow(/row-level security/);
+    }
+  });
+
+  it("답을 쓴 시각을 남길 수 있다", async () => {
+    await db.query(
+      `DELETE FROM workbook_responses WHERE user_id = $1 AND block_id = $2 AND field_key = 'answer'`,
+      [readerA, SCALE_BLOCK],
+    );
+    const writtenAt = await asUser(readerA, async () => {
+      await db.query(
+        `UPDATE workbook_responses SET written_at = '2026-10-01T00:00:00Z'
+         WHERE user_id = $1 AND block_id = $2`,
+        [readerA, SCALE_BLOCK],
+      );
+      const result = await db.query<{ written_at: Date }>(
+        `SELECT written_at FROM workbook_responses WHERE user_id = $1 AND block_id = $2`,
+        [readerA, SCALE_BLOCK],
+      );
+      return result.rows[0]?.written_at;
+    });
+    expect(new Date(writtenAt!).toISOString()).toBe("2026-10-01T00:00:00.000Z");
+  });
+
+  it("직접 고쳐서 정의를 벗어나게 할 수 없다", async () => {
+    await expect(
+      asUser(readerA, () =>
+        db.query(
+          `UPDATE workbook_responses SET field_key = 'ghost'
+           WHERE user_id = $1 AND block_id = $2`,
+          [readerA, SCALE_BLOCK],
+        ),
+      ),
+    ).rejects.toThrow(/row-level security/);
+  });
+});
+
+/**
+ * 00008: 판매된 책에서 저자가 장을 지워도 그 장에 독자가 쓴 답은 남습니다.
+ * 문항을 지웠을 때 답을 남기는 것(block_id에 FK가 없는 이유)과 같은 규칙입니다.
+ */
+describe("장을 지워도 독자 답은 남는다 (00008)", () => {
+  const DOOMED_BLOCK = "aaaaaaaa-0000-0000-0000-000000000083";
+  let doomedChapter: string;
+
+  beforeAll(async () => {
+    doomedChapter = await seedChapter(paidBook, "paid-ch-doomed", "published", 5);
+    await seedBlock(DOOMED_BLOCK, paidBook, doomedChapter);
+    await asUser(readerA, () =>
+      db.query(
+        `INSERT INTO workbook_responses
+           (user_id, book_id, chapter_id, block_id, field_key, value_text)
+         VALUES ($1, $2, $3, $4, 'answer', '지워질 장에 쓴 답')`,
+        [readerA, paidBook, doomedChapter, DOOMED_BLOCK],
+      ),
+    );
+  });
+
+  it("장을 지우면 답은 남고 chapter_id만 빈다", async () => {
+    await asUser(creator, () =>
+      db.query(`DELETE FROM chapters WHERE id = $1`, [doomedChapter]),
+    );
+
+    const rows = await asUser(readerA, async () => {
+      const result = await db.query<{
+        chapter_id: string | null;
+        value_text: string;
+      }>(
+        `SELECT chapter_id, value_text FROM workbook_responses WHERE block_id = $1`,
+        [DOOMED_BLOCK],
+      );
+      return result.rows;
+    });
+
+    expect(rows).toEqual([{ chapter_id: null, value_text: "지워질 장에 쓴 답" }]);
+  });
+
+  it("그 블록이 다른 장에 다시 동기화되면 답이 새 장을 가리킨다", async () => {
+    // 잘라낸 블록을 다른 장에 붙여넣고, 그 장이 저장되기 전에 원래 장을
+    // 지운 경로입니다(WP4에서 남긴 것). 붙여넣은 장이 동기화될 때 답이 따라옵니다.
+    await asUser(creator, () =>
+      db.query(
+        `SELECT public.sync_chapter_workbook_blocks($1, $2::jsonb)`,
+        [
+          paidChapter,
+          JSON.stringify([
+            {
+              id: PAID_BLOCK,
+              block_type: "reflection",
+              order_index: 0,
+              config: {},
+              fields: [
+                { field_key: "answer", label: "무엇을 배웠나요?", input_type: "longtext", order_index: 0 },
+                { field_key: "second", label: "두 번째 질문", input_type: "longtext", order_index: 1 },
+              ],
+            },
+            {
+              id: DOOMED_BLOCK,
+              block_type: "reflection",
+              order_index: 1,
+              config: {},
+              fields: [
+                { field_key: "answer", label: "무엇을 배웠나요?", input_type: "longtext", order_index: 0 },
+              ],
+            },
+          ]),
+        ],
+      ),
+    );
+
+    const chapterId = await asUser(readerA, async () => {
+      const result = await db.query<{ chapter_id: string | null }>(
+        `SELECT chapter_id FROM workbook_responses WHERE block_id = $1`,
+        [DOOMED_BLOCK],
+      );
+      return result.rows[0]?.chapter_id;
+    });
+
+    expect(chapterId).toBe(paidChapter);
   });
 });

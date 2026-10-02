@@ -1,3 +1,4 @@
+import { isInScale, type ScaleRange } from "./block-config";
 import type {
   WorkbookAnswer,
   WorkbookBlock,
@@ -114,11 +115,25 @@ export function restoreChapterAnswers(
  * 둘 중 어느 쪽이 맞는지 아무도 모르게 됩니다.
  */
 export function isAnswered(response: WorkbookResponse): boolean {
-  return (
-    response.value_text !== null ||
-    response.value_number !== null ||
-    response.value_bool === true
-  );
+  return isAnsweredValue(answerFromResponse(response));
+}
+
+/**
+ * 값 하나를 "답했다"로 셀 것인가. {@link isAnswered}의 값 단위 판정이고,
+ * 리더 블록의 "작성 전/작성함"도 이것을 씁니다.
+ *
+ * 공백뿐인 글은 답이 아닙니다. 서버가 그런 답을 NULL로 저장하므로
+ * (`normalizeAnswer`) DB의 `answered_count`와도 같은 결과가 됩니다.
+ */
+export function isAnsweredValue(value: WorkbookAnswer): boolean {
+  if (typeof value === "string") return isBlankText(value) === false;
+  if (typeof value === "number") return true;
+  return value === true;
+}
+
+/** 공백뿐인 글. 미응답으로 봅니다. */
+export function isBlankText(value: string): boolean {
+  return value.trim() === "";
 }
 
 /** 독자 한 명이 책 한 권에서 얼마나 채웠는지. */
@@ -184,7 +199,10 @@ export function orphanedResponses(
  */
 export function toResponseRow(
   blockId: string,
-  field: Pick<WorkbookBlockField, "field_key" | "input_type">,
+  field: Pick<WorkbookBlockField, "field_key" | "input_type"> & {
+    /** 정수 문항이 받을 수 있는 범위(척도의 min/max). 없으면 범위를 보지 않습니다. */
+    range?: ScaleRange;
+  },
   answer: WorkbookAnswer,
 ): WorkbookResponse {
   const row: WorkbookResponse = {
@@ -209,9 +227,16 @@ export function toResponseRow(
       return row;
 
     case "integer":
-      if (typeof answer !== "number" || !Number.isFinite(answer)) {
+      // 정수가 아니거나 범위 밖이면 리더에 맞는 칸이 없습니다. 저장하면
+      // answered_count에는 잡히는데 독자 화면에는 미응답으로 보입니다.
+      if (typeof answer !== "number" || !Number.isInteger(answer)) {
         throw new TypeError(
-          `field "${field.field_key}" (integer) expects a finite number, got ${typeof answer}`,
+          `field "${field.field_key}" (integer) expects an integer, got ${String(answer)}`,
+        );
+      }
+      if (field.range && !isInScale(answer, field.range)) {
+        throw new RangeError(
+          `field "${field.field_key}" expects ${field.range.min}..${field.range.max}, got ${answer}`,
         );
       }
       row.value_number = answer;

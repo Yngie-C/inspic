@@ -184,4 +184,37 @@ describe("parseChecklistItems", () => {
     expect(parseChecklistItems(undefined)).toEqual([]);
     expect(parseChecklistItems('{"id":"a"}')).toEqual([]);
   });
+
+  it("겹친 id는 앞의 것만 그린다 — 두 항목이 답 하나를 나눠 갖지 않게", () => {
+    // 하나를 누르면 둘 다 켜지고 "2개 중 2개"가 됐습니다(3-P1-13).
+    const items = parseChecklistItems(
+      JSON.stringify([
+        { id: "a", text: "처음" },
+        { id: "a", text: "복사본" },
+        { id: "b", text: "다음" },
+      ]),
+    );
+    expect(items).toEqual([
+      { id: "a", text: "처음" },
+      { id: "b", text: "다음" },
+    ]);
+  });
+
+  it("문구가 문자열이 아니면 빈 문구로 둔다 — 리더가 렌더 중에 던지지 않게", () => {
+    expect(
+      parseChecklistItems(JSON.stringify([{ id: "a", text: { evil: 1 } }])),
+    ).toEqual([{ id: "a", text: "" }]);
+  });
+
+  it("추출기는 겹친 id를 그대로 넘긴다 — 검수가 막을 수 있게", () => {
+    const [block] = extractWorkbookBlocks(
+      `<section data-template-type="checklist" data-node-id="11111111-1111-4111-8111-111111111111" data-items='${JSON.stringify(
+        [
+          { id: "a", text: "처음" },
+          { id: "a", text: "복사본" },
+        ],
+      )}'></section>`,
+    );
+    expect(block.fields.map((field) => field.field_key)).toEqual(["a", "a"]);
+  });
 });

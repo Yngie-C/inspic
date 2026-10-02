@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { BlockAnswers } from "@/lib/workbook/response-cache";
 import { describeSave, type BlockStatus } from "@/lib/workbook/block-status";
+import { isAnsweredValue } from "@/lib/workbook/responses";
 import type { useBlockResponses } from "../WorkbookResponsesProvider";
 
 export { useBlockResponses as useBlockAnswers } from "../WorkbookResponsesProvider";
@@ -36,11 +37,12 @@ export function boolAnswer(answers: BlockAnswers, fieldKey: string): boolean {
   return answers[fieldKey] === true;
 }
 
-/** 값이 하나라도 채워졌는가. 빈 문자열·false·null은 답이 아닙니다. */
+/**
+ * 값이 하나라도 채워졌는가. "답했다"의 판정은 `isAnsweredValue` 하나에서
+ * 옵니다 — 독자의 진행률과 저자가 보는 참여율이 같은 기준이어야 합니다.
+ */
 export function hasAnyAnswer(answers: BlockAnswers): boolean {
-  return Object.values(answers).some(
-    (value) => value !== null && value !== false && value !== "",
-  );
+  return Object.values(answers).some(isAnsweredValue);
 }
 
 /**
@@ -63,7 +65,7 @@ export function useSaveStatus(
     hasAnswer: hasAnyAnswer(block.answers),
     pending,
     savedAt,
-    failed: block.saveState === "error",
+    failed: block.save.failure !== null,
     // 저장 직후에는 now가 savedAt보다 이를 수 있습니다. 그때는 "방금"입니다.
     now: Math.max(now, savedAt ?? 0),
   });

@@ -14,7 +14,8 @@ import type { OrphanedTextAnswer } from "@/lib/pdf-generator";
  */
 
 export interface StoredResponseRow {
-  chapter_id: string;
+  /** 장이 지워졌으면 null. 그 답은 정의가 사라진 답(고아)으로 갑니다. */
+  chapter_id: string | null;
   block_id: string;
   field_key: string;
   value_text: string | null;

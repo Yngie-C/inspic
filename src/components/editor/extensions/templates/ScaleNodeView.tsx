@@ -5,14 +5,16 @@ import {
   scaleGridClass,
   scaleGridStyle,
 } from "@/components/ui/workbook-block";
+import { scaleRange, scaleSteps } from "@/lib/workbook/block-config";
 
 export function ScaleNodeView({ node, updateAttributes }: NodeViewProps) {
-  const min = parseInt(node.attrs.min as string, 10) || 1;
-  const max = parseInt(node.attrs.max as string, 10) || 10;
+  // 리더·추출기·저장 라우트와 같은 해석입니다. `|| 1`은 0을 1로 바꿨고,
+  // 범위를 검사하지 않아 큰 max면 에디터가 멈췄습니다(코드 리뷰 4-P1-7).
+  const range = scaleRange(node.attrs.min, node.attrs.max);
   const labelMin = (node.attrs.labelMin as string) ?? "낮음";
   const labelMax = (node.attrs.labelMax as string) ?? "높음";
 
-  const steps = Array.from({ length: max - min + 1 }, (_, i) => min + i);
+  const steps = scaleSteps(range);
   const labelInput =
     "w-32 rounded-sm border border-line bg-surface px-1.5 py-0.5 text-caption text-primary placeholder:text-muted hover:border-line-strong";
 

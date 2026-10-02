@@ -41,6 +41,7 @@ export function createFakeSupabase(
       "eq",
       "in",
       "order",
+      "range",
     ]) {
       builder[method] = (...args: unknown[]) => {
         query.ops.push(method);

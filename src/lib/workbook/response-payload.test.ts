@@ -44,16 +44,61 @@ describe("parseResponseWrites", () => {
     expect(parsed).toEqual({
       ok: true,
       writes: [{ block_id: BLOCK, field_key: "answer", value: "다 썼어요" }],
+      rejected: [],
     });
   });
 
-  it("UUID가 아닌 block_id를 막는다", () => {
+  it("UUID가 아닌 block_id는 그 항목만 거절한다", () => {
     // 저장해도 workbook_responses.block_id(uuid)에 들어가지 못합니다.
     const parsed = parseResponseWrites({
       answers: [{ block_id: "block-1", field_key: "answer", value: "x" }],
     });
 
-    expect(parsed.ok).toBe(false);
+    expect(parsed).toEqual({
+      ok: true,
+      writes: [],
+      rejected: [{ block_id: "block-1", field_key: "answer", reason: "invalid_key" }],
+    });
+  });
+
+  it("잘못된 항목이 섞여도 나머지는 통과시킨다 — 400은 본문이 깨졌을 때만", () => {
+    // 예전에는 항목 하나 때문에 배치가 통째로 400이었고, 리더가 실패한
+    // 배치를 큐에 남겨 다시 보내 그 세션의 저장이 전부 막혔습니다(3-P0-1).
+    const parsed = parseResponseWrites({
+      answers: [
+        { block_id: "", field_key: "answer", value: "ID 없는 블록" },
+        { block_id: BLOCK, field_key: "k".repeat(65), value: true },
+        { block_id: BLOCK, field_key: "answer", value: "가".repeat(MAX_TEXT_LENGTH + 1) },
+        "항목이 아님",
+        { block_id: OTHER_BLOCK, field_key: "answer", value: "멀쩡한 답" },
+      ],
+    });
+
+    expect(parsed).toEqual({
+      ok: true,
+      writes: [{ block_id: OTHER_BLOCK, field_key: "answer", value: "멀쩡한 답" }],
+      rejected: [
+        { block_id: "", field_key: "answer", reason: "invalid_key" },
+        { block_id: BLOCK, field_key: "k".repeat(65), reason: "invalid_key" },
+        { block_id: BLOCK, field_key: "answer", reason: "invalid_value" },
+        { block_id: "", field_key: "", reason: "invalid_key" },
+      ],
+    });
+  });
+
+  it("공백뿐인 글도 미응답(null)으로 본다", () => {
+    // 줄바꿈 하나가 value_text로 저장되면 참여율에 "답함"으로 잡힙니다(3-P1-2).
+    const parsed = parseResponseWrites({
+      answers: [
+        { block_id: BLOCK, field_key: "answer", value: " \n\t\u3000" },
+        { block_id: OTHER_BLOCK, field_key: "answer", value: "  앞뒤 공백은 그대로  " },
+      ],
+    });
+
+    expect(parsed).toMatchObject({
+      ok: true,
+      writes: [{ value: null }, { value: "  앞뒤 공백은 그대로  " }],
+    });
   });
 
   it("빈 문자열은 미응답(null)으로 본다", () => {
@@ -82,7 +127,11 @@ describe("parseResponseWrites", () => {
       ],
     });
 
-    expect(parsed.ok).toBe(false);
+    expect(parsed).toMatchObject({
+      ok: true,
+      writes: [],
+      rejected: [{ reason: "invalid_value" }],
+    });
   });
 
   it("배치 안에 같은 문항이 두 번 오면 마지막 값만 남긴다", () => {
@@ -98,6 +147,7 @@ describe("parseResponseWrites", () => {
     expect(parsed).toEqual({
       ok: true,
       writes: [{ block_id: BLOCK, field_key: "answer", value: "고침" }],
+      rejected: [],
     });
   });
 
@@ -115,17 +165,17 @@ describe("parseResponseWrites", () => {
     ).toBe(false);
   });
 
-  it("객체·배열 같은 값은 막는다", () => {
+  it("객체·배열 같은 값은 그 항목만 거절한다", () => {
     expect(
       parseResponseWrites({
         answers: [{ block_id: BLOCK, field_key: "a", value: { nested: 1 } }],
-      }).ok,
-    ).toBe(false);
+      }),
+    ).toMatchObject({ ok: true, writes: [], rejected: [{ reason: "invalid_value" }] });
     expect(
       parseResponseWrites({
         answers: [{ block_id: BLOCK, field_key: "a", value: Number.NaN }],
-      }).ok,
-    ).toBe(false);
+      }),
+    ).toMatchObject({ ok: true, writes: [], rejected: [{ reason: "invalid_value" }] });
   });
 });
 
@@ -149,6 +199,7 @@ describe("buildResponseRows", () => {
         value_text: "답",
         value_number: null,
         value_bool: null,
+        written_at: expect.any(String),
       },
     ]);
   });
@@ -221,6 +272,53 @@ describe("buildResponseRows", () => {
         reason: "type_mismatch",
         expected: "integer",
       },
+    ]);
+  });
+
+  it("척도는 정수이면서 범위 안이어야 한다", () => {
+    // 3.5나 99999를 저장하면 answered_count에는 잡히는데 리더에는 맞는
+    // 칸이 없어 미응답으로 보입니다(3-P1-1).
+    const scale = definition({
+      field_key: "value",
+      input_type: "integer",
+      range: { min: 1, max: 5 },
+    });
+    const { rows, rejected } = buildResponseRows(
+      USER,
+      [
+        { block_id: BLOCK, field_key: "value", value: 3.5 },
+        { block_id: OTHER_BLOCK, field_key: "value", value: 6 },
+        { block_id: "66666666-6666-4666-8666-666666666666", field_key: "value", value: 5 },
+      ],
+      [
+        scale,
+        { ...scale, block_id: OTHER_BLOCK },
+        { ...scale, block_id: "66666666-6666-4666-8666-666666666666" },
+      ],
+    );
+
+    expect(rows.map((row) => row.value_number)).toEqual([5]);
+    expect(rejected.map((write) => write.reason)).toEqual([
+      "type_mismatch",
+      "type_mismatch",
+    ]);
+  });
+
+  it("쓴 시각을 남기되 서버 시각보다 미래면 자른다", () => {
+    // 시계가 앞선 기기의 답이 늘 이기지 않게 합니다.
+    const now = Date.parse("2026-10-02T00:00:00Z");
+    const { rows } = buildResponseRows(
+      USER,
+      [
+        { block_id: BLOCK, field_key: "answer", value: "과거", written_at: now - 1000 },
+        { block_id: OTHER_BLOCK, field_key: "answer", value: "미래", written_at: now + 86_400_000 },
+      ],
+      [definition(), definition({ block_id: OTHER_BLOCK })],
+      now,
+    );
+    expect(rows.map((row) => row.written_at)).toEqual([
+      new Date(now - 1000).toISOString(),
+      new Date(now).toISOString(),
     ]);
   });
 

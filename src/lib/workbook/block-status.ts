@@ -19,7 +19,12 @@ export interface SaveStatusInput {
   pending: boolean;
   /** 이번 세션에서 마지막으로 저장에 성공한 시각(ms). */
   savedAt: number | null;
-  /** 책 전체 저장 상태가 오류다. */
+  /**
+   * 이 블록의 저장이 실패했다(연결 오류든 서버 거절이든).
+   *
+   * 책 전체 상태로 판정하지 마세요. 그러면 실패한 적 없는 블록도 입력할
+   * 때마다 디바운스 동안 "저장 안 됨"이 뜹니다(코드 리뷰 3-P1-5).
+   */
   failed: boolean;
   now: number;
 }
@@ -33,7 +38,7 @@ export function describeSave({
   failed,
   now,
 }: SaveStatusInput): BlockStatus {
-  if (pending && failed) return { text: "저장 안 됨", tone: "danger" };
+  if (failed) return { text: "저장 안 됨", tone: "danger" };
   if (pending) return { text: "저장 중", tone: "muted" };
   if (savedAt !== null) {
     return { text: `저장됨 · ${elapsed(now - savedAt)}`, tone: "ok" };
@@ -60,8 +65,20 @@ export function describeChecklist(total: number, done: number): BlockStatus {
   };
 }
 
-/** 척도: 고른 값을 그대로 말합니다. */
-export function describeScale(selected: number | null): BlockStatus {
+/**
+ * 척도: 고른 값을 그대로 말합니다.
+ *
+ * 저자가 범위를 줄여 저장된 답이 칸 밖에 남으면(`outOfRange`) 그 사실을
+ * 말합니다. "작성 전"이라 하면 진행률·참여율은 그 답을 "답함"으로 세는데
+ * 블록만 미응답으로 보여 판정이 갈립니다.
+ */
+export function describeScale(
+  selected: number | null,
+  outOfRange: number | null = null,
+): BlockStatus {
+  if (selected === null && outOfRange !== null) {
+    return { text: `예전 답 ${outOfRange} · 다시 골라 주세요`, tone: "muted" };
+  }
   return selected === null
     ? { text: "작성 전", tone: "muted" }
     : { text: `${selected} 선택됨`, tone: "muted" };
@@ -81,7 +98,7 @@ export function withSaveState(
     savedAt,
   }: { pending: boolean; failed: boolean; savedAt: number | null },
 ): BlockStatus {
-  if (pending && failed) return { text: "저장 안 됨", tone: "danger" };
+  if (failed) return { text: "저장 안 됨", tone: "danger" };
   if (!pending && savedAt !== null) {
     return { ...progress, text: `${progress.text} · 저장됨` };
   }

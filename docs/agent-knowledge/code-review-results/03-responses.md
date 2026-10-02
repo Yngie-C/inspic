@@ -51,6 +51,7 @@
   4. 클라이언트: 4xx(재시도해도 같은 결과)를 받으면 큐에서 빼고 블록을 실패로 표시. 200건 초과는 나눠 보냄.
   5. 테스트: `response-payload` 단위 테스트에 섞인 배치, Provider에 4xx 후 다음 저장 성공.
 
+- 2026-10-02 WP5: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP5).
 ### P0-2. 문항 정의 조회 에러를 무시해 답을 영구히 버림
 - 위치: `src/app/api/books/[bookId]/responses/route.ts:142` `loadFieldDefinitions`
 - 무엇: `workbook_block_fields` SELECT의 `error`를 보지 않아요. 잠깐 DB가 실패하면 `fields = null` → 정의 0개 → 모든 쓰기가 `unknown_field`로 담긴 **200** 응답. 클라이언트는 성공으로 보고 큐에서 지워요(`Provider:186-191`). 재시도할 것이 없어 답은 localStorage에만 남고, 배너는 "저자가 수정 중일 수 있어요"라고 엉뚱하게 안내해요.
@@ -63,6 +64,7 @@
 - 시나리오: 'ab' 입력 → PUT#1 느림 → 'abc' 입력 → 600ms 뒤 PUT#2가 먼저 커밋되고 큐에서 X를 지움 → PUT#1이 늦게 커밋돼 DB가 'ab'. 화면은 'abc'와 "저장됨". 다른 기기·새로고침에서 'ab'. 반대로 PUT#1이 PUT#2 성공 뒤 실패하면 다 저장됐는데 상태가 'error'로 남아요.
 - 고칠 방향: 클라이언트에서 flush를 직렬화(진행 중이면 끝난 뒤 한 번 더). 서버 쪽 버전·시퀀스 검사는 직렬화로 부족할 때만.
 
+- 2026-10-02 WP5: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP5).
 ### P0-4. 캐시에만 있던 답이 서버로 가지 않음
 - 위치: `WorkbookResponsesProvider.tsx:154` (hydrate)
 - 무엇: 로드할 때 캐시 값을 화면에 병합하지만 `pendingRef`에 넣지 않아요. 주석은 "아직 보내지 못한 답"이라고 하지만 보내는 곳이 없어요.
@@ -70,48 +72,50 @@
 - 시나리오 2: 저장 실패 후 새로고침 → 같은 결과. 다른 기기·내보내기에서 그 답이 없어요.
 - 고칠 방향: 캐시에 "미전송" 표시를 두고, 서버 값과 다르면서 미전송인 것만 큐에 넣음. "서버 값이 이긴다"(AGENTS.md)와 충돌하지 않게 — 서버가 더 최신이면 서버를 따름. 기준을 정하려면 캐시 항목에 쓴 시각이 필요해요.
 
+- 2026-10-02 WP5: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP5).
 ### P0-5. 로딩 중에 입력한 값이 화면에서 지워짐
 - 위치: `WorkbookResponsesProvider.tsx:162`
 - 무엇: hydrate가 await 전에 찍은 캐시 스냅샷으로 `answersRef`와 상태를 통째로 바꿔요. 그 사이 `setAnswer`로 들어온 값이 화면에서 사라지지만 큐에는 남아 화면과 DB가 어긋나요. 다음 입력이 옛 값 위에서 이어져 방금 쓴 것을 덮어요.
 - 고칠 방향: 로드 결과를 병합할 때 `pendingRef`에 있는 키는 현재 값을 유지.
 
+- 2026-10-02 WP5: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP5).
 ## P1 — 저장 신뢰성·정합성·지표
 
 ### 저장과 상태 표시
 
-- **P1-1. `integer` 값을 정수·범위로 검사하지 않음.** `src/lib/workbook/responses.ts:212` `toResponseRow`가 `Number.isFinite`만 봐요. `3.5`·`99999`가 저장되고 `answered_count`에 잡히지만 리더는 맞는 버튼이 없어 미응답처럼 그려요. → `Number.isInteger` + 블록 config의 min/max.
-- **P1-2. 공백만 있는 답이 "답함"으로 셈.** `response-payload.ts:128` `normalizeAnswer`가 정확히 `""`만 null로 바꿔요. `"\n"`이 `value_text`로 저장돼 참여율이 부풀어요. → trim 후 빈 값이면 null. `isAnswered()`와 `workbook_response_stats()`도 같은 기준인지 함께 확인.
-- **P1-3. GET이 1000행에서 잘림.** `route.ts:36`가 정렬·페이지 없이 전부 SELECT해요. PostgREST 기본 `max_rows`(1000)에 걸리면 긴 워크북을 새 기기에서 열 때 일부 답이 비어 보여요. → 페이지로 나눠 읽거나 범위 지정.
+- **P1-1. `integer` 값을 정수·범위로 검사하지 않음.** `src/lib/workbook/responses.ts:212` `toResponseRow`가 `Number.isFinite`만 봐요. `3.5`·`99999`가 저장되고 `answered_count`에 잡히지만 리더는 맞는 버튼이 없어 미응답처럼 그려요. → `Number.isInteger` + 블록 config의 min/max. 2026-10-02 WP5: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP5).
+- **P1-2. 공백만 있는 답이 "답함"으로 셈.** `response-payload.ts:128` `normalizeAnswer`가 정확히 `""`만 null로 바꿔요. `"\n"`이 `value_text`로 저장돼 참여율이 부풀어요. → trim 후 빈 값이면 null. `isAnswered()`와 `workbook_response_stats()`도 같은 기준인지 함께 확인. 2026-10-02 WP5: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP5).
+- **P1-3. GET이 1000행에서 잘림.** `route.ts:36`가 정렬·페이지 없이 전부 SELECT해요. PostgREST 기본 `max_rows`(1000)에 걸리면 긴 워크북을 새 기기에서 열 때 일부 답이 비어 보여요. → 페이지로 나눠 읽거나 범위 지정. 2026-10-02 WP5: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP5).
 - **P1-4. 페이지를 떠날 때 마지막 배치가 빠짐.**
   - `response-client.ts:42`, `Provider:270`: keepalive 본문은 브라우저 한도 64KB인데, 답 하나 상한이 20000자라 긴 한국어 답 두 개면 넘어요. 거절되면 캐시에만 남고 P0-4 때문에 다시 보내지도 않아요. → 64KB를 넘으면 나눠 보내거나 keepalive 없이 `sendBeacon`/일반 fetch.
-  - `Provider:273`: `pagehide`만 들어요. 모바일에서 앱 전환은 `visibilitychange`(hidden)만 오는 경우가 많아요. → 둘 다 듣기.
+  - `Provider:273`: `pagehide`만 들어요. 모바일에서 앱 전환은 `visibilitychange`(hidden)만 오는 경우가 많아요. → 둘 다 듣기. 2026-10-02 WP5: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP5).
 - **P1-5. 실패 표시와 재시도가 맞지 않음.**
   - `Provider:289` `retry()`는 `flush()`만 불러 큐가 비면 아무 일도 안 해요. 로드 실패 뒤에는 다시 불러오지 않아 빨간 배지가 남아요.
   - `useBlockAnswers.ts:66`: rejected 된 쓰기는 큐에서 지워졌는데 블록에는 "저장 안 됨"과 재시도가 뜨고, 재시도는 보낼 것이 없어요. 다른 저장이 성공하면 그 블록은 "저장 중"으로 영원히 머물러요.
   - `Provider:218`: 뒤이은 성공이 `saveError`를 지우고 'saved'로 바꿔, 거절된 블록 A가 저장된 것처럼 보여요.
   - `ChecklistReader.tsx:27`, `ScaleReader.tsx:34`: 블록의 `failed`를 책 전체 `saveState === "error"`로 판정해, 실패한 적 없는 블록도 입력할 때마다 디바운스 동안 "저장 안 됨"이 떠요.
-  - → 실패를 블록 단위로 들고 있고, rejected는 "재시도 불가(저자 수정 대기)"로 따로 표시. 로드 실패의 재시도는 다시 불러오기.
-- **P1-6. 계정을 바꾸면 이전 사용자의 답이 새 계정으로 저장될 수 있음.** `Provider:276` unmount cleanup이 이전 viewer의 큐를 flush하는데, 그때 쿠키는 이미 새 세션이에요. 로그아웃이면 401로 버려지고, 같은 책에 접근 가능한 B로 바뀌었으면 A의 답이 B의 행이 돼요. → 큐에 viewerId를 붙이고 세션이 다르면 보내지 않고 A의 캐시에 남김.
+  - → 실패를 블록 단위로 들고 있고, rejected는 "재시도 불가(저자 수정 대기)"로 따로 표시. 로드 실패의 재시도는 다시 불러오기. 2026-10-02 WP5: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP5).
+- **P1-6. 계정을 바꾸면 이전 사용자의 답이 새 계정으로 저장될 수 있음.** `Provider:276` unmount cleanup이 이전 viewer의 큐를 flush하는데, 그때 쿠키는 이미 새 세션이에요. 로그아웃이면 401로 버려지고, 같은 책에 접근 가능한 B로 바뀌었으면 A의 답이 B의 행이 돼요. → 큐에 viewerId를 붙이고 세션이 다르면 보내지 않고 A의 캐시에 남김. 2026-10-02 WP5: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP5).
 
 ### 서버 검증과 경계
 
-- **P1-7. `bookId`를 UUID로 검사하지 않음.** `route.ts:33`. GET은 Postgres 에러 원문을 500으로 내보내고, PUT은 "구매를 확인하세요" 403을 줘요. → 400/404.
-- **P1-8. draft 챕터 블록에 응답을 쓸 수 있음.** `route.ts:108` 블록 조회가 `book_id`만 봐요. 2단계 P1-5와 함께 챕터가 published인지 확인.
+- **P1-7. `bookId`를 UUID로 검사하지 않음.** `route.ts:33`. GET은 Postgres 에러 원문을 500으로 내보내고, PUT은 "구매를 확인하세요" 403을 줘요. → 400/404. 2026-10-02 WP5: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP5).
+- **P1-8. draft 챕터 블록에 응답을 쓸 수 있음.** `route.ts:108` 블록 조회가 `book_id`만 봐요. 2단계 P1-5와 함께 챕터가 published인지 확인. 2026-10-02 WP5: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP5).
 - **P1-9. upsert 충돌 키에 `book_id`가 없음.** `route.ts:126` `(user_id, block_id, field_key)`. 동기화 RPC가 블록을 다른 책으로 옮기면(2단계 P1-3) 새 책에서의 답이 옛 책의 답을 덮고 `book_id`를 바꿔요. 2단계 P1-3을 고치면(덮지 않고 충돌 보고) 대부분 사라져요. 2026-10-02 WP4: **해소** — 동기화가 블록을 다른 책으로 옮기지 않아 충돌 키를 유지([수정 계획](../code-review-fix-plan.md) WP4).
 
 ### 리더 템플릿 입력 경계
 
-- **P1-10. `TEMPLATE_REGISTRY`가 프로토타입 키를 돌려줌.** `TemplateRenderer.tsx:31`, `CalloutReader.tsx:28`. sanitize가 `data-*`를 모두 통과시켜 `data-template-type="hasOwnProperty"`가 Object 내장 함수를 컴포넌트로 렌더하고 챕터 화면 전체가 깨져요. → `Object.hasOwn` 또는 `Map`.
-- **P1-11. `ScaleReader`의 min/max를 검증하지 않음.** `ScaleReader.tsx:24`. `NaN`이면 버튼 없음, `0`이면 에디터(1..10)와 리더(0..10)가 다름, `10000000`이면 렌더 중 탭이 멈춤, min>max면 응답 불가. extract-blocks의 `parseIntOr`와 해석을 한 함수로 맞추세요.
-- **P1-12. 범위 밖 저장값이면 선택된 버튼 없이 "N 선택됨".** `ScaleReader.tsx:31`. 저자가 max를 줄인 뒤 생겨요. 해제할 방법도 없어요.
-- **P1-13. `parseChecklistItems`가 text 타입과 id 중복을 보지 않음.** `ChecklistReader.tsx:21`. text가 객체면 렌더 크래시, id가 겹치면 두 항목이 한 답을 공유하고 "2개 중 2개".
-- **P1-14. 높이 자동 조절이 값이 바뀔 때만 돌고 `overflow-hidden`.** `ReflectionReader.tsx:33`, `SmartGoalReader.tsx:57`. 창을 좁히거나 폰을 돌리면 글 아랫부분이 잘려 보이고 스크롤도 안 돼요. → `ResizeObserver` 또는 `field-sizing: content`.
-- **P1-15. `hasAnyAnswer`가 "답했다" 판정을 따로 구현.** `useBlockAnswers.ts:40`. AGENTS.md "'답했다'의 판정은 한 곳에서 옵니다" 위반. 값 단위 판정을 `responses.ts`에 두고 같이 쓰세요.
+- **P1-10. `TEMPLATE_REGISTRY`가 프로토타입 키를 돌려줌.** `TemplateRenderer.tsx:31`, `CalloutReader.tsx:28`. sanitize가 `data-*`를 모두 통과시켜 `data-template-type="hasOwnProperty"`가 Object 내장 함수를 컴포넌트로 렌더하고 챕터 화면 전체가 깨져요. → `Object.hasOwn` 또는 `Map`. 2026-10-02 WP5: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP5).
+- **P1-11. `ScaleReader`의 min/max를 검증하지 않음.** `ScaleReader.tsx:24`. `NaN`이면 버튼 없음, `0`이면 에디터(1..10)와 리더(0..10)가 다름, `10000000`이면 렌더 중 탭이 멈춤, min>max면 응답 불가. extract-blocks의 `parseIntOr`와 해석을 한 함수로 맞추세요. 2026-10-02 WP5: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP5).
+- **P1-12. 범위 밖 저장값이면 선택된 버튼 없이 "N 선택됨".** `ScaleReader.tsx:31`. 저자가 max를 줄인 뒤 생겨요. 해제할 방법도 없어요. 2026-10-02 WP5: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP5).
+- **P1-13. `parseChecklistItems`가 text 타입과 id 중복을 보지 않음.** `ChecklistReader.tsx:21`. text가 객체면 렌더 크래시, id가 겹치면 두 항목이 한 답을 공유하고 "2개 중 2개". 2026-10-02 WP5: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP5).
+- **P1-14. 높이 자동 조절이 값이 바뀔 때만 돌고 `overflow-hidden`.** `ReflectionReader.tsx:33`, `SmartGoalReader.tsx:57`. 창을 좁히거나 폰을 돌리면 글 아랫부분이 잘려 보이고 스크롤도 안 돼요. → `ResizeObserver` 또는 `field-sizing: content`. 2026-10-02 WP5: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP5).
+- **P1-15. `hasAnyAnswer`가 "답했다" 판정을 따로 구현.** `useBlockAnswers.ts:40`. AGENTS.md "'답했다'의 판정은 한 곳에서 옵니다" 위반. 값 단위 판정을 `responses.ts`에 두고 같이 쓰세요. 2026-10-02 WP5: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP5).
 
 ### 블록 정의·지표·내보내기
 
 - **P1-16. 체크리스트 항목 id 길이를 검사하지 않아 챕터 전체 동기화가 실패.** `extract-blocks.ts:134`. 65자 이상 id 하나가 `sync_chapter_workbook_blocks`의 CHECK에 걸려 트랜잭션 전체가 롤백돼요. `unstorableBlocks`는 block id만 봐서 원인이 드러나지 않아요. 4단계(저작 측)와 함께. 2026-10-02 WP4: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP4).
-- **P1-17. 블록이 챕터를 옮기면 참여 수가 덮임.** `engagement.ts:75`. `workbook_response_stats()`가 `chapter_id`까지 GROUP BY(`00004`)하는데, 동기화 RPC는 응답 행의 `chapter_id`를 바꾸지 않아요. 같은 `(block_id, field_key)`가 두 행으로 오고 `Map.set`이 하나를 버려요. → 합산하거나 stats에서 `chapter_id`를 빼고 묶기.
+- **P1-17. 블록이 챕터를 옮기면 참여 수가 덮임.** `engagement.ts:75`. `workbook_response_stats()`가 `chapter_id`까지 GROUP BY(`00004`)하는데, 동기화 RPC는 응답 행의 `chapter_id`를 바꾸지 않아요. 같은 `(block_id, field_key)`가 두 행으로 오고 `Map.set`이 하나를 버려요. → 합산하거나 stats에서 `chapter_id`를 빼고 묶기. 2026-10-02 WP5: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP5).
 - **P1-18. `engaged_readers`·`answered_readers`를 최댓값으로 셈.** `engagement.ts:114`. A는 블록 1, B는 블록 2에만 답하면 2가 아니라 1이에요. 체크리스트 블록 단위도 같아요. → 책·블록 단위 DISTINCT user 수를 SQL에서 받기(소유자 제외 규칙 유지).
 - **P1-19. 비공개로 내린 챕터의 답이 내보내기에서 고아로 섞임.** `export-answers.ts:62` `splitAnswers`. `loadExportSource`는 published 챕터만 넘겨서, draft로 돌린 챕터의 자유서술 답이 "저자가 이후 수정한 문항의 답"으로 실려요. 6단계(내보내기)와 함께.
 - **P1-20. 죽은 export와 그 안의 결함.** `responses.ts:53` `restoreBlockAnswers`, `restoreChapterAnswers`, `orphanedResponses`, `buildAnswerMap`, `toResponseRows`, `response-cache.ts` `clearResponseCache`는 테스트 밖에서 쓰는 곳이 없어요. AGENTS.md는 "복원은 `restoreBlockAnswers()`를 쓰세요"라고 하지만 실제 경로는 `groupAnswersByBlock`·`splitAnswers`예요. `toResponseRows`는 `in`이 프로토타입까지 봐서 id가 `constructor`면 던지고, `clearResponseCache`는 try/catch가 없어요. → 지우고 AGENTS.md 문구를 실제 경로로 고치기.

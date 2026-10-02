@@ -38,10 +38,12 @@ describe("describeSave", () => {
     ).toEqual({ text: "저장 안 됨", tone: "danger" });
   });
 
-  it("이 블록은 다 보냈으면 다른 블록의 실패와 무관하다", () => {
+  it("서버가 거절해 큐에서 빠진 블록도 저장 안 됨이다 — 저장됨이 아니다", () => {
+    // 실패는 블록 단위로 옵니다. 거절된 답은 다시 보낼 것이 없어 pending이
+    // false지만, 그렇다고 저장된 것은 아닙니다.
     expect(
       describeSave(input({ hasAnswer: true, savedAt: NOW, failed: true })),
-    ).toEqual({ text: "저장됨 · 방금", tone: "ok" });
+    ).toEqual({ text: "저장 안 됨", tone: "danger" });
   });
 
   it("저장 시각을 분·시간으로 말한다", () => {
@@ -88,10 +90,16 @@ describe("withSaveState", () => {
     ).toEqual({ text: "저장 안 됨", tone: "danger" });
   });
 
-  it("실패 상태여도 이 블록에 보낼 응답이 없으면 실패라 하지 않는다", () => {
+  it("이 블록이 실패하지 않았으면 진행 문구를 그대로 둔다", () => {
+    expect(
+      withSaveState(progress, { pending: true, failed: false, savedAt: null }),
+    ).toBe(progress);
+  });
+
+  it("거절돼 큐에서 빠진 블록도 실패를 말한다", () => {
     expect(
       withSaveState(progress, { pending: false, failed: true, savedAt: null }),
-    ).toBe(progress);
+    ).toEqual({ text: "저장 안 됨", tone: "danger" });
   });
 
   it("이번 세션에서 저장에 성공했으면 진행 문구 뒤에 저장됨을 붙인다", () => {

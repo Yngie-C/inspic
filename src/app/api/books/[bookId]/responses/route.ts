@@ -8,7 +8,9 @@ import {
   writeBlockIds,
   type StoredFieldDefinition,
 } from "@/lib/workbook/response-payload";
-import type { WorkbookResponse } from "@/lib/workbook/types";
+import type { LoadedResponse } from "@/lib/workbook/response-client";
+import { scaleRange } from "@/lib/workbook/block-config";
+import { isUuid } from "@/lib/template-node-id";
 
 /**
  * 독자 응답의 읽기·쓰기 경로.
@@ -25,36 +27,64 @@ import type { WorkbookResponse } from "@/lib/workbook/types";
 
 type Params = { params: Promise<{ bookId: string }> };
 
+/**
+ * 한 번에 읽는 행 수. PostgREST의 기본 `max_rows`(1000)와 같게 둡니다.
+ * 범위를 주지 않고 읽으면 그 수에서 조용히 잘려, 긴 워크북을 새 기기에서
+ * 열 때 뒤쪽 답이 비어 보였습니다(코드 리뷰 3-P1-3).
+ */
+const PAGE_SIZE = 1000;
+
 /** 내가 이 책에 쓴 응답 전체. 리더가 열 때 한 번 부릅니다. */
 export async function GET(_request: NextRequest, { params }: Params) {
   const user = await getAuthUser();
   if (!user) return apiError("Authentication required", "UNAUTHORIZED", 401);
 
   const { bookId } = await params;
+  if (!isUuid(bookId)) {
+    return apiError("책 주소가 올바르지 않아요.", "VALIDATION_ERROR", 400);
+  }
+
   const supabase = await createClient();
+  const rows: ResponseRowFromDb[] = [];
 
-  const { data, error } = await supabase
-    .from("workbook_responses")
-    .select("block_id, field_key, value_text, value_number, value_bool")
-    .eq("book_id", bookId);
+  // 정렬 키가 있어야 페이지 사이에 행이 빠지거나 겹치지 않습니다.
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("workbook_responses")
+      .select("block_id, field_key, value_text, value_number, value_bool, updated_at, written_at")
+      .eq("book_id", bookId)
+      .order("id")
+      .range(from, from + PAGE_SIZE - 1);
 
-  if (error) return apiError(error.message, "SERVER_ERROR", 500);
+    if (error) {
+      console.error("[responses] load failed", error);
+      return apiError("저장된 답을 불러오지 못했어요.", "SERVER_ERROR", 500);
+    }
 
-  return apiSuccess((data ?? []).map(toWorkbookResponse));
+    const page = (data ?? []) as ResponseRowFromDb[];
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) break;
+  }
+
+  return apiSuccess(rows.map(toLoadedResponse));
 }
+
+type ResponseRowFromDb = {
+  block_id: string;
+  field_key: string;
+  value_text: string | null;
+  value_number: number | string | null;
+  value_bool: boolean | null;
+  updated_at: string;
+  written_at: string | null;
+};
 
 /**
  * `value_number`는 NUMERIC 컬럼이라 드라이버·직렬화 경로에 따라 문자열로
  * 올 수 있습니다. 리더는 `typeof value === "number"`로 판정하므로, 문자열이
  * 그대로 흘러가면 스케일 응답이 조용히 미응답으로 보입니다.
  */
-function toWorkbookResponse(row: {
-  block_id: string;
-  field_key: string;
-  value_text: string | null;
-  value_number: number | string | null;
-  value_bool: boolean | null;
-}): WorkbookResponse {
+function toLoadedResponse(row: ResponseRowFromDb): LoadedResponse {
   const parsed =
     row.value_number === null ? null : Number(row.value_number);
 
@@ -64,6 +94,8 @@ function toWorkbookResponse(row: {
     value_text: row.value_text,
     value_number: parsed !== null && Number.isFinite(parsed) ? parsed : null,
     value_bool: row.value_bool,
+    updated_at: row.updated_at,
+    written_at: row.written_at,
   };
 }
 
@@ -79,6 +111,9 @@ export async function PUT(request: NextRequest, { params }: Params) {
   if (!user) return apiError("Authentication required", "UNAUTHORIZED", 401);
 
   const { bookId } = await params;
+  if (!isUuid(bookId)) {
+    return apiError("책 주소가 올바르지 않아요.", "VALIDATION_ERROR", 400);
+  }
 
   let body: unknown;
   try {
@@ -87,10 +122,12 @@ export async function PUT(request: NextRequest, { params }: Params) {
     return apiError("Invalid JSON body", "VALIDATION_ERROR", 400);
   }
 
+  // 400은 본문이 깨졌을 때만입니다. 항목 하나가 잘못된 것은 `rejected`로
+  // 돌려주고 나머지를 저장합니다(parseResponseWrites 참고).
   const parsed = parseResponseWrites(body);
   if (!parsed.ok) return apiError(parsed.error, "VALIDATION_ERROR", 400);
   if (parsed.writes.length === 0) {
-    return apiSuccess({ saved: 0, rejected: [] });
+    return apiSuccess({ saved: 0, rejected: parsed.rejected });
   }
 
   // 응답을 쓸 수 있는지는 책 접근 권한이 정합니다. RLS의
@@ -111,16 +148,28 @@ export async function PUT(request: NextRequest, { params }: Params) {
   // 책 블록 ID를 실어 보내 이 책의 응답인 것처럼 붙일 수 있습니다.
   const { data: blocks, error: blocksError } = await supabase
     .from("workbook_blocks")
-    .select("id, book_id, chapter_id")
+    .select("id, book_id, chapter_id, block_type, config, chapters(status)")
     .eq("book_id", bookId)
     .in("id", writeBlockIds(parsed.writes));
 
-  if (blocksError) return apiError(blocksError.message, "SERVER_ERROR", 500);
+  if (blocksError) {
+    console.error("[responses] block lookup failed", blocksError);
+    return apiError("문항을 확인하지 못했어요. 잠시 뒤 다시 저장할게요.", "SERVER_ERROR", 500);
+  }
+
+  // 공개 전(draft) 장의 블록에는 답을 받지 않습니다(코드 리뷰 3-P1-8).
+  // 독자는 그 장의 본문을 볼 수 없으니 답할 곳도 없어야 합니다. 소유자는
+  // 미리보기에서 draft 장을 확인하므로 받습니다. RLS(00008)도 같은
+  // 기준으로 블록을 숨기고 쓰기를 막습니다.
+  const answerable = ((blocks ?? []) as BlockRow[]).filter(
+    (block) =>
+      access.reason === "owner" || chapterStatus(block) === "published",
+  );
 
   // 조회가 실패했는데 정의 0개로 넘어가면 모든 답이 `rejected`로 담긴
   // 200이 됩니다. 리더는 그것을 "보냈다"로 보고 큐에서 지우므로 답이
   // 다시 전송되지 않습니다. 500이면 큐에 남아 다음 저장 때 다시 갑니다.
-  const loaded = await loadFieldDefinitions(supabase, blocks ?? []);
+  const loaded = await loadFieldDefinitions(supabase, answerable);
   if (!loaded.ok) return apiError(loaded.error, "SERVER_ERROR", 500);
 
   const { rows, rejected } = buildResponseRows(
@@ -128,6 +177,8 @@ export async function PUT(request: NextRequest, { params }: Params) {
     parsed.writes,
     loaded.definitions,
   );
+
+  rejected.unshift(...parsed.rejected);
 
   if (rows.length > 0) {
     const { error } = await supabase
@@ -138,13 +189,29 @@ export async function PUT(request: NextRequest, { params }: Params) {
       // 옛 책의 답 행을 덮을 수 있습니다(WP4 결과의 "범위 밖").
       .upsert(rows, { onConflict: "user_id,block_id,field_key" });
 
-    if (error) return apiError(error.message, "SERVER_ERROR", 500);
+    if (error) {
+      console.error("[responses] upsert failed", error);
+      return apiError("답을 저장하지 못했어요. 잠시 뒤 다시 저장할게요.", "SERVER_ERROR", 500);
+    }
   }
 
   return apiSuccess({ saved: rows.length, rejected });
 }
 
-type BlockRow = { id: string; book_id: string; chapter_id: string };
+type BlockRow = {
+  id: string;
+  book_id: string;
+  chapter_id: string;
+  block_type: string;
+  config: Record<string, unknown> | null;
+  /** to-one 임베드. 클라이언트 버전에 따라 객체 또는 배열로 옵니다. */
+  chapters: { status: string } | { status: string }[] | null;
+};
+
+function chapterStatus(block: BlockRow): string | null {
+  const chapter = Array.isArray(block.chapters) ? block.chapters[0] : block.chapters;
+  return chapter?.status ?? null;
+}
 
 async function loadFieldDefinitions(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -163,7 +230,10 @@ async function loadFieldDefinitions(
       blocks.map((block) => block.id),
     );
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    console.error("[responses] field lookup failed", error);
+    return { ok: false, error: "문항을 확인하지 못했어요. 잠시 뒤 다시 저장할게요." };
+  }
 
   const blockById = new Map(blocks.map((block) => [block.id, block]));
 
@@ -177,6 +247,12 @@ async function loadFieldDefinitions(
         input_type: field.input_type,
         chapter_id: block.chapter_id,
         book_id: block.book_id,
+        // 척도는 정수이면서 지금 범위 안이어야 합니다(코드 리뷰 3-P1-1).
+        // 범위 해석은 리더·에디터와 같은 함수입니다.
+        range:
+          block.block_type === "scale"
+            ? scaleRange(block.config?.min, block.config?.max)
+            : undefined,
       },
     ];
   });

@@ -1,5 +1,10 @@
 import { SMART_GOAL_FIELDS, type WorkbookAnswer } from "./workbook/types";
 import { parseChecklistItems } from "./workbook/extract-blocks";
+import {
+  calloutTypeOf,
+  scaleRange,
+  type CalloutType,
+} from "./workbook/block-config";
 
 /**
  * block_id → (field_key → 값).
@@ -101,7 +106,7 @@ function answerInline(answer: WorkbookAnswer): string {
   return escapeHtml(answer.replace(/\s+/g, " ").trim());
 }
 
-const CALLOUT_PREFIX: Record<string, { emoji: string; text: string }> = {
+const CALLOUT_PREFIX: Record<CalloutType, { emoji: string; text: string }> = {
   info: { emoji: "ℹ️", text: "[정보]" },
   warning: { emoji: "⚠️", text: "[주의]" },
   tip: { emoji: "💡", text: "[팁]" },
@@ -131,8 +136,7 @@ function convertToFallback(
 
     case "callout": {
       // 콜아웃은 크리에이터가 쓴 안내문이라 독자가 채울 칸이 없습니다.
-      const calloutType = getAttr(match, "data-callout-type") || "note";
-      const prefix = CALLOUT_PREFIX[calloutType] ?? CALLOUT_PREFIX.note;
+      const prefix = CALLOUT_PREFIX[calloutTypeOf(getAttr(match, "data-callout-type"))];
       const marker = emoji ? prefix.emoji : prefix.text;
       const text = getAttr(match, "data-content");
       return `<blockquote>${marker} ${escapeHtml(text)}</blockquote>`;
@@ -152,8 +156,10 @@ function convertToFallback(
     }
 
     case "scale": {
-      const min = getAttr(match, "data-min") || "1";
-      const max = getAttr(match, "data-max") || "10";
+      const { min, max } = scaleRange(
+        getAttr(match, "data-min"),
+        getAttr(match, "data-max"),
+      );
       const labelMin = getAttr(match, "data-label-min");
       const labelMax = getAttr(match, "data-label-max");
       const minPart = labelMin ? `[${escapeHtml(labelMin)}] ` : "";

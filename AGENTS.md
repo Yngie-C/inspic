@@ -62,7 +62,7 @@ TTS·오디오북 · 하이라이트/북마크/독서진행률/리더설정 · �
   - `payments/`: 결제 이행 — Toss 상태 매핑(순수), 이행·보상 절차, 서버 포트
 - `src/stores/`: Zustand stores
 - `src/types/`: TypeScript 타입 정의
-- `supabase/migrations/`: Supabase DB 마이그레이션. `00001_initial_schema.sql`(초기 스키마) + `00002_workbook_block_sync.sql`(블록 동기화 RPC, `chapter-images` 버킷) + `00003_payment_integrity.sql`(결제 이행 RPC, 구매 INSERT 봉인, 첫 챕터 미리보기) … `00007_block_id_conflicts.sql`(블록 ID 충돌 보고). 코드 리뷰 WP별 마이그레이션은 `docs/agent-knowledge/code-review-fix-plan.md`를 보세요 + `00004`(집계에서 소유자 응답 제외) + `00005_payment_fixes.sql`(결제 행 INSERT 봉인과 생성 RPC, 구매-결제 연결, 이행·취소 RPC 보강) + `00006_buyer_access.sql`(구매를 공개 상태보다 먼저 보는 접근 판정, `chapter-images` 목록 봉인, 결제·구매 FK RESTRICT)
+- `supabase/migrations/`: Supabase DB 마이그레이션. `00001_initial_schema.sql`(초기 스키마) + `00002_workbook_block_sync.sql`(블록 동기화 RPC, `chapter-images` 버킷) + `00003_payment_integrity.sql`(결제 이행 RPC, 구매 INSERT 봉인, 첫 챕터 미리보기) … `00007_block_id_conflicts.sql`(블록 ID 충돌 보고) · `00008_response_integrity.sql`(응답 쓰기 정책, 공개 전 문항 가림, 장 삭제 시 답 보존). 코드 리뷰 WP별 마이그레이션은 `docs/agent-knowledge/code-review-fix-plan.md`를 보세요 + `00004`(집계에서 소유자 응답 제외) + `00005_payment_fixes.sql`(결제 행 INSERT 봉인과 생성 RPC, 구매-결제 연결, 이행·취소 RPC 보강) + `00006_buyer_access.sql`(구매를 공개 상태보다 먼저 보는 접근 판정, `chapter-images` 목록 봉인, 결제·구매 FK RESTRICT)
 - `content/`: 전자책 원고 및 콘텐츠 문서
 - `creator-outreach/`: 크리에이터 아웃리치 관련 문서
 - `.claude/`: Claude Code 커스텀 커맨드/프로젝트 메모
@@ -161,22 +161,27 @@ workbook_responses         독자 응답. (user_id, block_id, field_key) 유일
 - **"들어올 때"에는 붙여넣기가 포함됩니다 (2026-10-02, WP4).** 규칙은 **원래 문서에 있던 블록은 ID를 유지하고, 새로 들어온 블록만 새 ID를 받는다**입니다. 붙여넣은 블록은 새 ID를 받습니다 — 복사본이 원본 ID를 들고 오면 두 블록이 한 응답을 나눠 갖고, 다른 장·책에서 온 블록이면 블록이 두 곳을 오갑니다. 예외는 **같은 책 안의 잘라내기 → 붙여넣기**(옮기기)와 끌어서 옮기기뿐이고, 이때는 ID를 유지해 독자 답이 따라갑니다. 같은 ID가 겹치면 원래 있던 쪽(`tr.mapping`으로 판별)이 지킵니다. 불러올 때 ID가 없거나 UUID가 아니거나 겹치는 블록, 체크리스트 항목 키가 비었거나 겹치거나 64자를 넘는 것은 그때 한 번 고치고 저장되게 합니다 — 그런 ID·키에는 애초에 독자 답이 매달릴 수 없어서 바꿔도 끊기는 것이 없습니다.
 - **`data-*` 속성에 독자 응답을 담지 마세요.** 챕터 HTML은 문항만 싣습니다. 체크 여부·스케일 선택값·SMART 답변은 전부 `workbook_responses`에 있습니다. 저작 화면에서 답변처럼 보이는 입력을 만들지 마세요.
 - **문항은 `data-*` 안의 JSON이 아니라 `workbook_block_fields` 행으로 저장하세요.** 크리에이터 지표는 이 테이블을 조인해 냅니다.
-- **`workbook_responses.block_id`에는 FK가 없습니다. 의도적입니다.** 크리에이터가 문항을 지워도 독자가 쓴 내용은 남아야 합니다. 정의가 사라진 응답은 `orphanedResponses()`로 분리해 다루세요. `book_id`/`chapter_id`에는 FK CASCADE가 있습니다 — 책·챕터 삭제는 소유자의 명시적 파기로 봅니다. 단, 판매·결제 기록이 있는 책은 지울 수 없습니다(아래 "결제와 접근 제어").
+- **`workbook_responses.block_id`에는 FK가 없습니다. 의도적입니다.** 크리에이터가 문항을 지워도 독자가 쓴 내용은 남아야 합니다. 정의가 사라진 응답은 `orphanedResponses()`로 분리해 다루세요. `book_id`에는 FK CASCADE가 있습니다 — 책 삭제는 소유자의 명시적 파기로 봅니다. 단, 판매·결제 기록이 있는 책은 지울 수 없습니다(아래 "결제와 접근 제어"). **`chapter_id`는 `ON DELETE SET NULL`입니다**(마이그레이션 00008, 2026-10-02 결정) — 저자가 장을 지워도 그 장에 독자가 쓴 답은 남고, 문항을 지운 답(고아)과 같게 다룹니다. PDF는 그런 자유서술 답을 맨 뒤 "저자가 지운 장에 남긴 답"에 모읍니다. `chapter_id`가 빈 답은 그 블록이 다른 장에 다시 동기화될 때 `repoint_workbook_responses()`가 새 장을 가리키게 합니다.
 - **크리에이터에게 응답 원문을 보여주지 마세요.** RLS상 작성자 본인만 행을 읽습니다. 집계는 `workbook_response_stats()` 함수로만 조회합니다. 이 함수는 **소유자 본인의 응답을 제외합니다**(마이그레이션 00004) — 미리보기가 리더를 그대로 띄우므로 저자가 확인하며 넣은 입력이 실제 응답 행이 되기 때문입니다. 참여율을 세는 코드를 새로 쓴다면 같은 규칙을 지키세요.
-- **"답했다"의 판정은 한 곳에서 옵니다.** `isAnswered()`(`lib/workbook/responses.ts`)와 `workbook_response_stats()`의 `answered_count`가 같아야 합니다. 어긋나면 독자가 보는 진행률과 저자가 보는 참여율이 달라지고, 어느 쪽이 맞는지 아무도 모르게 됩니다. 둘 다 체크 해제(`false`)는 세지 않습니다.
+- **"답했다"의 판정은 한 곳에서 옵니다.** `isAnswered()`(`lib/workbook/responses.ts`)와 `workbook_response_stats()`의 `answered_count`가 같아야 합니다. 어긋나면 독자가 보는 진행률과 저자가 보는 참여율이 달라지고, 어느 쪽이 맞는지 아무도 모르게 됩니다. 둘 다 체크 해제(`false`)는 세지 않습니다. 값 단위 판정은 `isAnsweredValue()`이고, 리더 블록의 "작성 전/작성함"도 이것을 씁니다 — 따로 구현하지 마세요.
 - **독자 응답을 DB에 쓸 때는 `PUT /api/books/[bookId]/responses`만 쓰세요.** 리더에서 Supabase를 직접 호출하지 마세요. 리더가 보내는 것은 `(block_id, field_key, 값)`뿐이고, **`chapter_id`와 값 컬럼(`value_text`/`value_number`/`value_bool`)은 서버가 `workbook_block_fields` / `workbook_blocks`에서 읽어 정합니다.** 클라이언트가 정하게 두면 정의가 DB에 없는 블록에 응답이 매달리고(집계에서 조인되지 않아 나중에 원인을 찾을 수 없습니다), 남의 챕터 ID를 실어 보낼 수 있습니다.
-- **응답 저장은 전부 아니면 전무가 아닙니다.** 정의가 없거나 타입이 어긋난 한 건 때문에 배치를 통째로 버리지 마세요 — 같은 화면에서 함께 쓴 멀쩡한 답까지 사라집니다. 빠진 것은 응답의 `rejected`에 실어 리더가 "저장 실패"로 표시하게 하세요.
+- **응답 저장은 전부 아니면 전무가 아닙니다.** 정의가 없거나 타입이 어긋난 한 건 때문에 배치를 통째로 버리지 마세요 — 같은 화면에서 함께 쓴 멀쩡한 답까지 사라집니다. 빠진 것은 응답의 `rejected`에 실어 리더가 "저장 실패"로 표시하게 하세요. **400은 본문 자체가 깨졌을 때만입니다**(객체가 아님, `answers`가 배열이 아님, 200건 초과) — UUID가 아닌 `block_id`, 너무 긴 키·답 같은 항목 오류도 `rejected`입니다(`invalid_key`/`invalid_value`). 리더는 4xx(408·429 제외)를 받으면 그 묶음을 큐에서 빼고 블록을 실패로 표시합니다. 큐에 남기면 다음 저장마다 다시 실려 그 세션의 저장이 전부 막힙니다(코드 리뷰 3-P0-1).
+- **공개 전(draft) 장의 블록에는 독자 답을 받지 않고, 그 문항도 독자에게 보이지 않습니다**(00008). 소유자는 미리보기에서 확인하므로 예외입니다. 라우트도 블록의 장 상태를 보고 거릅니다.
+- **`workbook_responses`의 INSERT/UPDATE 정책은 라우트와 같은 판정을 합니다**(00008 `is_valid_workbook_response()`) — 블록·문항이 있고, `chapter_id`가 그 블록의 장이고, 값 컬럼이 문항 타입과 맞고, 정수 문항이면 정수일 것. 척도 범위는 SQL에 두지 않고 라우트가 `scaleRange()`로 검사합니다(해석 규칙을 두 벌 두지 않기 위해). 테스트에서 응답 행을 넣을 때도 문항 타입에 맞는 컬럼을 쓰세요.
 - **길이·타입 제약은 DB보다 먼저 검사하세요** (`parseResponseWrites`). CHECK 제약에 걸리면 배치 전체가 실패합니다.
-- **빈 문자열은 미응답(null)으로 정규화합니다.** 그대로 저장하면 `workbook_response_stats()`의 응답 수에 잡혀 크리에이터가 보는 참여율이 부풀려집니다. 반면 체크 해제(`false`)는 "안 함"이라는 답이므로 값으로 남깁니다.
-- **`localStorage`는 오프라인 캐시입니다.** 진실의 원천은 DB입니다. 서버에서 값이 오면 그쪽이 이깁니다 — 캐시로 서버 값을 덮으면 다른 기기에서 쓴 최신 응답이 옛 기기의 캐시로 되돌아갑니다.
+- **빈 문자열과 공백뿐인 글은 미응답(null)으로 정규화합니다**(`isBlankText`). 그대로 저장하면 `workbook_response_stats()`의 응답 수에 잡혀 크리에이터가 보는 참여율이 부풀려집니다. 반면 체크 해제(`false`)는 "안 함"이라는 답이므로 값으로 남깁니다.
+- **`localStorage`는 오프라인 캐시입니다.** 진실의 원천은 DB입니다. 서버에서 값이 오면 그쪽이 이깁니다 — 캐시로 서버 값을 덮으면 다른 기기에서 쓴 최신 응답이 옛 기기의 캐시로 되돌아갑니다. 예외는 **서버가 받았다고 확인하지 않은 답**뿐입니다. 캐시는 그런 답에 쓴 시각을 단 표시(`unsent`)를 두고, 다시 열 때 서버 행의 `written_at`(독자가 그 답을 쓴 시각, 00008)보다 나중에 쓴 것만 남겨 다시 보냅니다(`mergeLoadedResponses()`). `updated_at`으로 겨루지 마세요 — 서버 시계라 기기 시계와 비교가 안 되고, 늦게 커밋된 내 저장이나 repoint·장 삭제도 그 값을 올립니다. 서버가 거절한 답(`rejected`)은 값은 남기되 저절로 다시 보내지 않습니다. 표시 없는 캐시 값은 서버에 없으면 버립니다.
+- **저장 요청은 한 번에 하나입니다.** 겹쳐 보내면 늦게 출발한 새 값이 먼저 커밋되고 옛 요청이 그 위를 덮습니다. 서버 값을 불러와 합치기 전에도 보내지 않습니다. 계정·책이 바뀌면 이전 큐를 보내지 않고(쿠키가 이미 새 세션), 그 답은 이전 사람의 캐시 칸에 미전송으로 남깁니다.
+- **실패 표시는 블록 단위입니다**(`BlockSave.failure`). 책 전체 상태(`saveState`)로 블록의 "저장 안 됨"을 판정하지 마세요.
 - **워크북 리더 컴포넌트는 `WorkbookResponsesProvider` 안에서만 그리세요.** provider 없이 그리면 훅이 던집니다. 조용히 로컬에만 저장되는 편이 나아 보이지만, "저장되는 줄 알았는데 아니었다"가 이 화면에서 가장 나쁜 실패입니다.
 - **리더 템플릿은 `chapterId`를 받지 않습니다.** 응답의 정체성에 챕터가 들어가지 않기 때문입니다. 크리에이터가 블록을 다른 챕터로 옮겨도 응답은 따라갑니다.
+- **답을 받을 수 없는 블록은 입력을 막으세요.** `data-node-id`가 UUID가 아니면 `useBlockResponses().canWrite`가 false이고, 템플릿은 읽기 전용 + `BlockUnavailable` 안내를 그립니다. 받아 두면 저장되지 않은 채 저장된 것처럼 보이고, ID 없는 블록끼리 답 하나를 나눠 갖습니다. textarea에는 서버 상한(`MAX_TEXT_LENGTH`)을 `maxLength`로 거세요.
 - **파싱된 노드에 `instanceof Element`를 쓰지 마세요.** `html-dom-parser`가 ESM 경로에서 자체 `domhandler` 사본을 끌어와 클래스 정체성이 어긋납니다. `lib/workbook/dom.ts`의 `isElementNode()`를 쓰세요.
 - **블록 정의를 DB에 쓸 때는 `syncChapterWorkbookBlocks()`만 쓰세요.** `workbook_blocks` / `workbook_block_fields`에 직접 INSERT/UPDATE 하지 마세요. 실제 쓰기는 `sync_chapter_workbook_blocks` RPC가 upsert와 삭제를 **한 트랜잭션**으로 처리합니다(마이그레이션 00002). 여러 왕복으로 나누면 중간 실패 시 블록은 새 정의, 문항은 옛 정의로 남고 다음 저장 전까지 복구되지 않습니다.
 - **동기화는 다른 장·책의 블록을 덮지 않습니다** (마이그레이션 00007). 같은 ID가 다른 책에 있거나, 같은 책의 다른 장 **본문에 아직 있으면** 건너뛰고 결과의 `conflicts`로 돌려줍니다. 원래 장의 본문에 그 ID가 더는 없으면 옮긴 것으로 보고 소속을 옮기며, 그 블록의 독자 답도 `repoint_workbook_responses()`가 새 장을 가리키게 합니다(옛 장을 지워도 답이 CASCADE로 지워지지 않게). 공개 전 검수는 블록을 `(id, chapter_id)`로 대조하고, 두 장에 같은 ID가 있으면 차단합니다.
 - **동기화가 실패해도 챕터 저장을 실패시키지 마세요.** 본문은 이미 저장된 뒤라 여기서 던지면 크리에이터에게는 글이 날아간 것처럼 보입니다. 결과를 응답의 `workbook_sync`에 싣고, 공개 전 검수(`lib/publish-checks.ts`)가 본문과 DB가 어긋난 상태를 차단합니다.
 - **`data-node-id`가 없는 블록에 ID를 만들어 붙이지 마세요.** `extractWorkbookBlocks()`는 그런 블록을 건너뜁니다. 세어야 할 때는 `countWorkbookBlockElements()`를 쓰세요 — 두 수의 차이가 곧 "화면에는 보이지만 응답을 받을 수 없는 블록"이고, 검수가 그것을 차단 사유로 씁니다.
-- 워크북 블록을 추가/변경하면 에디터 Node, 리더 컴포넌트, `lib/sanitize.ts` 허용 목록, `lib/template-fallback.ts`(EPUB/PDF 정적 폴백), `lib/workbook/extract-blocks.ts`의 `BLOCK_TYPE_BY_TEMPLATE` 표, `00001` 스키마의 `block_type` CHECK 제약을 **함께** 확인하세요. `data-template-type` 문자열은 앞의 네 곳이 공유합니다.
+- 워크북 블록을 추가/변경하면 에디터 Node, 리더 컴포넌트, `lib/sanitize.ts` 허용 목록, `lib/template-fallback.ts`(EPUB/PDF 정적 폴백), `lib/workbook/extract-blocks.ts`의 `BLOCK_TYPE_BY_TEMPLATE` 표, `00001` 스키마의 `block_type` CHECK 제약을 **함께** 확인하세요. `data-template-type` 문자열은 앞의 네 곳이 공유합니다. 표현 설정(`data-min`/`data-max`, `data-callout-type` 등)의 해석은 `lib/workbook/block-config.ts` 한 곳에 두고 에디터·리더·추출기·폴백·저장 라우트가 함께 씁니다. 리더 템플릿 레지스트리처럼 `data-*` 값으로 무언가를 찾을 때는 객체 리터럴 대신 `Map`이나 목록 비교를 쓰세요 — `constructor` 같은 프로토타입 키가 통과합니다.
 
 ## 내보내기 (PDF·EPUB)
 

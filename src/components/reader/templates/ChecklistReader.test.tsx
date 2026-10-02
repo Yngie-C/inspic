@@ -5,9 +5,11 @@ import { Element, htmlToDOM } from "html-react-parser";
 import type { DOMNode } from "html-react-parser";
 import ChecklistReader from "./ChecklistReader";
 import { WorkbookResponsesProvider } from "../WorkbookResponsesProvider";
-import type { WorkbookResponseClient } from "@/lib/workbook/response-client";
+import type {
+  LoadedResponse,
+  WorkbookResponseClient,
+} from "@/lib/workbook/response-client";
 import type { ResponseWrite } from "@/lib/workbook/response-payload";
-import type { WorkbookResponse } from "@/lib/workbook/types";
 
 /**
  * 저장·복원을 화면 단에서 한 번 더 확인합니다. 도메인 단위 테스트가
@@ -32,17 +34,19 @@ function checklistElement(
 function checkedResponse(
   fieldKey: string,
   blockId = BLOCK_ID,
-): WorkbookResponse {
+): LoadedResponse {
   return {
     block_id: blockId,
     field_key: fieldKey,
     value_text: null,
     value_number: null,
     value_bool: true,
+    updated_at: "2026-10-01T00:00:00Z",
+    written_at: null,
   };
 }
 
-function fakeClient(stored: WorkbookResponse[] = []) {
+function fakeClient(stored: LoadedResponse[] = []) {
   const batches: ResponseWrite[][] = [];
   const client: WorkbookResponseClient & { batches: ResponseWrite[][] } = {
     batches,
@@ -105,7 +109,7 @@ describe("ChecklistReader", () => {
 
     await waitFor(() =>
       expect(client.batches.at(-1)).toEqual([
-        { block_id: BLOCK_ID, field_key: "b", value: true },
+        expect.objectContaining({ block_id: BLOCK_ID, field_key: "b", value: true }),
       ]),
     );
   });
@@ -124,7 +128,7 @@ describe("ChecklistReader", () => {
 
     await waitFor(() =>
       expect(client.batches.at(-1)).toEqual([
-        { block_id: BLOCK_ID, field_key: "b", value: false },
+        expect.objectContaining({ block_id: BLOCK_ID, field_key: "b", value: false }),
       ]),
     );
   });

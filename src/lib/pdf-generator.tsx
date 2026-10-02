@@ -567,8 +567,46 @@ function ChapterPage({
  * 질문 없이 읽으면 아무 의미가 없습니다. 글로 쓴 답은 그 자체로 읽힙니다.
  */
 export interface OrphanedTextAnswer {
-  chapter_id: string;
+  /** 저자가 장을 지웠으면 null입니다(00008 — 장을 지워도 답은 남습니다). */
+  chapter_id: string | null;
   text: string;
+}
+
+/**
+ * 저자가 지운 장에 남긴 답. 어느 장에도 붙일 수 없어 맨 뒤에 모읍니다.
+ * 질문 문구는 장과 함께 사라졌지만 쓴 글은 그 자체로 읽힙니다.
+ */
+function DeletedChapterAnswersPage({
+  bookTitle,
+  orphans,
+}: {
+  bookTitle: string;
+  orphans: readonly string[];
+}) {
+  return (
+    <Page size="A4" style={styles.chapterPage}>
+      <View style={styles.orphanSection}>
+        <Text style={styles.orphanTitle}>저자가 지운 장에 남긴 답</Text>
+        <Text style={styles.orphanNote}>
+          아래 답을 받던 장은 저자가 책을 고치면서 사라졌어요. 질문 문구는
+          남아 있지 않지만 쓰신 내용은 그대로예요.
+        </Text>
+        {orphans.map((text, i) => (
+          <Text key={i} style={styles.orphanAnswer}>
+            {text}
+          </Text>
+        ))}
+      </View>
+
+      <View style={styles.footer} fixed>
+        <Text style={styles.footerTitle}>{bookTitle}</Text>
+        <Text
+          style={styles.footerPage}
+          render={({ pageNumber: pn }) => `${pn}`}
+        />
+      </View>
+    </Page>
+  );
 }
 
 // Main PDF Document
@@ -589,7 +627,12 @@ export function BookPDF({
   orphans = [],
 }: BookPDFProps) {
   const orphansByChapter = new Map<string, string[]>();
+  const deletedChapterOrphans: string[] = [];
   for (const orphan of orphans) {
+    if (orphan.chapter_id === null) {
+      deletedChapterOrphans.push(orphan.text);
+      continue;
+    }
     const list = orphansByChapter.get(orphan.chapter_id);
     if (list) list.push(orphan.text);
     else orphansByChapter.set(orphan.chapter_id, [orphan.text]);
@@ -613,6 +656,12 @@ export function BookPDF({
           orphans={orphansByChapter.get(ch.id) ?? []}
         />
       ))}
+      {deletedChapterOrphans.length > 0 && (
+        <DeletedChapterAnswersPage
+          bookTitle={book.title}
+          orphans={deletedChapterOrphans}
+        />
+      )}
     </Document>
   );
 }
