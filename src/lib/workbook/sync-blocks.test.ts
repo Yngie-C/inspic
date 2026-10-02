@@ -2,6 +2,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import {
+  blocksWithUnstorableFields,
   isStorableBlockId,
   storableBlocks,
   syncChapterWorkbookBlocks,
@@ -92,7 +93,77 @@ describe("storableBlocks / unstorableBlocks", () => {
   });
 });
 
+describe("문항 키 거르기", () => {
+  function checklist(keys: string[]): WorkbookBlock {
+    return {
+      id: VALID_ID,
+      block_type: "checklist",
+      order_index: 0,
+      config: {},
+      fields: keys.map((key, index) => ({
+        field_key: key,
+        label: `항목 ${index + 1}`,
+        input_type: "boolean" as const,
+        order_index: index,
+      })),
+    };
+  }
+
+  it("비었거나 64자를 넘거나 겹치는 키는 보내지 않는다 — 장 전체 롤백을 막는다", () => {
+    const blocks = [checklist(["a", "", "x".repeat(65), "a", "b"])];
+
+    const [stored] = storableBlocks(blocks);
+
+    expect(stored.fields.map((field) => field.field_key)).toEqual(["a", "b"]);
+    expect(blocksWithUnstorableFields(blocks)).toHaveLength(1);
+  });
+
+  it("문제가 없으면 블록을 그대로 둔다", () => {
+    const blocks = [checklist(["a", "b"])];
+
+    expect(storableBlocks(blocks)[0]).toBe(blocks[0]);
+    expect(blocksWithUnstorableFields(blocks)).toEqual([]);
+  });
+});
+
 describe("syncChapterWorkbookBlocks", () => {
+  it("다른 장·책과 겹쳐 건너뛴 블록을 결과에 싣는다", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: {
+        blocks_upserted: 0,
+        blocks_removed: 0,
+        fields_upserted: 0,
+        fields_removed: 0,
+        responses_repointed: 0,
+        conflicts: [VALID_ID],
+      },
+      error: null,
+    });
+
+    const result = await syncChapterWorkbookBlocks(
+      { rpc } as unknown as WorkbookSyncClient,
+      "ch-1",
+      reflectionHtml(VALID_ID),
+    );
+
+    expect(result).toMatchObject({ ok: true, counts: { conflicts: [VALID_ID] } });
+  });
+
+  it("00007 이전 DB의 반환값이면 충돌 없음으로 본다", async () => {
+    const { client } = okClient();
+
+    const result = await syncChapterWorkbookBlocks(
+      client,
+      "ch-1",
+      reflectionHtml(VALID_ID),
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      counts: { conflicts: [], responses_repointed: 0 },
+    });
+  });
+
   it("HTML에서 뽑은 블록을 RPC에 넘긴다", async () => {
     const { client, rpc } = okClient();
 

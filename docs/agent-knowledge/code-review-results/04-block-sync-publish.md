@@ -55,6 +55,7 @@
 - 무엇: 중복 ID를 가를 때 문서 순서상 첫 노드가 ID를 가져가요. 재현 결과 `A:copy | gen2:P` — 복사본이 A, 원본이 새 ID.
 - 시나리오: 독자 응답이 달린 블록 A를 복사해 그보다 위에 붙여넣고 저장 → 원래 자리의 블록은 응답 없는 새 행, 독자 답은 모두 복사본에 붙어 보임. 크리에이터가 "중복"인 복사본을 지우면 응답이 전부 고아가 돼요. `generateNodeId()` 주석의 "절대 재생성하지 않는다"가 깨져요.
 - 고칠 방향: 트랜잭션 이전에 있던 노드(`tr.mapping`으로 옛 위치를 매핑)가 ID를 유지하고, 새로 들어온 쪽에 새 ID.
+- 2026-10-02 WP4: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP4).
 
 ### P0-3. 같은 블록 ID가 두 챕터·두 책에 들어가고, 아무 곳에서도 잡히지 않음
 - 위치: `BaseTemplateNode.ts:69-72`(중복 검사가 한 문서 안에서만), `src/lib/publish-checks.ts:128`(챕터 안에서만 중복 제거), `src/lib/publish-checks-loader.ts:40`(`storedBlockIds`가 책 전체의 id만 봄)
@@ -70,6 +71,7 @@
   1. 에디터: 붙여넣은 템플릿 노드(`transformPasted` 또는 paste 메타)에는 새 ID. 잘라내기·붙여넣기만 ID를 유지. AGENTS.md의 "block_id 재생성 금지"와 부딪히지 않게 "붙여넣기 시점 1회"로 한정하고 AGENTS.md에 그 예외를 적기.
   2. RPC: 다른 챕터·책의 블록과 충돌하면 덮지 말고 결과로 보고(2단계 P1-3).
   3. 검수: 로더가 `id, chapter_id`를 읽어 챕터 단위로 비교하고, 챕터 사이 중복 id도 blocker로.
+- 2026-10-02 WP4: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP4).
 
 ### P0-4. 본문 길이 한도를 넘으면 저장이 실패하는데 화면은 "저장됨"
 - 위치: `src/app/api/chapters/[chapterId]/route.ts:102`(PUT), `src/app/api/chapters/route.ts:101`(POST), 클라이언트 `EditPageContent.saveChapter`
@@ -92,9 +94,9 @@
 - **P1-1. 일부러 비운 문구가 기본 문구로 다시 채워짐 (재현됨).** `ReflectionNode.ts:9`, `ScaleNode.ts`, `CalloutNode.ts`의 `parseHTML`이 `getAttribute(...) || default`라서 `data-prompt=""`가 기본 질문으로 돌아와요. 리더와 `extractWorkbookBlocks`는 빈 값을 그대로 읽어 크리에이터와 독자가 서로 다른 것을 봐요. → 속성이 없을 때만 기본값(`??`).
 - **P1-2. `data-items`가 없으면 가짜 항목을 지어냄.** `ChecklistNode.ts:19`가 `DEFAULT_ITEMS`(field_key `item-1`)를 채워요. 다음 저장 때 저자가 쓴 적 없는 "항목 1"이 실제 문항으로 sync되고 검수는 통과해요. "파싱 중에 키를 만들지 않는다"와 어긋나요. → 비어 있으면 빈 목록으로 두고 검수가 잡게.
 - **P1-3. id 없는 항목이나 깨진 JSON을 조용히 버리고 다음 편집에서 덮어씀.** `ChecklistNodeView.tsx:9` `parseChecklistItems`. `[{"text":"운동하기"}]`는 "항목 0개"로 보이고, "항목 추가"를 누르면 원래 텍스트가 HTML에서 영구히 지워져요. → 버린 항목을 알리거나 속성에 보존.
-- **P1-4. 항목 키(field_key) 중복을 가르는 곳이 없음.** `template-node-id.ts:20` `generateFieldKey`는 "블록 안에서만 고유하면 된다"고 적었지만 검사가 없어요. 업로드·수동 편집으로 같은 id가 두 번 들어오면 RPC의 `DISTINCT ON`이 하나만 남기고, 리더에서는 두 체크박스가 같은 field_key와 DOM id를 공유해 함께 토글돼요. → 블록 ID처럼 항목 키도 중복을 가름(3단계 P1-13과 함께).
-- **P1-5. 처음 불러올 때는 ID가 부여되지 않음.** `BaseTemplateNode.ts:65`. `appendTransaction`에서만 부여해, ID 없는 블록이 있는 챕터를 편집 없이 열면 그대로예요. `setContent(..., {emitUpdate:false})` 중 붙은 ID는 저장되지 않고, 열 때마다 다른 UUID가 생겨요. 검수는 "응답을 받을 수 없는 블록"으로 막는데 에디터는 아무 문제도 보이지 않아요. → onCreate/setContent 경로에서 부여하고 문서를 dirty로 표시해 저장되게.
-- **P1-6. `crypto.randomUUID()`에 대체 경로가 없음.** `template-node-id.ts:11`. 보안 컨텍스트(HTTPS·localhost)와 Safari 15.4+에만 있어요. LAN 주소(`http://192.168.x.x:3000`)로 모바일에서 확인하거나 HTTP 스테이징·구형 Safari에서 블록을 넣으면 `appendTransaction`이 던져 삽입과 이후 편집이 막혀요. 서버(Node)는 영향 없음. → `crypto.getRandomValues`로 UUID v4를 조립하는 대체 경로.
+- **P1-4. 항목 키(field_key) 중복을 가르는 곳이 없음.** `template-node-id.ts:20` `generateFieldKey`는 "블록 안에서만 고유하면 된다"고 적었지만 검사가 없어요. 업로드·수동 편집으로 같은 id가 두 번 들어오면 RPC의 `DISTINCT ON`이 하나만 남기고, 리더에서는 두 체크박스가 같은 field_key와 DOM id를 공유해 함께 토글돼요. → 블록 ID처럼 항목 키도 중복을 가름(3단계 P1-13과 함께). 2026-10-02 WP4: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP4).
+- **P1-5. 처음 불러올 때는 ID가 부여되지 않음.** `BaseTemplateNode.ts:65`. `appendTransaction`에서만 부여해, ID 없는 블록이 있는 챕터를 편집 없이 열면 그대로예요. `setContent(..., {emitUpdate:false})` 중 붙은 ID는 저장되지 않고, 열 때마다 다른 UUID가 생겨요. 검수는 "응답을 받을 수 없는 블록"으로 막는데 에디터는 아무 문제도 보이지 않아요. → onCreate/setContent 경로에서 부여하고 문서를 dirty로 표시해 저장되게. 2026-10-02 WP4: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP4).
+- **P1-6. `crypto.randomUUID()`에 대체 경로가 없음.** `template-node-id.ts:11`. 보안 컨텍스트(HTTPS·localhost)와 Safari 15.4+에만 있어요. LAN 주소(`http://192.168.x.x:3000`)로 모바일에서 확인하거나 HTTP 스테이징·구형 Safari에서 블록을 넣으면 `appendTransaction`이 던져 삽입과 이후 편집이 막혀요. 서버(Node)는 영향 없음. → `crypto.getRandomValues`로 UUID v4를 조립하는 대체 경로. 2026-10-02 WP4: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP4).
 - **P1-7. 척도 min 0을 1로 바꾸고 범위를 검사하지 않음.** `ScaleNodeView.tsx:10` `parseInt(min) || 1`. 리더와 추출기는 0을 유지해 미리보기가 달라요. `data-max="100000"`이면 node view가 10만 개 span을 그려 에디터가 멈춰요. → 추출기의 `parseIntOr`와 같은 함수 + 범위 제한(3단계 P1-11과 함께).
 - **P1-8. callout 대체값이 에디터는 `info`, 리더·폴백·추출기는 `note`.** `CalloutNodeView.tsx:19`. 빈 값이나 모르는 값이면 에디터는 "정보", 독자·PDF/EPUB은 "참고". `rawType in CALLOUT_LABEL`은 `constructor`·`toString` 같은 프로토타입 키도 통과시켜요. → `Object.hasOwn` + 공유 대체값(3단계 P1-10과 함께).
 
@@ -139,9 +141,9 @@
 
 ## P2 — 정리·효율
 
-- **P2-1. 템플릿 노드 5종이 각자 ID 플러그인을 등록.** `BaseTemplateNode.ts:53`. 키 입력마다 `doc.descendants`가 5번 돌아요. 긴 챕터에서 입력 지연. → 템플릿 타입 집합을 다루는 플러그인 하나로, 가능하면 `tr.mapping`의 변경 범위만 검사. P0-2와 함께.
+- **P2-1. 템플릿 노드 5종이 각자 ID 플러그인을 등록.** `BaseTemplateNode.ts:53`. 키 입력마다 `doc.descendants`가 5번 돌아요. 긴 챕터에서 입력 지연. → 템플릿 타입 집합을 다루는 플러그인 하나로, 가능하면 `tr.mapping`의 변경 범위만 검사. P0-2와 함께. 2026-10-02 WP4: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP4).
 - **P2-2. 라벨·기본값·타입 목록이 에디터와 리더에 따로 복사돼 있음.** `CalloutNodeView.tsx:7`(`CalloutType`, `CALLOUT_LABEL`이 `CalloutReader`의 사본), 각 Node의 `parseHTML` 기본값, node view의 `?? default`(attrs가 null이 아니라 죽은 코드). 이미 P1-8에서 어긋났어요. → `src/lib/workbook`에 한 벌.
-- **P2-3. 블록·항목 ID 규약에 단위 테스트가 없음.** `generateNodeId`·`generateFieldKey`·`assignNodeIds`. 중복 분리, 붙여넣기 순서, 기존 ID 보존, 보안 컨텍스트 밖 동작 어느 것도 회귀를 잡지 못해요. P0-2도 테스트가 없어 남아 있었어요.
+- **P2-3. 블록·항목 ID 규약에 단위 테스트가 없음.** `generateNodeId`·`generateFieldKey`·`assignNodeIds`. 중복 분리, 붙여넣기 순서, 기존 ID 보존, 보안 컨텍스트 밖 동작 어느 것도 회귀를 잡지 못해요. P0-2도 테스트가 없어 남아 있었어요. 2026-10-02 WP4: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP4).
 - **P2-4. 챕터 GET이 `checkBookAccess()` 대신 `visibility`를 직접 봄.** `chapters/route.ts:27`, `[chapterId]/route.ts:33`. RLS가 이미 숨겨 403 분기는 닿지 않는 죽은 코드이고, AGENTS.md "접근 판정은 `checkBookAccess()` 하나" 위반.
 - **P2-5. 책 PUT의 영문·DB 원문 에러가 화면에 뜸.** `books/[bookId]/route.ts:107`. `PublishChecklist`, `EditPageContent.handleMetaSave`가 `json.error`를 그대로 띄워요("Book not found", `violates check constraint ...`). AGENTS.md "사용자 노출 문구는 한국어로".
 - **P2-6. 책 GET이 인증 왕복을 하나 더 직렬로 함.** `books/[bookId]/route.ts:22`. `getAuthUser()`가 클라이언트를 따로 만들고, 그 결과는 RLS가 이미 하는 `isOwner` 필터에만 쓰여요. 판정 기준이 두 곳에 생겨요. → 없애거나 `Promise.all`.

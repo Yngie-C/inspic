@@ -7,6 +7,7 @@ import {
   ReflectionNode,
   ScaleNode,
   SmartGoalNode,
+  TemplateNodeIds,
 } from "./index";
 
 /**
@@ -24,6 +25,7 @@ const extensions = [
   ReflectionNode,
   SmartGoalNode,
   ScaleNode,
+  TemplateNodeIds,
 ];
 
 const TEMPLATE_TYPES = [

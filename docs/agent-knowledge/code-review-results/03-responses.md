@@ -97,7 +97,7 @@
 
 - **P1-7. `bookId`를 UUID로 검사하지 않음.** `route.ts:33`. GET은 Postgres 에러 원문을 500으로 내보내고, PUT은 "구매를 확인하세요" 403을 줘요. → 400/404.
 - **P1-8. draft 챕터 블록에 응답을 쓸 수 있음.** `route.ts:108` 블록 조회가 `book_id`만 봐요. 2단계 P1-5와 함께 챕터가 published인지 확인.
-- **P1-9. upsert 충돌 키에 `book_id`가 없음.** `route.ts:126` `(user_id, block_id, field_key)`. 동기화 RPC가 블록을 다른 책으로 옮기면(2단계 P1-3) 새 책에서의 답이 옛 책의 답을 덮고 `book_id`를 바꿔요. 2단계 P1-3을 고치면(덮지 않고 충돌 보고) 대부분 사라져요.
+- **P1-9. upsert 충돌 키에 `book_id`가 없음.** `route.ts:126` `(user_id, block_id, field_key)`. 동기화 RPC가 블록을 다른 책으로 옮기면(2단계 P1-3) 새 책에서의 답이 옛 책의 답을 덮고 `book_id`를 바꿔요. 2단계 P1-3을 고치면(덮지 않고 충돌 보고) 대부분 사라져요. 2026-10-02 WP4: **해소** — 동기화가 블록을 다른 책으로 옮기지 않아 충돌 키를 유지([수정 계획](../code-review-fix-plan.md) WP4).
 
 ### 리더 템플릿 입력 경계
 
@@ -110,7 +110,7 @@
 
 ### 블록 정의·지표·내보내기
 
-- **P1-16. 체크리스트 항목 id 길이를 검사하지 않아 챕터 전체 동기화가 실패.** `extract-blocks.ts:134`. 65자 이상 id 하나가 `sync_chapter_workbook_blocks`의 CHECK에 걸려 트랜잭션 전체가 롤백돼요. `unstorableBlocks`는 block id만 봐서 원인이 드러나지 않아요. 4단계(저작 측)와 함께.
+- **P1-16. 체크리스트 항목 id 길이를 검사하지 않아 챕터 전체 동기화가 실패.** `extract-blocks.ts:134`. 65자 이상 id 하나가 `sync_chapter_workbook_blocks`의 CHECK에 걸려 트랜잭션 전체가 롤백돼요. `unstorableBlocks`는 block id만 봐서 원인이 드러나지 않아요. 4단계(저작 측)와 함께. 2026-10-02 WP4: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP4).
 - **P1-17. 블록이 챕터를 옮기면 참여 수가 덮임.** `engagement.ts:75`. `workbook_response_stats()`가 `chapter_id`까지 GROUP BY(`00004`)하는데, 동기화 RPC는 응답 행의 `chapter_id`를 바꾸지 않아요. 같은 `(block_id, field_key)`가 두 행으로 오고 `Map.set`이 하나를 버려요. → 합산하거나 stats에서 `chapter_id`를 빼고 묶기.
 - **P1-18. `engaged_readers`·`answered_readers`를 최댓값으로 셈.** `engagement.ts:114`. A는 블록 1, B는 블록 2에만 답하면 2가 아니라 1이에요. 체크리스트 블록 단위도 같아요. → 책·블록 단위 DISTINCT user 수를 SQL에서 받기(소유자 제외 규칙 유지).
 - **P1-19. 비공개로 내린 챕터의 답이 내보내기에서 고아로 섞임.** `export-answers.ts:62` `splitAnswers`. `loadExportSource`는 published 챕터만 넘겨서, draft로 돌린 챕터의 자유서술 답이 "저자가 이후 수정한 문항의 답"으로 실려요. 6단계(내보내기)와 함께.

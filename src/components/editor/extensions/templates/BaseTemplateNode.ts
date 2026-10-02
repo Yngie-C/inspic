@@ -1,6 +1,4 @@
 import { Node, mergeAttributes } from "@tiptap/core";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
-import { generateNodeId } from "@/lib/template-node-id";
 
 export interface BaseTemplateNodeOptions {
   templateType: string;
@@ -12,7 +10,9 @@ export interface BaseTemplateNodeOptions {
  *
  * nodeId는 블록이 문서에 들어오는 순간 1회 부여되고 그 뒤로 바뀌지
  * 않습니다. 독자 응답이 이 ID에 매달려 있어서, 파싱 중에 새로 만들면
- * 속성이 한 번 유실될 때마다 응답이 통째로 끊깁니다.
+ * 속성이 한 번 유실될 때마다 응답이 통째로 끊깁니다. 부여와 붙여넣기
+ * 규칙은 `TemplateNodeIds` 확장 하나가 템플릿 노드 전부를 맡습니다 —
+ * 이 노드를 쓰는 에디터에는 그 확장도 함께 넣으세요.
  */
 export function createTemplateNode(
   name: string,
@@ -50,43 +50,6 @@ export function createTemplateNode(
         mergeAttributes(HTMLAttributes, { "data-template-type": templateType }),
       ];
     },
-
-    addProseMirrorPlugins() {
-      return [assignNodeIds(this.name)];
-    },
   });
 }
 
-/**
- * nodeId가 없는 블록에 ID를 부여하고, 복사·붙여넣기로 중복된 ID를 갈라줍니다.
- * 이미 고유한 ID를 가진 블록은 건드리지 않습니다.
- */
-function assignNodeIds(nodeName: string): Plugin {
-  return new Plugin({
-    key: new PluginKey(`templateNodeId:${nodeName}`),
-    appendTransaction: (transactions, _oldState, newState) => {
-      if (!transactions.some((tr) => tr.docChanged)) return null;
-
-      const tr = newState.tr;
-      const seen = new Set<string>();
-      let changed = false;
-
-      newState.doc.descendants((node, pos) => {
-        if (node.type.name !== nodeName) return;
-
-        const id = node.attrs.nodeId as string | null;
-        if (id && !seen.has(id)) {
-          seen.add(id);
-          return;
-        }
-
-        const assigned = generateNodeId();
-        tr.setNodeAttribute(pos, "nodeId", assigned);
-        seen.add(assigned);
-        changed = true;
-      });
-
-      return changed ? tr : null;
-    },
-  });
-}

@@ -71,15 +71,6 @@ export function EditPageContent() {
 
   const selectedChapter = chapters.find((c) => c.id === selectedId);
 
-  const selectChapter = (ch: Chapter) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    setSelectedId(ch.id);
-    setEditTitle(ch.title);
-    setEditContent(ch.content_html || ch.content_raw || "");
-    setSaved(true);
-    setSaveError(null);
-  };
-
   /**
    * 실패하면 "저장됨"을 띄우지 않습니다. 저장된 줄 알고 다른 장으로
    * 넘어가거나 창을 닫으면 그동안 쓴 글이 사라집니다.
@@ -115,6 +106,27 @@ export function EditPageContent() {
     [bookId, qc],
   );
 
+  /**
+   * 장을 바꾸기 전에 대기 중인 저장을 먼저 끝냅니다.
+   *
+   * 저장이 3초 디바운스라, 예전에는 입력 직후 다른 장을 누르면 타이머만
+   * 지우고 그 입력을 버렸습니다. 잘라낸 블록이 원래 장에 그대로 남아,
+   * 다른 장에 붙여넣으면 두 장이 같은 블록을 갖게 되기도 했습니다(WP4).
+   * 저장에 실패하면 장을 바꾸지 않고 "저장 안 됨"을 그대로 둡니다.
+   */
+  const selectChapter = async (ch: Chapter) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (selectedId && selectedId !== ch.id && !saved) {
+      const ok = await saveChapter(selectedId, editTitle, editContent);
+      if (!ok) return;
+    }
+    setSelectedId(ch.id);
+    setEditTitle(ch.title);
+    setEditContent(ch.content_html || ch.content_raw || "");
+    setSaved(true);
+    setSaveError(null);
+  };
+
   const handleContentChange = (html: string) => {
     setEditContent(html);
     setSaved(false);
@@ -148,7 +160,7 @@ export function EditPageContent() {
     if (res.ok) {
       const json = await res.json();
       qc.invalidateQueries({ queryKey: ["chapters", bookId] });
-      selectChapter(json.data);
+      await selectChapter(json.data);
     }
   };
 
@@ -295,7 +307,7 @@ export function EditPageContent() {
             {chapters.map((ch) => (
               <div
                 key={ch.id}
-                onClick={() => selectChapter(ch)}
+                onClick={() => void selectChapter(ch)}
                 className={`group flex cursor-pointer items-center gap-2 px-3 py-2.5 text-sm transition-colors ${
                   selectedId === ch.id
                     ? "bg-mark font-semibold text-primary"

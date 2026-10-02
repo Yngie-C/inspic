@@ -1,5 +1,6 @@
+import { isStorableBlockId, isStorableFieldKey } from "../template-node-id";
 import { extractWorkbookBlocks } from "./extract-blocks";
-import type { WorkbookBlock } from "./types";
+import type { WorkbookBlock, WorkbookBlockField } from "./types";
 
 /**
  * 챕터 HTML의 블록 정의를 DB에 반영하는 경로.
@@ -9,30 +10,57 @@ import type { WorkbookBlock } from "./types";
  * 한 트랜잭션으로 처리합니다 (마이그레이션 00002).
  */
 
+export { isStorableBlockId };
+
 /**
- * `workbook_blocks.id`가 UUID 컬럼이므로 ID도 UUID여야 합니다.
+ * RPC에 보낼 수 있는 블록만. 결과의 ID는 유효한 UUID이고 서로 다릅니다.
  *
- * 버전·변형 비트는 보지 않습니다. 판정 기준은 "RFC 4122 v4인가"가 아니라
- * "Postgres의 uuid 컬럼에 들어가는가"이고, 여기서 더 엄격하게 굴면 저장할
- * 수 있는 블록을 버리게 됩니다.
+ * 문항도 저장할 수 있는 것만 남깁니다 — 키가 비었거나 64자를 넘거나 블록
+ * 안에서 겹치면 뺍니다. 그런 키 하나가 DB의 CHECK에 걸리면 장 전체의
+ * 동기화가 롤백됩니다(코드 리뷰 3-P1-16).
  */
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-export function isStorableBlockId(id: string): boolean {
-  return UUID_RE.test(id);
-}
-
-/** RPC에 보낼 수 있는 블록만. 결과의 ID는 유효한 UUID이고 서로 다릅니다. */
 export function storableBlocks(
   blocks: readonly WorkbookBlock[],
 ): WorkbookBlock[] {
   const seen = new Set<string>();
-  return blocks.filter((block) => {
-    if (!isStorableBlockId(block.id) || seen.has(block.id)) return false;
-    seen.add(block.id);
+  return blocks
+    .filter((block) => {
+      if (!isStorableBlockId(block.id) || seen.has(block.id)) return false;
+      seen.add(block.id);
+      return true;
+    })
+    .map((block) => {
+      const fields = storableFields(block.fields);
+      return fields.length === block.fields.length ? block : { ...block, fields };
+    });
+}
+
+function storableFields(
+  fields: readonly WorkbookBlockField[],
+): WorkbookBlockField[] {
+  const seen = new Set<string>();
+  return fields.filter((field) => {
+    if (!isStorableFieldKey(field.field_key) || seen.has(field.field_key)) {
+      return false;
+    }
+    seen.add(field.field_key);
     return true;
   });
+}
+
+/**
+ * 저장할 수 없어 빠지는 문항이 있는 블록.
+ *
+ * 에디터가 체크리스트 항목 키를 불러올 때 고치므로(`TemplateNodeIds`)
+ * 업로드나 직접 편집한 본문에서만 나옵니다. 빠진 항목은 화면에는 보이지만
+ * 독자가 체크해도 저장되지 않으니, 공개 전 검수가 차단 사유로 씁니다.
+ */
+export function blocksWithUnstorableFields(
+  blocks: readonly WorkbookBlock[],
+): WorkbookBlock[] {
+  return blocks.filter(
+    (block) => storableFields(block.fields).length !== block.fields.length,
+  );
 }
 
 /**
@@ -65,6 +93,16 @@ export interface WorkbookSyncCounts {
   blocks_removed: number;
   fields_upserted: number;
   fields_removed: number;
+  /** 같은 책의 다른 장에서 옮겨 와 이 장을 가리키게 된 독자 답 (00007). */
+  responses_repointed: number;
+  /**
+   * 다른 장·책이 이미 쓰고 있어 저장하지 않은 블록 ID (00007).
+   *
+   * 덮지 않고 건너뜁니다. 덮으면 저장할 때마다 블록이 두 곳을 오가고,
+   * 한쪽에서 지우면 다른 쪽의 정의까지 사라집니다. 공개 전 검수가 같은
+   * 상태를 차단 사유로 잡습니다.
+   */
+  conflicts: string[];
 }
 
 export type WorkbookSyncResult =
@@ -111,5 +149,24 @@ export async function syncChapterWorkbookBlocks(
 
   if (error) return { ok: false, error: error.message, skipped };
 
-  return { ok: true, counts: data as WorkbookSyncCounts, skipped };
+  return { ok: true, counts: readCounts(data), skipped };
+}
+
+/**
+ * RPC 반환값을 읽습니다. `conflicts`·`responses_repointed`는 00007에서
+ * 늘었으므로, 00007 이전 DB에서는 비어 있는 것으로 봅니다.
+ */
+function readCounts(data: unknown): WorkbookSyncCounts {
+  const raw = (data ?? {}) as Partial<Record<keyof WorkbookSyncCounts, unknown>>;
+  const count = (value: unknown) => (typeof value === "number" ? value : 0);
+  return {
+    blocks_upserted: count(raw.blocks_upserted),
+    blocks_removed: count(raw.blocks_removed),
+    fields_upserted: count(raw.fields_upserted),
+    fields_removed: count(raw.fields_removed),
+    responses_repointed: count(raw.responses_repointed),
+    conflicts: Array.isArray(raw.conflicts)
+      ? raw.conflicts.filter((id): id is string => typeof id === "string")
+      : [],
+  };
 }

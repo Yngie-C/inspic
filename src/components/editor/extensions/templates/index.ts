@@ -12,3 +12,5 @@ export { SmartGoalNodeView } from "./SmartGoalNodeView";
 
 export { ScaleNode } from "./ScaleNode";
 export { ScaleNodeView } from "./ScaleNodeView";
+
+export { TemplateNodeIds, TEMPLATE_NODE_NAMES } from "./TemplateNodeIds";
