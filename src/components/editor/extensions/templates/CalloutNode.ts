@@ -1,3 +1,4 @@
+import { calloutTypeOf } from "@/lib/workbook/block-config";
 import { createTemplateNode } from "./BaseTemplateNode";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 import { CalloutNodeView } from "./CalloutNodeView";
@@ -5,7 +6,9 @@ import { CalloutNodeView } from "./CalloutNodeView";
 export const CalloutNode = createTemplateNode("callout", "callout", {
   calloutType: {
     default: "info",
-    parseHTML: (el) => el.getAttribute("data-callout-type") || "info",
+    // 새 블록은 "정보"로 시작하지만, 불러온 HTML에 값이 없거나 모르는 값이면
+    // 리더·추출기·PDF와 같은 대체값을 씁니다.
+    parseHTML: (el) => calloutTypeOf(el.getAttribute("data-callout-type")),
     renderHTML: (attrs) => ({ "data-callout-type": attrs.calloutType as string }),
   },
   content: {

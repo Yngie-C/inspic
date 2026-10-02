@@ -1,5 +1,6 @@
 import { htmlToDOM } from "html-react-parser";
 import type { DOMNode, Element } from "html-react-parser";
+import { calloutTypeOf, scaleRange } from "./block-config";
 import { isElementNode } from "./dom";
 import {
   REFLECTION_FIELD_KEY,
@@ -98,20 +99,24 @@ function readConfig(
   switch (blockType) {
     case "callout":
       return {
-        callout_type: attr("data-callout-type") || "note",
+        callout_type: calloutTypeOf(attr("data-callout-type")),
         content: attr("data-content"),
       };
 
     case "reflection":
       return { placeholder: attr("data-placeholder") };
 
-    case "scale":
+    case "scale": {
+      // 저장 라우트가 이 범위로 독자 답을 검사합니다. 리더가 그리는 칸과
+      // 같아야 하므로 같은 함수로 해석합니다.
+      const { min, max } = scaleRange(attr("data-min"), attr("data-max"));
       return {
-        min: parseIntOr(attr("data-min"), 1),
-        max: parseIntOr(attr("data-max"), 10),
+        min,
+        max,
         label_min: attr("data-label-min"),
         label_max: attr("data-label-max"),
       };
+    }
 
     case "checklist":
     case "smart_goal":
@@ -129,7 +134,7 @@ function readFields(
       return [];
 
     case "checklist":
-      return parseChecklistItems(element.attribs["data-items"]).map(
+      return readChecklistItems(element.attribs["data-items"]).map(
         (item, index) => ({
           field_key: item.id,
           label: item.text,
@@ -174,13 +179,35 @@ function readFields(
 }
 
 /**
- * 체크리스트 항목을 읽습니다.
+ * 체크리스트 항목을 읽습니다 — 화면(리더·PDF/EPUB 폴백)에 그릴 목록.
+ *
+ * 같은 `id`가 또 나오면 앞의 것만 남깁니다. 둘 다 그리면 두 항목이 답
+ * 하나를 나눠 가져 하나를 누르면 둘 다 켜지고 "2개 중 2개"가 됩니다
+ * (코드 리뷰 3-P1-13). 에디터는 불러올 때 겹친 키를 고치고(WP4), 공개 전
+ * 검수는 {@link readChecklistItems}로 겹친 것을 찾아 막습니다.
+ */
+export function parseChecklistItems(raw: string | undefined): ChecklistItem[] {
+  const seen = new Set<string>();
+  return readChecklistItems(raw).filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+}
+
+/**
+ * 체크리스트 항목을 HTML에 적힌 그대로 읽습니다. 겹친 `id`도 남깁니다 —
+ * 블록 추출이 이것을 써서, 동기화(`storableBlocks`)와 검수
+ * (`blocksWithUnstorableFields`)가 겹친 키를 보고 다룹니다.
  *
  * `id`가 없는 항목은 버립니다. 항목의 `id`가 곧 `field_key`이고,
  * 여기서 임의로 만들어 붙이면 저장할 때마다 키가 바뀌어 그 항목의
  * 체크 상태가 매번 사라집니다.
+ *
+ * `text`가 문자열이 아니면 빈 문구로 둡니다. 객체가 그대로 흘러가면
+ * 리더가 렌더 중에 던집니다.
  */
-export function parseChecklistItems(raw: string | undefined): ChecklistItem[] {
+export function readChecklistItems(raw: string | undefined): ChecklistItem[] {
   if (!raw) return [];
 
   let parsed: unknown;
@@ -191,14 +218,15 @@ export function parseChecklistItems(raw: string | undefined): ChecklistItem[] {
   }
   if (!Array.isArray(parsed)) return [];
 
-  return parsed.filter((item): item is ChecklistItem => {
-    if (typeof item !== "object" || item === null) return false;
-    const candidate = item as Partial<ChecklistItem>;
-    return typeof candidate.id === "string" && candidate.id.length > 0;
-  });
-}
-
-function parseIntOr(raw: string, fallback: number): number {
-  const parsed = Number.parseInt(raw, 10);
-  return Number.isNaN(parsed) ? fallback : parsed;
+  const items: ChecklistItem[] = [];
+  for (const item of parsed) {
+    if (typeof item !== "object" || item === null) continue;
+    const candidate = item as { id?: unknown; text?: unknown };
+    if (typeof candidate.id !== "string" || candidate.id.length === 0) continue;
+    items.push({
+      id: candidate.id,
+      text: typeof candidate.text === "string" ? candidate.text : "",
+    });
+  }
+  return items;
 }

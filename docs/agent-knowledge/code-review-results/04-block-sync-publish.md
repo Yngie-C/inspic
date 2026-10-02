@@ -97,8 +97,8 @@
 - **P1-4. 항목 키(field_key) 중복을 가르는 곳이 없음.** `template-node-id.ts:20` `generateFieldKey`는 "블록 안에서만 고유하면 된다"고 적었지만 검사가 없어요. 업로드·수동 편집으로 같은 id가 두 번 들어오면 RPC의 `DISTINCT ON`이 하나만 남기고, 리더에서는 두 체크박스가 같은 field_key와 DOM id를 공유해 함께 토글돼요. → 블록 ID처럼 항목 키도 중복을 가름(3단계 P1-13과 함께). 2026-10-02 WP4: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP4).
 - **P1-5. 처음 불러올 때는 ID가 부여되지 않음.** `BaseTemplateNode.ts:65`. `appendTransaction`에서만 부여해, ID 없는 블록이 있는 챕터를 편집 없이 열면 그대로예요. `setContent(..., {emitUpdate:false})` 중 붙은 ID는 저장되지 않고, 열 때마다 다른 UUID가 생겨요. 검수는 "응답을 받을 수 없는 블록"으로 막는데 에디터는 아무 문제도 보이지 않아요. → onCreate/setContent 경로에서 부여하고 문서를 dirty로 표시해 저장되게. 2026-10-02 WP4: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP4).
 - **P1-6. `crypto.randomUUID()`에 대체 경로가 없음.** `template-node-id.ts:11`. 보안 컨텍스트(HTTPS·localhost)와 Safari 15.4+에만 있어요. LAN 주소(`http://192.168.x.x:3000`)로 모바일에서 확인하거나 HTTP 스테이징·구형 Safari에서 블록을 넣으면 `appendTransaction`이 던져 삽입과 이후 편집이 막혀요. 서버(Node)는 영향 없음. → `crypto.getRandomValues`로 UUID v4를 조립하는 대체 경로. 2026-10-02 WP4: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP4).
-- **P1-7. 척도 min 0을 1로 바꾸고 범위를 검사하지 않음.** `ScaleNodeView.tsx:10` `parseInt(min) || 1`. 리더와 추출기는 0을 유지해 미리보기가 달라요. `data-max="100000"`이면 node view가 10만 개 span을 그려 에디터가 멈춰요. → 추출기의 `parseIntOr`와 같은 함수 + 범위 제한(3단계 P1-11과 함께).
-- **P1-8. callout 대체값이 에디터는 `info`, 리더·폴백·추출기는 `note`.** `CalloutNodeView.tsx:19`. 빈 값이나 모르는 값이면 에디터는 "정보", 독자·PDF/EPUB은 "참고". `rawType in CALLOUT_LABEL`은 `constructor`·`toString` 같은 프로토타입 키도 통과시켜요. → `Object.hasOwn` + 공유 대체값(3단계 P1-10과 함께).
+- **P1-7. 척도 min 0을 1로 바꾸고 범위를 검사하지 않음.** `ScaleNodeView.tsx:10` `parseInt(min) || 1`. 리더와 추출기는 0을 유지해 미리보기가 달라요. `data-max="100000"`이면 node view가 10만 개 span을 그려 에디터가 멈춰요. → 추출기의 `parseIntOr`와 같은 함수 + 범위 제한(3단계 P1-11과 함께). 2026-10-02 WP5: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP5).
+- **P1-8. callout 대체값이 에디터는 `info`, 리더·폴백·추출기는 `note`.** `CalloutNodeView.tsx:19`. 빈 값이나 모르는 값이면 에디터는 "정보", 독자·PDF/EPUB은 "참고". `rawType in CALLOUT_LABEL`은 `constructor`·`toString` 같은 프로토타입 키도 통과시켜요. → `Object.hasOwn` + 공유 대체값(3단계 P1-10과 함께). 2026-10-02 WP5: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP5).
 
 ### 챕터 API (`src/app/api/chapters`)
 

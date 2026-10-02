@@ -2,9 +2,8 @@
 
 import type { Element } from "html-react-parser";
 import { WorkbookBlock } from "@/components/ui/workbook-block";
+import { calloutTypeOf, type CalloutType } from "@/lib/workbook/block-config";
 import { registerTemplate } from "./TemplateRenderer";
-
-type CalloutType = "info" | "warning" | "tip" | "note";
 
 interface Props {
   element: Element;
@@ -23,9 +22,7 @@ const CALLOUT_LABEL: Record<CalloutType, string> = {
 };
 
 function CalloutReader({ element }: Props) {
-  const rawType = element.attribs["data-callout-type"] || "note";
-  const calloutType: CalloutType =
-    rawType in CALLOUT_LABEL ? (rawType as CalloutType) : "note";
+  const calloutType = calloutTypeOf(element.attribs["data-callout-type"]);
   const content = element.attribs["data-content"] || "";
 
   return (

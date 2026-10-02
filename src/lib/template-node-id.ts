@@ -45,7 +45,12 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function isStorableBlockId(id: string): boolean {
-  return UUID_RE.test(id);
+  return isUuid(id);
+}
+
+/** Postgres의 uuid 컬럼에 들어가는 문자열인가. 라우트의 경로 인자 검사에도 씁니다. */
+export function isUuid(value: string): boolean {
+  return UUID_RE.test(value);
 }
 
 /**

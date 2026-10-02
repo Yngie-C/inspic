@@ -1,7 +1,10 @@
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import { WorkbookBlock } from "@/components/ui/workbook-block";
-
-type CalloutType = "info" | "warning" | "tip" | "note";
+import {
+  CALLOUT_TYPES,
+  calloutTypeOf,
+  type CalloutType,
+} from "@/lib/workbook/block-config";
 
 /** 읽기 뷰(`CalloutReader`)와 같은 라벨. 종류는 라벨로만 구분합니다. */
 const CALLOUT_LABEL: Record<CalloutType, string> = {
@@ -11,12 +14,9 @@ const CALLOUT_LABEL: Record<CalloutType, string> = {
   info: "정보",
 };
 
-const CALLOUT_TYPES = Object.keys(CALLOUT_LABEL) as CalloutType[];
-
 export function CalloutNodeView({ node, updateAttributes }: NodeViewProps) {
-  const rawType = node.attrs.calloutType as string;
-  const calloutType: CalloutType =
-    rawType in CALLOUT_LABEL ? (rawType as CalloutType) : "info";
+  // 비었거나 모르는 값은 리더·PDF와 같은 종류로 보여 줍니다(코드 리뷰 4-P1-8).
+  const calloutType = calloutTypeOf(node.attrs.calloutType);
   const content = (node.attrs.content as string) ?? "";
 
   return (

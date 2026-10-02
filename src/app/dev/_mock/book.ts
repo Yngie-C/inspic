@@ -17,7 +17,7 @@ function items(list: Array<[string, string]>) {
 const CH1_HTML = `
 <p>이번 챕터는 단 하나의 목표를 가지고 있어요. <strong>지금 당장, 손으로 직접, 자소서 초안을 만들어보는 것.</strong></p>
 <p>이론 설명은 없어요. 설치 이야기도 없어요. Claude Code를 열고, 5분 뒤엔 여러분의 이름이 들어간 자소서 초안이 파일로 저장되어 있을 거예요.</p>
-<section data-template-type="checklist" data-node-id="dev-ck-1" data-items="${items([
+<section data-template-type="checklist" data-node-id="d0000000-0000-4000-8000-000000000001" data-items="${items([
   ["a", "터미널 열기"],
   ["b", "my-resume-pipeline 폴더 만들기"],
   ["c", "claude 실행하고 > 기호 확인하기"],
@@ -28,15 +28,15 @@ const CH1_HTML = `
 cd my-resume-pipeline
 claude</code></pre>
 <p><code>mkdir</code>은 폴더를 만드는 명령어예요. <code>cd</code>는 그 폴더 안으로 들어가는 명령어고요. 마지막으로 <code>claude</code>를 치면 Claude Code가 시작돼요.</p>
-<section data-template-type="callout" data-node-id="dev-co-1" data-callout-type="note" data-content="Claude Code가 설치되어 있어야 해요. Claude Pro 또는 Max 구독이 필요해요. 설치가 처음이라면 0장을 먼저 확인하세요."></section>
-<section data-template-type="scale" data-node-id="dev-sc-1" data-min="1" data-max="10" data-label-min="전혀 없음" data-label-max="매우 자신 있음"></section>
+<section data-template-type="callout" data-node-id="d0000000-0000-4000-8000-000000000002" data-callout-type="note" data-content="Claude Code가 설치되어 있어야 해요. Claude Pro 또는 Max 구독이 필요해요. 설치가 처음이라면 0장을 먼저 확인하세요."></section>
+<section data-template-type="scale" data-node-id="d0000000-0000-4000-8000-000000000003" data-min="1" data-max="10" data-label-min="전혀 없음" data-label-max="매우 자신 있음"></section>
 <h2>자소서 초안 요청하기</h2>
 <p><code>&gt;</code> 뒤에 프롬프트를 입력하면 돼요. 예시를 그대로 복사해도 되지만, 괄호 안의 내용은 본인 정보로 꼭 바꿔주세요.</p>
 <ul><li>지원 회사와 직무</li><li>강조하고 싶은 경험 두 가지</li></ul>
-<section data-template-type="reflection" data-node-id="dev-rf-1" data-prompt="내가 지원하려는 직무를 한 문장으로 적어 보세요." data-placeholder="예: 테크코프 백엔드 개발자, 대용량 트래픽을 다루는 팀"></section>
-<section data-template-type="callout" data-node-id="dev-co-2" data-callout-type="warning" data-content="회사 이름이나 실제 개인정보를 공개 저장소에 올리지 마세요."></section>
-<section data-template-type="callout" data-node-id="dev-co-3" data-callout-type="tip" data-content="초안이 마음에 들지 않으면 '더 짧게', '숫자를 넣어서'처럼 한 가지씩만 고쳐 달라고 요청하세요."></section>
-<section data-template-type="smart-goal" data-node-id="dev-sg-1"></section>
+<section data-template-type="reflection" data-node-id="d0000000-0000-4000-8000-000000000004" data-prompt="내가 지원하려는 직무를 한 문장으로 적어 보세요." data-placeholder="예: 테크코프 백엔드 개발자, 대용량 트래픽을 다루는 팀"></section>
+<section data-template-type="callout" data-node-id="d0000000-0000-4000-8000-000000000005" data-callout-type="warning" data-content="회사 이름이나 실제 개인정보를 공개 저장소에 올리지 마세요."></section>
+<section data-template-type="callout" data-node-id="d0000000-0000-4000-8000-000000000006" data-callout-type="tip" data-content="초안이 마음에 들지 않으면 '더 짧게', '숫자를 넣어서'처럼 한 가지씩만 고쳐 달라고 요청하세요."></section>
+<section data-template-type="smart-goal" data-node-id="d0000000-0000-4000-8000-000000000007"></section>
 <blockquote>좋은 자소서는 한 번에 써지지 않는다. 고칠 수 있는 초안이 먼저다.</blockquote>
 `;
 

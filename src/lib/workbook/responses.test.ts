@@ -9,6 +9,7 @@ import {
   summarizeProgress,
   toResponseRow,
   toResponseRows,
+  isAnsweredValue,
 } from "./responses";
 import type { WorkbookBlock, WorkbookResponse } from "./types";
 
@@ -376,3 +377,21 @@ describe("summarizeProgress", () => {
     });
   });
 });
+
+describe("isAnsweredValue", () => {
+  it("공백뿐인 글·체크 해제·null은 답이 아니다", () => {
+    // 서버도 같은 판정으로 공백 답을 NULL로 저장합니다. 둘이 어긋나면 독자의
+    // 진행률과 저자가 보는 참여율이 달라집니다(3-P1-2, 3-P1-15).
+    expect(isAnsweredValue(" \n\t")).toBe(false);
+    expect(isAnsweredValue("")).toBe(false);
+    expect(isAnsweredValue(false)).toBe(false);
+    expect(isAnsweredValue(null)).toBe(false);
+  });
+
+  it("글자·숫자(0 포함)·체크는 답이다", () => {
+    expect(isAnsweredValue(" 답 ")).toBe(true);
+    expect(isAnsweredValue(0)).toBe(true);
+    expect(isAnsweredValue(true)).toBe(true);
+  });
+});
+

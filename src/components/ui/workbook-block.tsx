@@ -82,10 +82,22 @@ export function BlockStatusText({ status }: { status: BlockStatus }) {
  * 저장 실패를 블록 안에서 말한다. 무엇이 잘못됐고 어떻게 고치는지를 함께 쓴다
  * (DESIGN.md "danger는 항상 오류 문장과 함께").
  */
-export function BlockSaveError({ onRetry }: { onRetry: () => void }) {
+export function BlockSaveError({
+  failure = "retry",
+  onRetry,
+}: {
+  /**
+   * `retry`: 연결 문제. `rejected`: 서버가 받지 않음 — 저자가 블록을 고치는
+   * 중일 수 있어서, 연결을 확인하라고 하면 엉뚱한 안내가 됩니다.
+   */
+  failure?: "retry" | "rejected";
+  onRetry: () => void;
+}) {
   return (
     <p className="m-0 flex flex-wrap items-baseline gap-x-2 text-body-sm text-danger">
-      이 답을 저장하지 못했어요. 연결을 확인한 뒤 다시 시도해 주세요.
+      {failure === "rejected"
+        ? "이 답은 저장되지 않았어요. 저자가 이 부분을 고치는 중일 수 있어요. 쓰신 내용은 이 기기에 남아 있어요."
+        : "이 답을 저장하지 못했어요. 연결을 확인한 뒤 다시 시도해 주세요."}
       <button
         type="button"
         onClick={onRetry}
@@ -93,6 +105,19 @@ export function BlockSaveError({ onRetry }: { onRetry: () => void }) {
       >
         다시 시도
       </button>
+    </p>
+  );
+}
+
+/**
+ * 답을 받을 수 없는 블록(`data-node-id`가 없음)이라는 안내. 입력은 막습니다 —
+ * 받아 두면 저장되지 않은 채 저장된 것처럼 보이고, ID 없는 블록끼리 답
+ * 하나를 나눠 갖습니다.
+ */
+export function BlockUnavailable() {
+  return (
+    <p className="m-0 text-body-sm text-muted">
+      이 블록은 아직 답을 받을 수 없어요. 저자가 책을 다시 저장하면 쓸 수 있어요.
     </p>
   );
 }

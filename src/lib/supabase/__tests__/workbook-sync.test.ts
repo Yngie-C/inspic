@@ -132,12 +132,15 @@ async function answer(
   userId: string,
   blockId: string,
   fieldKey: string,
-  value: string,
+  value: string | boolean,
 ): Promise<void> {
+  // 값 컬럼은 문항 타입을 따라야 합니다(00008의 쓰기 정책). 체크리스트는
+  // 참거짓, 글로 답하는 문항은 문자열입니다.
+  const column = typeof value === "boolean" ? "value_bool" : "value_text";
   await asUser(userId, () =>
     db.query(
       `INSERT INTO workbook_responses
-         (user_id, book_id, chapter_id, block_id, field_key, value_text)
+         (user_id, book_id, chapter_id, block_id, field_key, ${column})
        VALUES ($1, $2, $3, $4, $5, $6)`,
       [userId, book, chapter, blockId, fieldKey, value],
     ),
@@ -206,7 +209,8 @@ async function myAnswers(
       field_key: string;
       value_text: string;
     }>(
-      `SELECT block_id, field_key, value_text FROM workbook_responses
+      `SELECT block_id, field_key, COALESCE(value_text, value_bool::text) AS value_text
+       FROM workbook_responses
        WHERE user_id = $1 ORDER BY field_key`,
       [userId],
     );
@@ -336,7 +340,7 @@ describe("독자 응답 보존", () => {
     await sync(creator, chapter, [
       checklist(BLOCK_A, [{ key: "k1", label: "환경 설정" }]),
     ]);
-    await answer(reader, BLOCK_A, "k1", "done");
+    await answer(reader, BLOCK_A, "k1", true);
 
     await sync(creator, chapter, [
       checklist(BLOCK_A, [
@@ -347,7 +351,7 @@ describe("독자 응답 보존", () => {
     ]);
 
     expect(await myAnswers(reader)).toEqual([
-      { block_id: BLOCK_A, field_key: "k1", value_text: "done" },
+      { block_id: BLOCK_A, field_key: "k1", value_text: "true" },
     ]);
   });
 
@@ -358,8 +362,8 @@ describe("독자 응답 보존", () => {
         { key: "k2", label: "항목 2" },
       ]),
     ]);
-    await answer(reader, BLOCK_A, "k1", "yes");
-    await answer(reader, BLOCK_A, "k2", "yes");
+    await answer(reader, BLOCK_A, "k1", true);
+    await answer(reader, BLOCK_A, "k2", true);
 
     const counts = await sync(creator, chapter, [
       checklist(BLOCK_A, [{ key: "k1", label: "항목 1" }]),
@@ -375,7 +379,7 @@ describe("독자 응답 보존", () => {
     await sync(creator, chapter, [
       checklist(BLOCK_A, [{ key: "k1", label: "항목 1" }]),
     ]);
-    await answer(reader, BLOCK_A, "k1", "yes");
+    await answer(reader, BLOCK_A, "k1", true);
 
     await sync(creator, chapter, [checklist(BLOCK_A, [])]);
     await sync(creator, chapter, [
@@ -385,7 +389,7 @@ describe("독자 응답 보존", () => {
     // (block_id, field_key)로만 만나기 때문에 가능한 일입니다.
     // 인덱스로 매칭했다면 여기서 응답이 끊겼습니다.
     expect(await myAnswers(reader)).toEqual([
-      { block_id: BLOCK_A, field_key: "k1", value_text: "yes" },
+      { block_id: BLOCK_A, field_key: "k1", value_text: "true" },
     ]);
   });
 

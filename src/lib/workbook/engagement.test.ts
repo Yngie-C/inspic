@@ -148,4 +148,16 @@ describe("buildEngagement", () => {
       { field_key: "answer", label: "무엇을 배웠나요?", answered_count: 1 },
     ]);
   });
+
+  it("같은 문항이 장별로 나뉘어 와도 응답 수를 더한다", () => {
+    // 블록을 옮겼거나 장을 지운 답은 chapter_id가 달라 집계 행이 둘로
+    // 옵니다. 덮어쓰면 한쪽 장의 응답 수가 사라졌습니다(3-P1-17).
+    const result = buildEngagement(
+      CHAPTERS,
+      [block({ id: "b-1" })],
+      [stat("b-1", "answer", 2), stat("b-1", "answer", 3)],
+    );
+
+    expect(result.chapters[0].blocks[0].fields[0].answered_count).toBe(5);
+  });
 });
