@@ -28,6 +28,22 @@
 - 4-P0-1 재현: 개발 서버에서 워크북 블록을 넣고 `getHTML()`이 던지는지 확인. 결과를 이 문서에 적기.
 - 각 WP를 시작할 때 해당 지적의 재현 경로를 먼저 확인하고, 재현되지 않는 지적은 "재현 안 됨"으로 표시하고 건너뜀(리뷰 결과는 모두 2차 검증 전이에요).
 
+#### WP0 결과 (2026-10-02, 커밋 `360f58d` 기준)
+
+기준선 — 앞으로의 WP는 이 수치보다 나빠지면 안 돼요.
+
+| 명령 | 결과 |
+|---|---|
+| `npm run typecheck` | 통과 |
+| `npm test` | 24 파일 · 358개 통과. 단, 첫 실행에서 `workbook-responses.test.ts`·`workbook-sync.test.ts`가 `beforeAll` 10초 시간 초과로 실패(28 skipped). 단독 실행과 전체 재실행은 모두 통과 → PGlite 하네스 생성이 병렬 부하에서 늦어지는 간헐 실패. 다시 나면 하네스 `hookTimeout`을 늘리는 것을 검토 |
+| `npm run lint` | **에러 9개**, 경고 17개 (AGENTS.md의 "10개"보다 하나 적음). 내역: `no-explicit-any` 5, `set-state-in-effect` 3, memoization 보존 실패 1 |
+| `npm run build` | 통과 |
+
+4-P0-1 재현 — **재현됨.** 개발 서버 대신 jsdom에서 `RichTextEditor`와 같은 확장(StarterKit + 템플릿 노드 5종)으로 `Editor`를 만들어 확인했어요(로그인·Supabase 없이 같은 코드 경로를 탈 수 있어서).
+- 다섯 블록(`checklist`·`callout`·`reflection`·`smart-goal`·`scale`) 모두, 블록이 든 HTML을 불러올 때와 `insertContent`로 넣을 때 둘 다 `getHTML()`이 `RangeError: Content hole not allowed in a leaf node spec`을 던져요. 즉 지금은 워크북 블록이 든 챕터를 저장할 수 없어요.
+- `renderHTML`에서 `0`만 빼면 다섯 블록 모두 `data-*` 속성이 보존된 `<section>`으로 직렬화되는 것까지 확인하고 되돌렸어요. WP1에서 이 확인을 정식 테스트로 남겨요.
+- 브라우저에서 슬래시 메뉴로 넣는 경로는 WP1 수정 후 개발 서버에서 확인해요.
+
 ### WP1. 즉시 수정 — 작고 피해가 큰 것
 | 지적 | 수정 |
 |---|---|
@@ -35,6 +51,19 @@
 | 4-P0-4 | 챕터 POST/PUT에서 `content_html` 길이(500000)를 DB 전에 검사해 한국어 400. `EditPageContent.saveChapter`가 `res.ok`를 보고 실패를 표시 |
 | 3-P0-2 | `responses/route.ts` `loadFieldDefinitions`의 조회 에러면 500 (블록 조회도 같이) |
 - 테스트: 에디터에 블록 삽입 → `getHTML()` 성공, 챕터 길이 초과 → 400, 정의 조회 실패 → 500.
+
+#### WP1 결과 (2026-10-02)
+
+| 지적 | 상태 | 한 일 |
+|---|---|---|
+| 4-P0-1 | 수정됨 | `renderHTML`에서 `0` 제거. `BaseTemplateNode.test.ts`가 다섯 블록의 불러오기·삽입·저장 후 재로드를 확인 |
+| 4-P0-4 | 수정됨 | `lib/content-stats.ts`에 `MAX_CHAPTER_HTML_LENGTH`·`isChapterHtmlTooLong()`(Postgres `length()`처럼 코드 포인트로 셈). 챕터 POST/PUT이 sanitize 뒤 DB 전에 검사해 400 `CONTENT_TOO_LONG` + 한국어 사유. `saveChapter`가 `res.ok`를 보고 실패 시 "저장 안 됨 · 사유 · 다시 시도"를 띄우며, "검수 후 공개"는 저장이 실패하면 넘어가지 않음. 서버 문구는 `CONTENT_TOO_LONG`일 때만 띄우고 나머지는 일반 문구(DB 원문 노출 방지) |
+| 3-P0-2 | 수정됨 | `loadFieldDefinitions`가 조회 에러를 돌려주고 라우트가 500. 블록 조회는 원래 500이었음(테스트로 고정) |
+
+- 테스트: 새 테스트 16개(`BaseTemplateNode.test.ts`, `content-stats.test.ts`, `chapters-route.test.ts`, `responses-route.test.ts`). 라우트 테스트용 가짜 클라이언트는 `src/test/fake-supabase.ts`. 수정을 되돌리면 대조 케이스를 뺀 10개가 실패하는 것을 확인.
+- 검증: typecheck 통과, `npm test` 28 파일·374개 통과, lint 에러 9·경고 17(기준선 그대로), build 통과.
+- **남은 확인:** 이 worktree에는 `.env.local`이 없어 개발 서버에서 로그인한 화면(슬래시 메뉴로 블록 넣고 저장, 긴 본문 저장 실패 표시)은 보지 못했어요.
+- 범위 밖으로 둔 것: 업로드 라우트(`/api/upload`)도 본문 길이를 먼저 보지 않지만, 실패하면 책을 롤백하고 실패를 화면에 내므로 조용한 유실은 아니에요. 붙여 넣은 base64 이미지를 업로드 경로로 돌리는 것은 정하지 않았어요.
 
 ### WP2. 결제 무결성 — 마이그레이션 `00005`
 - 대상: 1-P0-1 ~ 1-P0-7, 2-P0-1 ~ 2-P0-3, 1-P1 "결제 API·라우트" 전부.
@@ -102,8 +131,8 @@
 
 | WP | 내용 | 마이그레이션 | 상태 | PR/커밋 | 비고 |
 |---|---|---|---|---|---|
-| 0 | 준비·P0-1 재현 | – |  |  |  |
-| 1 | 즉시 수정 | – |  |  |  |
+| 0 | 준비·P0-1 재현 | – | 완료 | – | 기준선 기록, 4-P0-1 재현됨 (위 "WP0 결과") |
+| 1 | 즉시 수정 | – | 완료 |  | 4-P0-1·4-P0-4·3-P0-2 수정됨. 브라우저 확인 남음 |
 | 2 | 결제 무결성 | 00005 |  |  |  |
 | 3 | 구매자 접근·노출 | 00006 |  |  |  |
 | 4 | 블록 ID 규칙 | 00007 |  |  |  |

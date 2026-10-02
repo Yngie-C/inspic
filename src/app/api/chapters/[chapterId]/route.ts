@@ -2,7 +2,11 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthUser, apiError, apiSuccess } from "@/lib/api-utils";
 import { sanitizeContent } from "@/lib/sanitize";
-import { countWords } from "@/lib/content-stats";
+import {
+  CHAPTER_TOO_LONG_MESSAGE,
+  countWords,
+  isChapterHtmlTooLong,
+} from "@/lib/content-stats";
 import { syncChapterWorkbookBlocks } from "@/lib/workbook/sync-blocks";
 
 type Params = { params: Promise<{ chapterId: string }> };
@@ -89,6 +93,9 @@ export async function PUT(request: NextRequest, { params }: Params) {
   let sanitizedHtml: string | null = null;
   if (body.content_html !== undefined) {
     sanitizedHtml = sanitizeContent(body.content_html);
+    if (isChapterHtmlTooLong(sanitizedHtml)) {
+      return apiError(CHAPTER_TOO_LONG_MESSAGE, "CONTENT_TOO_LONG", 400);
+    }
     const newWordCount = countWords(sanitizedHtml);
     wordDiff = newWordCount - (chapter.word_count ?? 0);
     updates.content_html = sanitizedHtml;

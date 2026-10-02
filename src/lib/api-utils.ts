@@ -7,6 +7,7 @@ export type ErrorCode =
   | "NOT_FOUND"
   | "FORBIDDEN"
   | "VALIDATION_ERROR"
+  | "CONTENT_TOO_LONG"
   | "UPLOAD_ERROR"
   | "PUBLISH_BLOCKED"
   | "SERVER_ERROR";

@@ -41,11 +41,13 @@ export function createTemplateNode(
       return [{ tag: `section[data-template-type="${templateType}"]` }];
     },
 
+    // atom 노드라 content hole(`0`)을 두면 안 됩니다. 넣으면
+    // DOMSerializer가 던져서 `getHTML()`이 실패하고, 블록이 든 챕터가
+    // 저장되지 않습니다. 블록 내용은 전부 data-* 속성에 있습니다.
     renderHTML({ HTMLAttributes }) {
       return [
         "section",
         mergeAttributes(HTMLAttributes, { "data-template-type": templateType }),
-        0,
       ];
     },
 

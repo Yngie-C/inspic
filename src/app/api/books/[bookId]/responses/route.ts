@@ -113,11 +113,16 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
   if (blocksError) return apiError(blocksError.message, "SERVER_ERROR", 500);
 
-  const definitions = await loadFieldDefinitions(supabase, blocks ?? []);
+  // 조회가 실패했는데 정의 0개로 넘어가면 모든 답이 `rejected`로 담긴
+  // 200이 됩니다. 리더는 그것을 "보냈다"로 보고 큐에서 지우므로 답이
+  // 다시 전송되지 않습니다. 500이면 큐에 남아 다음 저장 때 다시 갑니다.
+  const loaded = await loadFieldDefinitions(supabase, blocks ?? []);
+  if (!loaded.ok) return apiError(loaded.error, "SERVER_ERROR", 500);
+
   const { rows, rejected } = buildResponseRows(
     user.id,
     parsed.writes,
-    definitions,
+    loaded.definitions,
   );
 
   if (rows.length > 0) {
@@ -136,10 +141,13 @@ type BlockRow = { id: string; book_id: string; chapter_id: string };
 async function loadFieldDefinitions(
   supabase: Awaited<ReturnType<typeof createClient>>,
   blocks: readonly BlockRow[],
-): Promise<StoredFieldDefinition[]> {
-  if (blocks.length === 0) return [];
+): Promise<
+  | { ok: true; definitions: StoredFieldDefinition[] }
+  | { ok: false; error: string }
+> {
+  if (blocks.length === 0) return { ok: true, definitions: [] };
 
-  const { data: fields } = await supabase
+  const { data: fields, error } = await supabase
     .from("workbook_block_fields")
     .select("block_id, field_key, input_type")
     .in(
@@ -147,9 +155,11 @@ async function loadFieldDefinitions(
       blocks.map((block) => block.id),
     );
 
+  if (error) return { ok: false, error: error.message };
+
   const blockById = new Map(blocks.map((block) => [block.id, block]));
 
-  return (fields ?? []).flatMap((field) => {
+  const definitions = (fields ?? []).flatMap((field) => {
     const block = blockById.get(field.block_id);
     if (!block) return [];
     return [
@@ -162,4 +172,5 @@ async function loadFieldDefinitions(
       },
     ];
   });
+  return { ok: true, definitions };
 }

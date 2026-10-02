@@ -55,6 +55,7 @@
 - 위치: `src/app/api/books/[bookId]/responses/route.ts:142` `loadFieldDefinitions`
 - 무엇: `workbook_block_fields` SELECT의 `error`를 보지 않아요. 잠깐 DB가 실패하면 `fields = null` → 정의 0개 → 모든 쓰기가 `unknown_field`로 담긴 **200** 응답. 클라이언트는 성공으로 보고 큐에서 지워요(`Provider:186-191`). 재시도할 것이 없어 답은 localStorage에만 남고, 배너는 "저자가 수정 중일 수 있어요"라고 엉뚱하게 안내해요.
 - 고칠 방향: 에러면 500. 블록 조회 쪽도 같은지 확인. 라우트 테스트에 조회 실패 케이스.
+- 2026-10-02 WP1: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP1). 블록 조회는 원래 500이었음.
 
 ### P0-3. 저장 요청 두 개가 동시에 나가 옛 값이 새 값을 덮음
 - 위치: `WorkbookResponsesProvider.tsx:183` `flush`, `route.ts:124` upsert

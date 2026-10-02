@@ -2,7 +2,11 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthUser, apiError, apiSuccess } from "@/lib/api-utils";
 import { sanitizeContent } from "@/lib/sanitize";
-import { countWords } from "@/lib/content-stats";
+import {
+  CHAPTER_TOO_LONG_MESSAGE,
+  countWords,
+  isChapterHtmlTooLong,
+} from "@/lib/content-stats";
 import { syncChapterWorkbookBlocks } from "@/lib/workbook/sync-blocks";
 
 export async function GET(request: NextRequest) {
@@ -92,6 +96,9 @@ export async function POST(request: NextRequest) {
   if (book.owner_id !== user.id) return apiError("Access denied", "FORBIDDEN", 403);
 
   const sanitized = sanitizeContent(content_html);
+  if (isChapterHtmlTooLong(sanitized)) {
+    return apiError(CHAPTER_TOO_LONG_MESSAGE, "CONTENT_TOO_LONG", 400);
+  }
   const word_count = countWords(sanitized);
   const slug = `chapter-${order_index + 1}-${Date.now()}`;
 

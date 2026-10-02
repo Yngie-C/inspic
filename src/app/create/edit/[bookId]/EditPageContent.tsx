@@ -55,6 +55,7 @@ export function EditPageContent() {
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
   const [saved, setSaved] = useState(true);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [metaOpen, setMetaOpen] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -76,17 +77,40 @@ export function EditPageContent() {
     setEditTitle(ch.title);
     setEditContent(ch.content_html || ch.content_raw || "");
     setSaved(true);
+    setSaveError(null);
   };
 
+  /**
+   * 실패하면 "저장됨"을 띄우지 않습니다. 저장된 줄 알고 다른 장으로
+   * 넘어가거나 창을 닫으면 그동안 쓴 글이 사라집니다.
+   */
   const saveChapter = useCallback(
-    async (id: string, title: string, contentHtml: string) => {
-      await fetch(`/api/chapters/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, content_html: contentHtml }),
-      });
+    async (id: string, title: string, contentHtml: string): Promise<boolean> => {
+      try {
+        const res = await fetch(`/api/chapters/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, content_html: contentHtml }),
+        });
+        if (!res.ok) {
+          const json = await res.json().catch(() => ({}));
+          // 서버 문구는 크리에이터가 풀 수 있는 거절일 때만 띄웁니다.
+          // 나머지는 DB 원문이 섞여 있을 수 있습니다.
+          setSaveError(
+            json.code === "CONTENT_TOO_LONG" && typeof json.error === "string"
+              ? json.error
+              : "저장하지 못했어요. 연결을 확인한 뒤 다시 시도하세요.",
+          );
+          return false;
+        }
+      } catch {
+        setSaveError("저장하지 못했어요. 연결을 확인한 뒤 다시 시도하세요.");
+        return false;
+      }
       setSaved(true);
+      setSaveError(null);
       qc.invalidateQueries({ queryKey: ["chapters", bookId] });
+      return true;
     },
     [bookId, qc],
   );
@@ -153,7 +177,10 @@ export function EditPageContent() {
     setPublishing(true);
     try {
       if (selectedId && !saved) {
-        await saveChapter(selectedId, editTitle, editContent);
+        // 저장에 실패한 채로 넘어가면 검수는 옛 본문을 보고, 크리에이터는
+        // 방금 쓴 글이 반영된 줄 압니다.
+        const ok = await saveChapter(selectedId, editTitle, editContent);
+        if (!ok) return;
       }
       router.push(`/create/preview/${bookId}`);
     } finally {
@@ -200,7 +227,26 @@ export function EditPageContent() {
           <span className="hidden text-sm font-medium text-primary sm:block">
             {book?.title}
           </span>
-          {!saved && <span className="text-xs text-muted">저장 중</span>}
+          {saveError ? (
+            <span role="alert" className="flex items-center gap-2 text-xs">
+              <span className="font-semibold text-danger">저장 안 됨</span>
+              <span className="text-danger">{saveError}</span>
+              {selectedId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (debounceRef.current) clearTimeout(debounceRef.current);
+                    void saveChapter(selectedId, editTitle, editContent);
+                  }}
+                  className="font-medium text-primary underline underline-offset-2"
+                >
+                  다시 시도
+                </button>
+              )}
+            </span>
+          ) : (
+            !saved && <span className="text-xs text-muted">저장 중</span>
+          )}
           {saved && selectedId && (
             <span className="flex items-center gap-1 text-xs text-success">
               <Check className="h-3.5 w-3.5" />

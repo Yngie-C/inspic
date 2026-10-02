@@ -47,6 +47,8 @@
 - 무엇: 다섯 템플릿 노드는 `atom: true`이고 `content` 스펙이 없는 leaf 노드인데, `renderHTML`이 content hole `0`을 돌려줘요. ProseMirror `DOMSerializer`가 `RangeError: Content hole not allowed in a leaf node spec`을 던져요.
 - 시나리오: `RichTextEditor`의 `onUpdate`(80행)와 내용 동기화 이펙트(99행)가 모두 `getHTML()`을 불러요. 슬래시 메뉴로 블록을 넣거나 블록이 있는 챕터를 열면 HTML이 `onUpdate`로 넘어가지 않아 저장되지 않고, 이펙트의 예외는 에디터를 무너뜨릴 수 있어요. 블록 복사(클립보드 직렬화)도 같은 이유로 실패해요.
 - 고칠 방향: `0`을 빼고 `["section", attrs]`만 반환. 에디터에 블록을 넣고 `getHTML()`이 도는 테스트 추가.
+- 2026-10-02 WP0: 실제 확장으로 **재현됨** (다섯 블록 모두, 불러오기·삽입 둘 다). `0` 제거로 풀리는 것도 확인.
+- 2026-10-02 WP1: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP1).
 
 ### P0-2. 원본보다 위에 붙여넣은 복사본이 원본 ID를 가져감 (재현됨)
 - 위치: `BaseTemplateNode.ts:76` `assignNodeIds`
@@ -74,6 +76,7 @@
 - 무엇: 서버가 `content_html` 길이를 DB보다 먼저 보지 않아 `chapters.content_html`의 CHECK(`length <= 500000`)에 걸리면 Postgres 원문이 담긴 500을 돌려줘요. 에디터는 이미지를 base64로 본문에 넣으므로(`allowBase64: true`) 한도를 쉽게 넘어요. `saveChapter`는 `res.ok`를 보지 않고 `setSaved(true)`와 쿼리 무효화를 해요.
 - 시나리오: 수백 KB 이미지 한 장을 붙여 넣음 → UPDATE 실패 → 화면은 "저장됨" → 다시 불러오면 그동안 쓴 글이 사라져요.
 - 고칠 방향: 서버에서 길이를 먼저 검사해 한국어 400. 클라이언트가 실패를 표시. base64 이미지를 업로드 경로(`/api/books/[bookId]/images`)로 돌릴지 결정.
+- 2026-10-02 WP1: **수정됨** (길이 검사 + 실패 표시). base64 이미지 처리는 아직 정하지 않음.
 
 ### P0-5. 판매된 책을 지우면 구매·결제·독자 답이 CASCADE로 함께 사라짐
 - 위치: `src/app/api/books/[bookId]/route.ts:157` DELETE
