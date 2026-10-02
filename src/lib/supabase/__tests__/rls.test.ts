@@ -711,3 +711,53 @@ describe("구매 기록", () => {
     ).rejects.toThrow();
   });
 });
+
+describe("결제 행", () => {
+  it("자기 결제 행은 읽고, 남의 결제 행은 보이지 않는다", async () => {
+    // 서버가 만드는 것과 같은 자리(create_payment_request)로 심습니다.
+    await db.query(`SELECT create_payment_request($1, $2, 'rls-order-1')`, [
+      readerB,
+      paidBook,
+    ]);
+
+    const own = await asUser(readerB, () =>
+      countRows(`SELECT 1 FROM payment_transactions WHERE toss_order_id = 'rls-order-1'`),
+    );
+    const others = await asUser(readerA, () =>
+      countRows(`SELECT 1 FROM payment_transactions WHERE toss_order_id = 'rls-order-1'`),
+    );
+
+    expect(own).toBe(1);
+    expect(others).toBe(0);
+  });
+
+  it("자기 이름으로도 결제 행을 직접 만들 수 없다 — 금액 위조를 막는다 (2-P0-1)", async () => {
+    // 예전에는 3만 원 책에 amount 100인 행을 넣고 Toss로 100원을
+    // 결제하면 금액 대조를 그대로 통과해 구매가 생겼습니다.
+    await expect(
+      asUser(readerB, () =>
+        db.query(
+          `INSERT INTO payment_transactions (user_id, book_id, toss_order_id, amount, status)
+           VALUES ($1, $2, 'rls-forged', 100, 'ready')`,
+          [readerB, paidBook],
+        ),
+      ),
+    ).rejects.toThrow();
+
+    const found = await countRows(
+      `SELECT 1 FROM payment_transactions WHERE toss_order_id = 'rls-forged'`,
+    );
+    expect(found).toBe(0);
+  });
+
+  it("로그인 사용자는 create_payment_request를 실행할 수 없다", async () => {
+    await expect(
+      asUser(readerB, () =>
+        db.query(`SELECT create_payment_request($1, $2, 'rls-order-2')`, [
+          readerB,
+          paidBook,
+        ]),
+      ),
+    ).rejects.toThrow();
+  });
+});

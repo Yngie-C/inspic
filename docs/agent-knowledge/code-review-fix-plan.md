@@ -81,6 +81,27 @@
 - 테스트: `payments.test.ts`(재구매 후 옛 취소, 취소 후 이행 거부, 회수된 구매 재이행), `rls.test.ts`(결제 행 직접 INSERT 차단), 결제 단위 테스트(결과 모름 → 재조회, 일시 오류 → 보상 안 함).
 - 수동: 테스트 키로 정상 결제·새로고침 중복 confirm·창 닫기.
 
+#### WP2 결과 (2026-10-02)
+
+| 지적 | 상태 | 한 일 |
+|---|---|---|
+| 1-P0-6, 2-P0-1 | 수정됨 | `payment_transactions_insert_own` 제거. 결제 행은 `create_payment_request` RPC(`service_role`)로만, 금액은 `books.price`. 팔 수 있는 책인지(공개 발행·유료·자기 책 아님·미보유)도 같은 트랜잭션에서 판정. `/api/payments/request`는 이 RPC만 부름 |
+| 1-P0-2, 2-P0-2 | 수정됨 | `purchases.payment_transaction_id`(지금 이 구매를 연 결제) 추가·백필. `void_payment`는 그 결제의 취소일 때만 회수. 옛 결제 행의 `purchase_id`는 남김 |
+| 2-P0-3 | 수정됨 | `fulfill_payment`가 `canceled`/`aborted`/`expired`(그리고 구매 없는 `partial_canceled`) 행에 `voided`를 돌려주고 아무것도 바꾸지 않음. 앱은 Toss 취소로 마무리(이미 취소면 `ALREADY_CANCELED` = 성공) |
+| 1-P0-3 | 수정됨 | 승인 결제가 가리키는 구매가 닫혀 있으면 `restored`로 되살리고 report |
+| 1-P0-1 | 수정됨 | confirm: 확정 거절(4xx)만 `aborted`. 결과 모름·`ALREADY_PROCESSED`·처리 중은 재조회해 그 상태를 따름(취소면 `canceled`로 기록), 그래도 모르면 202 `processing`. 종결 주문은 Toss를 부르지 않고 조기 반환. `void_payment`도 승인을 거친 행을 `aborted`/`expired`로 덮지 않음(`ignored`) |
+| 1-P0-4 | 수정됨 | 이행 RPC 예외는 `deferred` — 보상하지 않음. webhook 5xx, confirm 202 |
+| 1-P0-5 | 수정됨 | `fulfillApprovedPayment`가 승인 상태가 아니면 `pending`. confirm도 `reconcilePayment`를 거침 |
+| 1-P0-7 | 수정됨 | `TossOutcomeUnknownError`(네트워크·타임아웃·5xx·모양이 다른 2xx), `isOutcomeUnknown()`(+409 처리 중·429), `isTossConfigError()`, 10초 `AbortSignal.timeout`, 승인 Idempotency-Key = `orderId` |
+| 1-P1 결제 API·라우트 | 수정됨 (`request/route.ts:35` 제외 → WP3) | webhook: 결제 행 없는 주문·`NOT_FOUND_PAYMENT` 2xx, `deferred`/`stranded` 5xx, secret 상수 시간 비교. 취소: 고정 멱등 키 제거, 실패 시 재조회해 이미 `CANCELED`면 성공. RPC 결과는 `parseFulfillRpcResult()`로 알려진 outcome만, 나머지 `stranded`. confirm 행 조회 에러 500 |
+| 1-P1 결제 화면 | 수정됨 | 성공: JSON 아닌 응답 처리, `processing` 화면, 환불 시 "바로 읽기"는 서버가 `bookId`를 줄 때(중복 결제)만. 체크아웃: `err.code === "USER_CANCEL"`, 화면 금액과 청구 금액이 다르면 결제창을 열지 않고 새 가격 표시. 실패: 알려진 `code`만 문구로, `failUrl`에 `bookId`를 실어 "다시 시도"가 결제 화면으로 |
+
+- **계획과 다르게 한 것:** webhook secret을 "헤더만"이 아니라 헤더 또는 `?secret=`으로 계속 받아요. Toss 개발자센터는 webhook을 URL로만 등록받아 헤더를 붙일 수 없어서, 헤더만 받으면 secret을 설정하는 순간 모든 webhook이 403이 돼요. 비교는 `timingSafeEqual`로 바꿨고, URL이 로그에 남는 점은 `.env.example`에 적었어요.
+- **정한 것:** 승인 시점에 금액을 현재 책 가격과 다시 대조하지 않아요(2-P0-1 "검토"). 행 금액은 이제 서버가 요청 시점의 `books.price`로 정하므로, 다시 대조하면 결제창을 연 사이 가격이 바뀐 정상 결제가 막혀요. 대신 체크아웃 화면이 청구 금액과 화면 금액을 맞춰 봐요.
+- 테스트: `payments.test.ts` +16(결제 요청 RPC, 재구매 후 옛 취소, 종결 행 이행 거부, 닫힌 구매 되살리기, 승인 행을 `aborted`로 안 덮기), `rls.test.ts` +3(결제 행 직접 INSERT 차단·자기 행 조회·RPC 실행 차단), `fulfillment.test.ts` 재작성(18), `toss-payments.test.ts` 12, `payments-routes.test.ts` 19(confirm·webhook). 결제 행 픽스처는 `create_payment_request`로 심어요. 라우트 테스트는 수정 전 라우트로 돌리면 19개 중 15개가 실패하는 것을 확인.
+- 검증: typecheck 통과, `npm test` 30 파일·429개 통과, lint 에러 9·경고 17(기준선 그대로 — `success/page.tsx`의 기존 `set-state-in-effect`가 수정 중 드러나 함께 고침), build 통과.
+- **남은 확인(수동):** 이 worktree에는 `.env.local`이 없어 테스트 키로 정상 결제·새로고침 중복 confirm·창 닫기를 직접 해 보지 못했어요. 배포 전에 마이그레이션 `00005`를 적용해야 `/api/payments/request`가 동작해요(RPC가 없으면 500).
+
 ### WP3. 구매자 접근과 노출 — 마이그레이션 `00006`
 - 대상: 2-P1-1, 2-P1-2, 1-P1 "접근 제어"·"구매 목록", 4-P0-5, 4-P1-15, 4-P1-19.
 - DB: `has_book_access`가 completed 구매를 공개 상태보다 먼저 봄. `chapter-images` 익명 SELECT 정책을 지우거나 소유자로 좁힘(공개 URL은 그대로 동작). 결제·구매의 `book_id` FK를 CASCADE에서 바꿀지(RESTRICT 권장) 이 PR에서 정함.
@@ -133,7 +154,7 @@
 |---|---|---|---|---|---|
 | 0 | 준비·P0-1 재현 | – | 완료 | – | 기준선 기록, 4-P0-1 재현됨 (위 "WP0 결과") |
 | 1 | 즉시 수정 | – | 완료 |  | 4-P0-1·4-P0-4·3-P0-2 수정됨. 브라우저 확인 남음 |
-| 2 | 결제 무결성 | 00005 |  |  |  |
+| 2 | 결제 무결성 | 00005 | 완료 |  | P0 10건·결제 P1 수정. 테스트 키 수동 확인 남음 |
 | 3 | 구매자 접근·노출 | 00006 |  |  |  |
 | 4 | 블록 ID 규칙 | 00007 |  |  |  |
 | 5 | 독자 응답 저장 | (00008) |  |  |  |

@@ -44,10 +44,12 @@ export function createFakeSupabase(
         return builder;
       };
     }
-    builder.single = () => {
-      query.ops.push("single");
-      return Promise.resolve(respond(query));
-    };
+    for (const terminal of ["single", "maybeSingle"]) {
+      builder[terminal] = () => {
+        query.ops.push(terminal);
+        return Promise.resolve(respond(query));
+      };
+    }
     builder.then = (
       resolve: (value: QueryResult) => unknown,
       reject: (reason: unknown) => unknown,

@@ -18,6 +18,14 @@ interface BookInfo {
   author_name?: string | null;
 }
 
+function isUserCancel(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { code?: unknown }).code === "USER_CANCEL"
+  );
+}
+
 export default function CheckoutPage() {
   const { bookId } = useParams<{ bookId: string }>();
   const router = useRouter();
@@ -50,6 +58,7 @@ export default function CheckoutPage() {
 
         // 이미 구매했는지 확인
         const accessRes = await fetch(`/api/books/${bookId}/access`);
+        if (!accessRes.ok) throw new Error("구매 여부를 확인하지 못했어요.");
         const accessJson = await accessRes.json();
         if (accessJson.data.hasAccess) {
           router.push(`/book/${bookId}`);
@@ -80,12 +89,25 @@ export default function CheckoutPage() {
         body: JSON.stringify({ bookId: book.id }),
       });
 
-      if (!reqRes.ok) {
-        const errJson = await reqRes.json();
-        throw new Error(errJson.error || "결제를 시작하지 못했어요.");
+      // 게이트웨이 오류처럼 JSON이 아닌 응답이면 SyntaxError 문구가
+      // 그대로 화면에 나갑니다.
+      const reqJson = await reqRes.json().catch(() => null);
+      if (!reqRes.ok || !reqJson?.data) {
+        throw new Error(reqJson?.error || "결제를 시작하지 못했어요. 잠시 뒤 다시 시도해 주세요.");
       }
 
-      const { data } = await reqRes.json();
+      const { data } = reqJson;
+
+      // 청구 금액은 서버가 주문을 만들 때 책 가격에서 정합니다. 화면을
+      // 연 사이 가격이 바뀌었다면 독자가 본 금액과 다르므로 결제창을
+      // 열지 않고 새 가격을 보여 줍니다.
+      if (data.amount !== book.price) {
+        setBook({ ...book, price: data.amount });
+        setAgreed(false);
+        throw new Error(
+          `가격이 ${data.amount.toLocaleString("ko-KR")}원으로 바뀌었어요. 금액을 확인하고 다시 결제해 주세요.`,
+        );
+      }
 
       // 2. Toss SDK 로드 및 결제 위젯 호출
       const tossPayments = await loadTossPayments(TOSS_CLIENT_KEY);
@@ -97,12 +119,15 @@ export default function CheckoutPage() {
         orderId: data.orderId,
         orderName: data.orderName,
         successUrl: `${window.location.origin}/payments/success`,
-        failUrl: `${window.location.origin}/payments/fail`,
+        // 실패 화면의 "다시 시도"가 이 책의 결제 화면으로 돌아올 수
+        // 있게 책을 실어 보냅니다. Toss는 code·message·orderId를 덧붙입니다.
+        failUrl: `${window.location.origin}/payments/fail?bookId=${encodeURIComponent(book.id)}`,
       });
     } catch (err) {
-      if (err instanceof Error && err.message !== "USER_CANCEL") {
-        setError(err.message);
-      }
+      // SDK v2는 사용자가 결제창을 닫으면 code가 USER_CANCEL인 에러를
+      // 던집니다. message로 판별하면 창만 닫아도 붉은 오류가 뜹니다.
+      if (isUserCancel(err)) return;
+      setError(err instanceof Error ? err.message : "결제를 시작하지 못했어요.");
     } finally {
       setPaying(false);
     }

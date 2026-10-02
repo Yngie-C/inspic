@@ -62,7 +62,7 @@ TTS·오디오북 · 하이라이트/북마크/독서진행률/리더설정 · �
   - `payments/`: 결제 이행 — Toss 상태 매핑(순수), 이행·보상 절차, 서버 포트
 - `src/stores/`: Zustand stores
 - `src/types/`: TypeScript 타입 정의
-- `supabase/migrations/`: Supabase DB 마이그레이션. `00001_initial_schema.sql`(초기 스키마) + `00002_workbook_block_sync.sql`(블록 동기화 RPC, `chapter-images` 버킷) + `00003_payment_integrity.sql`(결제 이행 RPC, 구매 INSERT 봉인, 첫 챕터 미리보기)
+- `supabase/migrations/`: Supabase DB 마이그레이션. `00001_initial_schema.sql`(초기 스키마) + `00002_workbook_block_sync.sql`(블록 동기화 RPC, `chapter-images` 버킷) + `00003_payment_integrity.sql`(결제 이행 RPC, 구매 INSERT 봉인, 첫 챕터 미리보기) + `00004`(집계에서 소유자 응답 제외) + `00005_payment_fixes.sql`(결제 행 INSERT 봉인과 생성 RPC, 구매-결제 연결, 이행·취소 RPC 보강)
 - `content/`: 전자책 원고 및 콘텐츠 문서
 - `creator-outreach/`: 크리에이터 아웃리치 관련 문서
 - `.claude/`: Claude Code 커스텀 커맨드/프로젝트 메모
@@ -202,14 +202,19 @@ M4(2026-08-05)에서 확정했습니다. 여기서 지키는 규칙은 하나입
 ```
 
 - **구매 기록을 직접 INSERT 하지 마세요.** `purchases`에는 INSERT 정책이 없습니다. 만드는 경로는 `fulfill_payment()` RPC 하나뿐이고, 그 함수는 `service_role`만 실행합니다. 예전에 `auth.uid() = user_id`만 보는 정책이 있었는데, 자기 이름으로 행을 하나 넣으면 유료 책이 그대로 열렸습니다 — `has_book_access()`가 `purchases`를 보고 판정하기 때문입니다.
+- **결제 행도 직접 INSERT 하지 마세요.** `payment_transactions`에도 INSERT 정책이 없습니다(마이그레이션 00005). 만드는 경로는 `create_payment_request()` RPC 하나(`lib/payments/server.ts`의 `createPaymentRequest()`)이고, 금액은 그 함수가 `books.price`에서 정합니다. 클라이언트가 행을 넣을 수 있던 때는 3만 원 책에 `amount: 100`인 행을 넣고 100원을 결제하면 금액 대조를 그대로 통과해 책이 열렸습니다.
+- **구매를 회수하는 것은 그 구매를 지금 열어 준 결제의 취소뿐입니다.** 재구매는 같은 `purchases` 행을 되살리므로, 옛 결제 행도 같은 `purchase_id`를 가리킵니다. `purchases.payment_transaction_id`가 "지금 이 구매를 연 결제"이고 `void_payment`는 그것만 봅니다. 옛 결제의 취소 webhook이 재전송돼도 재구매한 책이 닫히지 않게 하는 장치입니다.
+- **종결된 결제 행은 이행하지 않습니다.** `fulfill_payment`는 `canceled`/`aborted`/`expired` 행에 `voided`를 돌려주고, 호출자는 Toss 취소로 마무리합니다(이미 취소된 결제면 Toss가 "이미 취소됨"으로 답합니다). 반대로 승인 결제가 가리키는 구매가 닫혀 있으면 `restored`로 되살립니다.
 - **이행 로직을 confirm과 webhook에 두 벌 만들지 마세요.** 둘 다 `lib/payments/fulfillment.ts`를 씁니다. 갈라지면 한쪽만 고쳐진 상태가 되고, 그때 생기는 어긋남이 정확히 "승인은 됐는데 구매 기록이 없는" 상태입니다.
 - **이행은 한 트랜잭션입니다.** 구매 upsert · 결제 행 갱신 · 둘의 연결을 나눠서 왕복하지 마세요. 중간에 끊기면 복구되지 않습니다.
 - **멱등해야 합니다.** 같은 주문이 두 번 들어오는 것은 정상 경로입니다(새로고침, webhook 겹침). 이미 이행된 주문은 `already_fulfilled`로 돌려주고 아무것도 바꾸지 마세요.
+- **승인 실패라고 단정하는 것은 Toss가 4xx로 분명히 거절했을 때뿐입니다.** 네트워크 오류·시간 초과·Toss 5xx·`IDEMPOTENT_REQUEST_PROCESSING`·알아볼 수 없는 응답은 `TossOutcomeUnknownError`(또는 `isOutcomeUnknown()`)이고, 승인됐을 수도 있다는 뜻입니다. confirm은 이때 결제를 다시 조회해 그 상태를 따르고, 그래도 모르면 `processing`(202)으로 안내하고 webhook에 맡깁니다. 우리 키 설정 오류(`isTossConfigError()`)는 독자의 거절로 보여 주지 마세요.
+- **이행 RPC가 던지면 결제를 취소하지 마세요.** 반영 여부를 모르는 것이지 실패가 확정된 것이 아닙니다 — RPC가 커밋된 뒤 응답만 잃었을 수 있습니다. `fulfillApprovedPayment()`는 `deferred`를 돌려주고, webhook은 5xx로 Toss 재시도를 받습니다. 보상(취소)은 RPC가 정해진 outcome으로 "열 수 없다"고 답했을 때(`duplicate_purchase`, `voided`)만 합니다.
 - **`ALREADY_PROCESSED_PAYMENT`를 실패로 다루지 마세요.** "네가 아까 승인했다"는 대답이고, 여기까지 왔다면 이행이 안 끝났다는 뜻입니다. 결제를 다시 조회해 이행을 이어 가세요. 이것을 실패로 보면 멀쩡히 끝난 결제가 `aborted`로 덮입니다.
 - **반영할 금액은 Toss가 승인한 값입니다.** 클라이언트가 보낸 `amount`는 요청 시점에 잠근 값과 맞는지 보는 용도이고, RPC에 넘기는 것은 `payment.totalAmount`입니다.
 - **중복 결제를 조용히 덮지 마세요.** 다른 결제가 이미 그 책을 열어 줬다면 독자는 두 번 낸 것입니다. `duplicate_purchase`를 받으면 이번 결제를 취소하고 "이미 보유한 책"으로 안내하세요 — 붉은 실패 화면으로 보여 주면 돈이 묶인 줄 알고 또 결제합니다.
 - **취소까지 실패하면 성공인 척하지 마세요.** `stranded`로 돌려 로그에 남기고 사람이 보게 하세요. 여기서 조용히 넘어가면 돈이 나간 것을 아무도 모릅니다.
-- **webhook 본문을 믿지 마세요.** 그 주소는 누구나 부를 수 있습니다. 꺼내는 것은 주문번호뿐이고, 상태와 금액은 `getPaymentByOrderId()`로 Toss에 다시 물어 확인합니다. `TOSS_WEBHOOK_SECRET`은 보조 수단입니다.
+- **webhook 본문을 믿지 마세요.** 그 주소는 누구나 부를 수 있습니다. 꺼내는 것은 주문번호뿐이고, 상태와 금액은 `getPaymentByOrderId()`로 Toss에 다시 물어 확인합니다. `TOSS_WEBHOOK_SECRET`은 보조 수단이고 상수 시간으로 비교합니다. 우리 DB에 결제 행이 없는 주문과 Toss에 없는 결제(`NOT_FOUND_PAYMENT`)는 2xx로 닫으세요 — 5xx면 끝없이 재시도를 받습니다.
 - **모르는 Toss 상태를 승인이나 취소로 넘겨짚지 마세요.** `paymentPhase()`가 `pending`을 돌려주면 아무것도 하지 않고 다음 webhook을 기다립니다.
 - **접근 판정은 `checkBookAccess()` 하나입니다.** `hasAccess`(전체 열람) · `canRead`(미리보기 포함) · `canSaveResponses`(로그인까지 필요)는 각각 다른 질문이니 섞어 쓰지 마세요. 응답 저장을 가로막는 것은 `hasAccess`입니다.
 - **미리보기는 맨 앞 published 챕터 하나뿐입니다.** 정책은 `chapters_select_preview`이고 판정은 `book_preview_chapter_id()`가 합니다. 여기를 한 칸이라도 넓히면 유료 콘텐츠가 공짜가 됩니다. 미리보기 챕터의 `workbook_blocks`는 열지 않습니다 — 리더가 블록을 본문 HTML에서 뽑으므로 화면은 그려지고, 응답은 `has_book_access`가 막습니다.

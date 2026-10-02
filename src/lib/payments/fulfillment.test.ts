@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   fulfillApprovedPayment,
+  parseFulfillRpcResult,
   reconcilePayment,
   type FulfillArgs,
   type FulfillRpcResult,
@@ -36,7 +37,7 @@ interface Recorder {
 }
 
 function makePorts(options: {
-  fulfill?: FulfillRpcResult | Error;
+  fulfill?: FulfillRpcResult | Error | Record<string, unknown>;
   cancel?: Error;
   markVoided?: Error;
 } = {}): Recorder {
@@ -67,8 +68,8 @@ function makePorts(options: {
         voidCalls.push({ orderId, status });
         if (options.markVoided) throw options.markVoided;
       },
-      async cancel(paymentKey, reason) {
-        cancelCalls.push({ paymentKey, reason });
+      async cancel(payment, reason) {
+        cancelCalls.push({ paymentKey: payment.paymentKey, reason });
         if (options.cancel) throw options.cancel;
       },
       report(message) {
@@ -121,24 +122,32 @@ describe("fulfillApprovedPayment", () => {
     expect(recorder.cancelCalls).toEqual([]);
   });
 
-  it("이행에 실패하면 결제를 취소한다 — 돈이 묶여 있으면 안 된다", async () => {
+  it("이행 RPC가 던지면 취소하지 않고 deferred — 일시 오류로 정상 결제를 환불하지 않는다 (1-P0-4)", async () => {
+    // RPC가 커밋된 뒤 응답만 잃었을 수도 있습니다. 여기서 취소하면
+    // 열린 책까지 닫힙니다. webhook 재시도가 마무리합니다.
     const recorder = makePorts({ fulfill: new Error("db down") });
 
     const result = await fulfillApprovedPayment(recorder.ports, PAYMENT);
 
-    expect(result.kind).toBe("refunded");
-    expect(recorder.cancelCalls).toHaveLength(1);
-    expect(recorder.cancelCalls[0].paymentKey).toBe("key-1");
+    expect(result).toEqual({ kind: "deferred" });
+    expect(recorder.cancelCalls).toEqual([]);
+    expect(recorder.voidCalls).toEqual([]);
+    expect(recorder.reports.length).toBeGreaterThan(0);
   });
 
-  it("취소한 사실을 결제 행에도 남긴다", async () => {
-    const recorder = makePorts({ fulfill: new Error("db down") });
+  it("승인 상태가 아닌 결제는 이행하지 않는다 (1-P0-5)", async () => {
+    for (const status of ["WAITING_FOR_DEPOSIT", "IN_PROGRESS", "CANCELED", "NEW_STATUS"]) {
+      const recorder = makePorts();
 
-    await fulfillApprovedPayment(recorder.ports, PAYMENT);
+      const result = await fulfillApprovedPayment(recorder.ports, {
+        ...PAYMENT,
+        status,
+      });
 
-    expect(recorder.voidCalls).toEqual([
-      { orderId: "order-1", status: "canceled" },
-    ]);
+      expect(result).toEqual({ kind: "pending" });
+      expect(recorder.fulfillCalls).toEqual([]);
+      expect(recorder.cancelCalls).toEqual([]);
+    }
   });
 
   it("중복 결제는 취소하고, 이미 가진 책을 알려 준다", async () => {
@@ -155,11 +164,78 @@ describe("fulfillApprovedPayment", () => {
 
     expect(result).toMatchObject({ kind: "refunded", bookId: "book-1" });
     expect(recorder.cancelCalls).toHaveLength(1);
+    expect(recorder.voidCalls).toEqual([
+      { orderId: "order-1", status: "canceled" },
+    ]);
   });
 
-  it("이행도 취소도 실패하면 stranded — 성공인 척하지 않는다", async () => {
+  it("결제 행이 이미 종결됐으면 열지 않고 결제를 취소한다 (2-P0-3)", async () => {
+    // 취소가 먼저 반영된 뒤 도착한 옛 승인 응답입니다. Toss 취소는
+    // "이미 취소됨"으로 끝나고, 아니라면 돈을 돌려줍니다.
     const recorder = makePorts({
-      fulfill: new Error("db down"),
+      fulfill: {
+        outcome: "voided",
+        status: "canceled",
+        purchase_id: null,
+        book_id: "book-1",
+        user_id: "user-1",
+      },
+    });
+
+    const result = await fulfillApprovedPayment(recorder.ports, PAYMENT);
+
+    expect(result.kind).toBe("refunded");
+    // 이미 가진 책이 아니므로 "바로 읽기"를 띄울 bookId가 없습니다.
+    expect(result).not.toHaveProperty("bookId", "book-1");
+    expect(recorder.cancelCalls).toHaveLength(1);
+  });
+
+  it("닫혀 있던 구매를 되살렸으면 granted이고 사람에게 알린다 (1-P0-3)", async () => {
+    const recorder = makePorts({
+      fulfill: {
+        outcome: "restored",
+        purchase_id: "purchase-1",
+        book_id: "book-1",
+        user_id: "user-1",
+      },
+    });
+
+    const result = await fulfillApprovedPayment(recorder.ports, PAYMENT);
+
+    expect(result).toEqual({
+      kind: "granted",
+      purchaseId: "purchase-1",
+      bookId: "book-1",
+    });
+    expect(recorder.cancelCalls).toEqual([]);
+    expect(recorder.reports.length).toBeGreaterThan(0);
+  });
+
+  it("RPC가 모르는 결과를 돌려주면 성공으로 넘기지 않고 stranded", async () => {
+    const recorder = makePorts({
+      fulfill: {
+        outcome: "something_new",
+        purchase_id: "purchase-1",
+        book_id: "book-1",
+        user_id: "user-1",
+      },
+    });
+
+    const result = await fulfillApprovedPayment(recorder.ports, PAYMENT);
+
+    expect(result.kind).toBe("stranded");
+    expect(recorder.cancelCalls).toEqual([]);
+    expect(recorder.reports.length).toBeGreaterThan(0);
+  });
+
+  it("보상 취소까지 실패하면 stranded — 성공인 척하지 않는다", async () => {
+    const recorder = makePorts({
+      fulfill: {
+        outcome: "duplicate_purchase",
+        purchase_id: "purchase-1",
+        book_id: "book-1",
+        user_id: "user-1",
+      },
       cancel: new Error("toss down"),
     });
 
@@ -172,13 +248,56 @@ describe("fulfillApprovedPayment", () => {
   it("취소는 됐는데 결제 행 갱신이 실패해도 독자에게는 성공한 취소다", async () => {
     // 돈은 이미 돌아갔습니다. 남은 어긋남은 webhook이 정리합니다.
     const recorder = makePorts({
-      fulfill: new Error("db down"),
+      fulfill: {
+        outcome: "duplicate_purchase",
+        purchase_id: "purchase-1",
+        book_id: "book-1",
+        user_id: "user-1",
+      },
       markVoided: new Error("db still down"),
     });
 
     const result = await fulfillApprovedPayment(recorder.ports, PAYMENT);
 
     expect(result.kind).toBe("refunded");
+  });
+});
+
+describe("parseFulfillRpcResult", () => {
+  it("알려진 결과만 받는다", () => {
+    expect(
+      parseFulfillRpcResult({
+        outcome: "granted",
+        purchase_id: "p",
+        book_id: "b",
+        user_id: "u",
+      }),
+    ).toMatchObject({ outcome: "granted" });
+    expect(
+      parseFulfillRpcResult({
+        outcome: "voided",
+        status: "canceled",
+        purchase_id: null,
+        book_id: "b",
+        user_id: "u",
+      }),
+    ).toMatchObject({ outcome: "voided", status: "canceled" });
+  });
+
+  it("모양이 다르면 null", () => {
+    expect(parseFulfillRpcResult(null)).toBeNull();
+    expect(parseFulfillRpcResult("granted")).toBeNull();
+    expect(
+      parseFulfillRpcResult({ outcome: "granted", book_id: "b", user_id: "u" }),
+    ).toBeNull();
+    expect(
+      parseFulfillRpcResult({
+        outcome: "granted;drop",
+        purchase_id: "p",
+        book_id: "b",
+        user_id: "u",
+      }),
+    ).toBeNull();
   });
 });
 
@@ -200,7 +319,7 @@ describe("reconcilePayment", () => {
       status: "CANCELED",
     });
 
-    expect(result.kind).toBe("voided");
+    expect(result).toEqual({ kind: "voided", status: "canceled" });
     expect(recorder.fulfillCalls).toEqual([]);
     expect(recorder.voidCalls).toEqual([
       { orderId: "order-1", status: "canceled" },

@@ -28,29 +28,34 @@
   - 이미 `canceled`/`partial_canceled`/`expired`인 주문의 성공 URL을 다시 엶 → ALREADY_PROCESSED → 재조회 상태가 voided → throw
 - 결과: 실제 상태(`canceled`, `expired`, `partial_canceled`)가 `aborted`로 덮이고, `void_payment`가 연결된 구매를 `refunded`로 바꿔요(P0-2). 부분 취소로 일부러 남긴 접근권도 회수돼요.
 - 고칠 방향: 확정 거절(4xx 중 결제 거절 코드)만 `aborted`. 결과를 모르는 실패는 `getPaymentByOrderId`로 다시 조회해 그 상태를 따름. 이미 종결된 주문(`canceled`/`partial_canceled`/`expired`/`aborted`)은 조기 반환. voided 상태는 `transactionStatus(payment.status)`로 기록.
+- 2026-10-02 WP2: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP2). 확정 거절(4xx)만 `aborted`, 결과 모름·ALREADY_PROCESSED는 재조회해 그 상태를 따름, 종결 주문은 조기 반환.
 
 ### P0-2. `void_payment`가 구매가 지금 어느 결제에 묶여 있는지 보지 않음
 - 위치: `supabase/migrations/00003_payment_integrity.sql`의 `void_payment` (호출부 `src/app/api/payments/webhook/route.ts:57`)
 - 무엇: `tx.purchase_id`만 보고 구매를 `refunded`로 바꿔요. 재구매는 `UNIQUE(user_id, book_id)` 때문에 같은 purchases 행을 되살려요.
 - 시나리오: tx1 구매 → 환불 → tx2로 재구매(같은 P가 completed) → tx1의 취소 webhook이 재시도로 다시 옴, 또는 tx1 성공 URL 재방문(P0-1) → P가 `refunded`. 재구매한 책이 닫혀요.
 - 고칠 방향: 새 마이그레이션에서 "이 구매를 마지막으로 이행한 tx가 이 tx일 때만 회수"하도록. `rls.test.ts`/`payments.test.ts`에 재구매 후 옛 tx 취소 케이스 추가.
+- 2026-10-02 WP2: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP2). `purchases.payment_transaction_id`로 마지막 이행 결제만 회수.
 
 ### P0-3. 회수된 구매가 다시 열리지 않음
 - 위치: `src/lib/payments/fulfillment.ts:107`, `fulfill_payment` RPC
 - 무엇: `tx.purchase_id`가 있으면 구매가 `refunded`여도 `already_fulfilled`를 돌려주고, 호출부는 성공(`already`)으로 처리해요.
 - 결과: Toss는 DONE인데 책은 닫힌 상태가 영구히 남고, 재confirm·webhook 재전송 모두 200 성공으로 끝나요. 아무도 모름.
 - 고칠 방향: `already_fulfilled`일 때 구매 상태가 `completed`인지 확인하고, 아니면 되살리거나 `stranded`로 보고.
+- 2026-10-02 WP2: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP2). `fulfill_payment`가 닫힌 구매를 `restored`로 되살리고 사람에게 알림.
 
 ### P0-4. 이행 RPC의 일시 오류가 곧바로 결제 취소로 이어짐
 - 위치: `src/lib/payments/fulfillment.ts:93`
 - 무엇: `ports.fulfill`이 던지면 이유를 가리지 않고 Toss 취소(보상)를 실행해요. webhook 주석(`webhook/route.ts:59-63`)이 기대하는 "5xx → Toss 재시도로 풀림"이 일어나지 않아요.
 - 결과: DB가 잠깐 끊기면 정상 결제가 환불되고 독자는 다시 결제해야 해요. RPC가 커밋된 뒤 응답만 잃었다면 열린 책도 닫혀요.
 - 고칠 방향: 확정 실패(정의된 outcome)만 보상. 예외는 webhook에서는 5xx로 재시도, confirm에서는 "처리 중"으로 안내하고 webhook에 맡김.
+- 2026-10-02 WP2: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP2). RPC 예외는 `deferred`(보상 안 함). webhook 5xx, confirm 202 처리 중.
 
 ### P0-5. 승인 상태를 확인하지 않고 이행함
 - 위치: `src/lib/payments/fulfillment.ts:73`, confirm의 `confirmPayment` 직접 성공 경로
 - 무엇: confirm 응답이 `WAITING_FOR_DEPOSIT`/`IN_PROGRESS`여도 이행해요. `method: 'CARD'` 제한은 브라우저에만 있어요.
 - 고칠 방향: `fulfillApprovedPayment` 안에서 `paymentPhase(payment.status) === 'approved'`를 검사.
+- 2026-10-02 WP2: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP2). `fulfillApprovedPayment`가 승인 상태가 아니면 `pending`.
 
 ### P0-6. 결제 행을 클라이언트가 직접 INSERT할 수 있음 (금액 위조)
 - 위치: `00001`의 `payment_transactions_insert_own` 정책, `confirm/route.ts:80`
@@ -58,6 +63,7 @@
 - 시나리오: 3만원 책에 `amount: 100`인 행을 직접 INSERT → Toss로 100원 결제 → confirm 통과 → 구매 생성. 비공개·미발행 책도 같은 방식으로 열려요.
 - 고칠 방향: 새 마이그레이션으로 INSERT 정책 제거(`purchases`와 같은 방식으로 봉인), 결제 행 생성은 `/api/payments/request`의 서버 경로(service_role 또는 RPC)로만. `rls.test.ts`에 차단 케이스.
 - 비고: 2단계(DB·RLS) 리뷰 범위와 겹쳐요. 거기서도 다시 확인하세요.
+- 2026-10-02 WP2: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP2). INSERT 정책 제거, `create_payment_request` RPC가 `books.price`로 생성.
 
 ### P0-7. Toss 호출이 "결과 모름"과 "확정 거절"을 구분하지 않음
 - 위치: `src/lib/toss-payments.ts:64` (`tossFetch`), `:81`, `:85`
@@ -67,6 +73,7 @@
   - 2xx 본문이 JSON이 아니면 `null`을 `TossPayment`로 캐스팅해 돌려줘요 → 이행 중 TypeError → 이행도 보상도 없음.
   - 승인 요청에 Idempotency-Key가 없어 동시 승인이 서로 다른 오류를 받아요.
 - 고칠 방향: `TossOutcomeUnknownError` 같은 별도 에러 종류, 타임아웃, 응답 검증, 승인 Idempotency-Key로 `orderId` 사용.
+- 2026-10-02 WP2: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP2). `TossOutcomeUnknownError` 분리, 10초 타임아웃, 응답 검증, 승인 Idempotency-Key = `orderId`.
 
 ## P1 — 접근 판정과 조용한 실패
 
@@ -79,23 +86,23 @@
 - **`:61` TS가 SQL `has_book_access`/`is_book_public`을 다시 구현.** 판정이 두 벌이에요. → reason을 돌려주는 RPC 하나로 합치는 것을 검토.
 
 ### 결제 API·라우트
-- **`webhook/route.ts:57` DB에 행이 없는 주문.** DONE이면 자동 취소, voided면 매번 500으로 무한 재시도. 책 삭제 CASCADE나 다른 환경 주문에서 발생해요. → 행이 없으면 로그 남기고 2xx로 닫기, 취소는 하지 않기.
-- **`toss-payments.ts:99` `NOT_FOUND_PAYMENT`(404)도 500.** 공개 webhook 주소로 아무 orderId나 보내면 Toss 재시도 + 우리 키로 조회 증폭. → 404는 2xx로 닫기.
-- **`webhook/route.ts:32` secret을 쿼리 파라미터로도 받고 `!==`로 비교.** URL이 로그에 남아요. → 헤더만 받고 `timingSafeEqual`.
-- **`server.ts:58` 취소 Idempotency-Key가 `paymentKey` 고정.** confirm·webhook이 동시에 보상하면 두 번째가 `IDEMPOTENT_REQUEST_PROCESSING`을 받아 환불됐는데도 `stranded`로 보고돼요. 첫 취소 실패 응답이 키에 묶여 재시도가 안 풀릴 수도 있어요. → `IDEMPOTENT_REQUEST_PROCESSING`/`ALREADY_CANCELED_PAYMENT`를 따로 처리, 시도별 키 검토.
-- **`server.ts:38` RPC 결과를 검증 없이 캐스팅.** 모르는 outcome이 성공(`already`)으로 처리돼요. → 알려진 outcome만 허용하고 나머지는 `stranded`.
-- **`toss-payments.ts:76` 우리 설정 오류(401/403, `UNAUTHORIZED_KEY`)를 독자의 결제 거절로 보여 줌.** → 5xx로 바꾸고 report.
-- **`confirm/route.ts:60` `.single()` 오류를 버림.** DB 장애가 404 "결제 정보를 찾을 수 없어요"로 나가요. → 5xx로 구분.
+- **`webhook/route.ts:57` DB에 행이 없는 주문.** DONE이면 자동 취소, voided면 매번 500으로 무한 재시도. 책 삭제 CASCADE나 다른 환경 주문에서 발생해요. → 행이 없으면 로그 남기고 2xx로 닫기, 취소는 하지 않기. → **수정됨 (WP2)**
+- **`toss-payments.ts:99` `NOT_FOUND_PAYMENT`(404)도 500.** 공개 webhook 주소로 아무 orderId나 보내면 Toss 재시도 + 우리 키로 조회 증폭. → 404는 2xx로 닫기. → **수정됨 (WP2)**
+- **`webhook/route.ts:32` secret을 쿼리 파라미터로도 받고 `!==`로 비교.** URL이 로그에 남아요. → 헤더만 받고 `timingSafeEqual`. → **수정됨 (WP2)** 헤더 대신 쿼리 파라미터도 계속 받음 — Toss 개발자센터는 URL만 등록받기 때문. 비교는 `timingSafeEqual`.
+- **`server.ts:58` 취소 Idempotency-Key가 `paymentKey` 고정.** confirm·webhook이 동시에 보상하면 두 번째가 `IDEMPOTENT_REQUEST_PROCESSING`을 받아 환불됐는데도 `stranded`로 보고돼요. 첫 취소 실패 응답이 키에 묶여 재시도가 안 풀릴 수도 있어요. → `IDEMPOTENT_REQUEST_PROCESSING`/`ALREADY_CANCELED_PAYMENT`를 따로 처리, 시도별 키 검토. → **수정됨 (WP2)**
+- **`server.ts:38` RPC 결과를 검증 없이 캐스팅.** 모르는 outcome이 성공(`already`)으로 처리돼요. → 알려진 outcome만 허용하고 나머지는 `stranded`. → **수정됨 (WP2)**
+- **`toss-payments.ts:76` 우리 설정 오류(401/403, `UNAUTHORIZED_KEY`)를 독자의 결제 거절로 보여 줌.** → 5xx로 바꾸고 report. → **수정됨 (WP2)**
+- **`confirm/route.ts:60` `.single()` 오류를 버림.** DB 장애가 404 "결제 정보를 찾을 수 없어요"로 나가요. → 5xx로 구분. → **수정됨 (WP2)**
 - **`request/route.ts:35` 접근 판정 재구현.** AGENTS.md "접근 판정은 `checkBookAccess()` 하나"에 어긋나요. → `checkBookAccess()`의 reason으로 분기.
 
 ### 결제 화면 (`src/app/payments`)
-- **`success/page.tsx:104` 이행 실패 환불에도 "바로 읽기" 표시.** `duplicate_purchase`일 때만 띄워야 해요.
-- **`success/page.tsx:50` 자동 취소된 결제의 성공 URL 재방문 시 붉은 오류 화면.** P0-1을 고치면 함께 풀려요. 화면도 `refunded` 안내를 보여 줘야 해요.
-- **`success/page.tsx:48` (checkout `:84`, `:88`도) `res.json()`을 상태 확인 전에 호출.** 504 HTML이면 SyntaxError 문구가 그대로 노출되고 독자가 재결제해요.
-- **`checkout/[bookId]/page.tsx:103` 사용자 취소를 `err.message === "USER_CANCEL"`로 판별.** SDK v2는 `err.code`예요. 창을 닫으면 붉은 오류 배너가 떠요.
-- **`checkout/[bookId]/page.tsx:96` 화면 금액(`book.price`)과 실제 청구 금액(`data.amount`)을 비교하지 않음.** 가격이 바뀌면 동의하지 않은 금액이 청구돼요.
-- **`fail/page.tsx:11` URL의 `message`를 그대로 표시.** 사칭 문구를 띄울 수 있어요. 기본 문구가 근거 없이 "돈은 빠져나가지 않았어요"라고 단정해요. → 알려진 code만 문구로 매핑.
-- **`fail/page.tsx:22` "다시 시도"가 `router.back()`.** 모바일 리다이렉트나 새 탭에서는 결제 화면으로 못 돌아가요.
+- **`success/page.tsx:104` 이행 실패 환불에도 "바로 읽기" 표시.** `duplicate_purchase`일 때만 띄워야 해요. → **수정됨 (WP2)**
+- **`success/page.tsx:50` 자동 취소된 결제의 성공 URL 재방문 시 붉은 오류 화면.** P0-1을 고치면 함께 풀려요. 화면도 `refunded` 안내를 보여 줘야 해요. → **수정됨 (WP2)**
+- **`success/page.tsx:48` (checkout `:84`, `:88`도) `res.json()`을 상태 확인 전에 호출.** 504 HTML이면 SyntaxError 문구가 그대로 노출되고 독자가 재결제해요. → **수정됨 (WP2)**
+- **`checkout/[bookId]/page.tsx:103` 사용자 취소를 `err.message === "USER_CANCEL"`로 판별.** SDK v2는 `err.code`예요. 창을 닫으면 붉은 오류 배너가 떠요. → **수정됨 (WP2)**
+- **`checkout/[bookId]/page.tsx:96` 화면 금액(`book.price`)과 실제 청구 금액(`data.amount`)을 비교하지 않음.** 가격이 바뀌면 동의하지 않은 금액이 청구돼요. → **수정됨 (WP2)**
+- **`fail/page.tsx:11` URL의 `message`를 그대로 표시.** 사칭 문구를 띄울 수 있어요. 기본 문구가 근거 없이 "돈은 빠져나가지 않았어요"라고 단정해요. → 알려진 code만 문구로 매핑. → **수정됨 (WP2)** "돈은 빠져나가지 않았어요"는 "승인 전에 멈춘 결제라"는 근거를 붙여 남김 — 승인은 성공 화면의 confirm에서만 일어나므로 실패 화면까지 온 결제는 승인 전이에요.
+- **`fail/page.tsx:22` "다시 시도"가 `router.back()`.** 모바일 리다이렉트나 새 탭에서는 결제 화면으로 못 돌아가요. → **수정됨 (WP2)**
 
 ### 구매 목록 (`src/app/api/purchases/route.ts`)
 - **`:23` 조회 실패를 200 + 빈 목록으로.** 결제한 독자에게 "아직 구매한 책이 없어요". → 500으로, 화면의 다시 시도 경로가 동작하게.
@@ -105,7 +112,7 @@
 
 ## P2 — 정리·효율
 
-- `toss-payments.ts:131` `generateOrderId`가 `Math.random()` → 길이·엔트로피 보장 안 됨. `crypto.randomUUID()` 사용.
+- `toss-payments.ts:131` `generateOrderId`가 `Math.random()` → 길이·엔트로피 보장 안 됨. `crypto.randomUUID()` 사용. → **수정됨 (WP2)**
 - `toss-payments.ts:1` `import "server-only"` 가드 없음.
 - `toss-payments.ts:12` `TossPayment.status`가 `string`. `status.ts`와 union 타입 하나로 공유.
 - `status.ts:45` `transactionStatus`와 `paymentPhase`가 같은 조회를 두 번, 쓰이지 않는 `'ready'` 폴백. `classify()` 하나로.

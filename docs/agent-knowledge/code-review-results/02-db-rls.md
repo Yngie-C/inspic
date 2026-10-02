@@ -35,18 +35,21 @@
 - 시나리오 1: anon 키 + 본인 JWT로 `{book_id: <3만원 책>, toss_order_id: 'X', amount: 100}` INSERT → Toss 위젯에서 orderId X로 100원 결제 → confirm. 결제 행 금액(100) = 요청 금액(100) = Toss 승인 금액(100)이라 `fulfill_payment`의 `v_tx.amount <> p_amount` 검사를 통과하고 구매가 생겨요. `books.price`와 비교하는 곳이 없어요.
 - 시나리오 2: 책 소유자는 `purchases_select_as_seller`로 구매자의 purchase id를 읽을 수 있어요. 그 id를 `purchase_id`로 단 행을 넣고 그 주문이 취소되면 `void_payment`가 남의 구매를 환불 처리해요.
 - 고칠 방향: INSERT 정책 제거(`purchases`처럼 봉인). 결제 행 생성은 `/api/payments/request`가 서버에서 `books.price`를 읽어 service_role 또는 RPC로. `fulfill_payment`에서도 금액을 책 가격과 대조할지 검토. `rls.test.ts`에 차단 케이스.
+- 2026-10-02 WP2: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP2). INSERT 정책 제거, `create_payment_request` RPC. 승인 시점 책 가격 대조는 하지 않기로 함(결제창을 연 사이 가격이 바뀌면 정상 결제가 막힘).
 
 ### P0-2. 재구매 뒤 옛 주문의 취소가 새 구매를 환불로 바꿈
 - 위치: `00003_payment_integrity.sql:218` (`fulfill_payment`의 `ON CONFLICT DO UPDATE`), `void_payment`
 - 무엇: 환불 뒤 재구매하면 같은 `purchases` 행을 되살려요. 옛 주문 A의 결제 행은 여전히 그 `purchase_id`를 가리켜요.
 - 시나리오: A 구매 → 환불(A canceled, 구매 refunded) → B로 재구매(같은 P가 completed) → Toss가 A 취소 webhook을 재전송 → `void_payment(A)`가 P를 `refunded`로. 돈을 낸 B의 책이 닫혀요.
 - 고칠 방향: 구매를 마지막으로 이행한 결제(예: `purchases.payment_transaction_id`)가 이 결제일 때만 회수. 재이행할 때 옛 결제 행의 연결을 끊는 방법도 있어요. `payments.test.ts`에 재구매 후 옛 취소 케이스.
+- 2026-10-02 WP2: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP2). `purchases.payment_transaction_id` 추가, `void_payment`는 그 결제일 때만 회수.
 
 ### P0-3. `fulfill_payment`가 결제 행 상태를 보지 않음
 - 위치: `00003_payment_integrity.sql:106`
 - 무엇: `void_payment`가 이미 `canceled`로 바꾼 결제 행으로도 구매를 만들고, 상태를 `done`으로 덮어요.
 - 시나리오: 성공 화면 confirm이 Toss에서 DONE을 받음 → RPC 호출 전에 결제가 취소되고 취소 webhook이 먼저 `void_payment` 실행(`purchase_id`가 아직 NULL이라 회수할 것 없음) → confirm이 `fulfill_payment` 호출 → 구매 completed, 행은 `done`. 환불된 결제로 책이 열리고 취소 기록은 사라져요.
 - 고칠 방향: `v_tx.status`가 종결 상태(`canceled`/`partial_canceled`/`aborted`/`expired`)면 이행하지 않고 별도 outcome을 돌려줌. 호출부는 그 outcome을 보상 없이 종료로 처리.
+- 2026-10-02 WP2: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP2). 종결 행은 `voided` 반환, 호출자가 Toss 취소로 마무리.
 
 ## P1 — 접근·노출·정합성
 
