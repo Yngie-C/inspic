@@ -39,15 +39,17 @@ export async function loadExportSource(
 ): Promise<LoadExportSourceResult> {
   const supabase = await createClient();
 
-  const { data: book } = await supabase
+  const { data: book, error: bookError } = await supabase
     .from("books")
     .select("*")
     .eq("id", bookId)
-    .single();
+    .maybeSingle();
 
+  if (bookError) return { ok: false, reason: "server_error" };
   if (!book) return { ok: false, reason: "not_found" };
 
   const access = await checkBookAccess(userId, bookId);
+  if (access.reason === "unavailable") return { ok: false, reason: "server_error" };
 
   // 미리보기(첫 챕터만 열린 상태)로는 내보내지 않습니다. 한 챕터짜리
   // PDF를 책이라고 내려 주면 산 것과 구분이 안 됩니다.

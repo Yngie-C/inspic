@@ -60,7 +60,12 @@ export default function ReaderPage() {
     retry: false,
   });
 
-  const { data: access, isLoading: accessLoading } = useQuery<AccessInfo>({
+  const {
+    data: access,
+    isLoading: accessLoading,
+    isError: accessFailed,
+    refetch: refetchAccess,
+  } = useQuery<AccessInfo>({
     // 로그인 여부가 판정을 바꾸므로 키에 넣습니다. 없으면 로그인하고
     // 돌아왔을 때 비로그인 시절의 판정이 그대로 쓰입니다.
     queryKey: ["book-access", bookId, user?.id ?? null],
@@ -88,6 +93,18 @@ export default function ReaderPage() {
             : "이 책을 볼 권한이 없어요."
         }
         action={{ href: "/explore", label: "둘러보기" }}
+      />
+    );
+  }
+
+  // 판정을 못 받은 것을 "구매 안 함"으로 그리면 산 독자에게 결제 안내가
+  // 뜹니다. 빈 화면도 안 됩니다 — 다시 시도할 길을 둡니다.
+  if (accessFailed) {
+    return (
+      <ReaderNotice
+        title="접근 권한을 확인하지 못했어요"
+        description="잠시 뒤 다시 시도해 주세요."
+        action={{ label: "다시 시도", onClick: () => refetchAccess() }}
       />
     );
   }

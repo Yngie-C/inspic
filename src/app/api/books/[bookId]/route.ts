@@ -7,6 +7,9 @@ import type { BookStatus, BookVisibility } from "@/types";
 
 type Params = { params: Promise<{ bookId: string }> };
 
+/** Postgres foreign_key_violation. */
+const FOREIGN_KEY_VIOLATION = "23503";
+
 /**
  * 리더와 편집 화면이 함께 쓰는 조회.
  *
@@ -59,7 +62,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
   const { data: existing, error: fetchError } = await supabase
     .from("books")
-    .select("owner_id, status, published_at")
+    .select("owner_id, status, visibility, published_at")
     .eq("id", bookId)
     .single();
 
@@ -95,6 +98,19 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
   if (Object.keys(updates).length === 0) {
     return apiError("No valid fields to update", "VALIDATION_ERROR", 400);
+  }
+
+  // "링크 공유"는 열어 주는 경로가 없어(has_book_access·is_book_public
+  // 모두 public만 봅니다) 고르면 아무에게도 보이지 않습니다. 화면에서
+  // 선택지를 뺐고, 새로 고르는 것은 여기서 막습니다. 이미 그 값인 책은
+  // DB에 그대로 둡니다 — 설정 폼은 제목만 고쳐도 현재 visibility를 함께
+  // 보내므로, 그대로인 값까지 막으면 그 책은 아무것도 저장하지 못합니다.
+  if (body.visibility === "unlisted" && existing.visibility !== "unlisted") {
+    return apiError(
+      "링크 공유는 더 이상 고를 수 없어요. 공개나 비공개를 골라 주세요.",
+      "VALIDATION_ERROR",
+      400,
+    );
   }
 
   // 출간으로 넘어가는 순간에만 검수합니다. 이미 출간된 책의 제목을
@@ -151,11 +167,24 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
   if (fetchError || !existing) return apiError("Book not found", "NOT_FOUND", 404);
   if (existing.owner_id !== user.id) return apiError("Access denied", "FORBIDDEN", 403);
 
-  // Cascade: delete chapters first
-  await supabase.from("chapters").delete().eq("book_id", bookId);
-
+  // 챕터·블록·독자 답은 FK CASCADE로 함께 지워집니다. 따로 먼저 지우면
+  // 책 삭제가 실패했을 때 본문만 사라진 책이 남습니다.
+  //
+  // 결제·구매 기록이 있는 책은 FK(RESTRICT, 마이그레이션 00006)가
+  // 삭제를 거절합니다. 판매된 책은 지우지 않고 내립니다 — 산 독자는
+  // 비공개가 된 뒤에도 계속 읽습니다.
   const { error } = await supabase.from("books").delete().eq("id", bookId);
-  if (error) return apiError(error.message, "SERVER_ERROR", 500);
+  if (error) {
+    if (error.code === FOREIGN_KEY_VIOLATION) {
+      return apiError(
+        "판매 기록이 있는 책은 삭제할 수 없어요. 대신 비공개로 전환해 주세요. 이미 구매한 독자는 계속 읽을 수 있어요.",
+        "HAS_SALES",
+        409,
+      );
+    }
+    console.error("[books] 책을 삭제하지 못했습니다", { bookId, error });
+    return apiError("책을 삭제하지 못했어요. 잠시 뒤 다시 시도해 주세요.", "SERVER_ERROR", 500);
+  }
 
   return apiSuccess({ deleted: true });
 }

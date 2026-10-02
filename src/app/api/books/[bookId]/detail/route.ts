@@ -21,14 +21,9 @@ export async function GET(
     return apiError("Book not found", "NOT_FOUND", 404);
   }
 
-  // Access control: non-owners can only see published+public books
+  // 누가 이 책을 보는지는 RLS가 정합니다(books_select_*). 여기서
+  // 공개 상태를 다시 보면 저자가 내린 책을 산 독자가 상세 화면을 잃습니다.
   const isOwner = user?.id === bookData.owner_id;
-  if (
-    !isOwner &&
-    (bookData.status !== "published" || bookData.visibility !== "public")
-  ) {
-    return apiError("Book not found", "NOT_FOUND", 404);
-  }
 
   // Fetch author name separately (no FK between books.owner_id and user_profiles.user_id)
   const { data: profile } = await supabase

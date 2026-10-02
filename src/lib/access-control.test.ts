@@ -2,8 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * 접근 제어는 유료 콘텐츠와 미발행 원고를 가리는 유일한 서버 판정입니다.
- * 여섯 갈래(소유자 / 무료공개 / 비공개 / 미발행 / 구매자 / 미리보기)를
- * 전부 고정합니다.
+ * 여섯 갈래(소유자 / 무료공개 / 비공개 / 미발행 / 구매자 / 미리보기)와
+ * 판정 실패를 전부 고정합니다. 순서는 SQL has_book_access와 같습니다
+ * (마이그레이션 00006): 소유자 → 구매 → 공개 발행본.
  *
  * 세 값이 각각 다른 것을 정합니다.
  *   hasAccess         책 전체를 읽는가 (응답 저장의 전제)
@@ -24,10 +25,12 @@ interface BookRow {
 
 let bookRow: BookRow | null = null;
 let purchaseRow: { id: string } | null = null;
+let bookError: { message: string } | null = null;
+let purchaseError: { message: string } | null = null;
 
 /**
  * `checkBookAccess`가 쓰는 두 쿼리만 흉내 냅니다.
- *   books:     .select().eq("id").single()
+ *   books:     .select().eq("id").maybeSingle()
  *   purchases: .select().eq().eq().eq().maybeSingle()
  */
 vi.mock("@/lib/supabase/server", () => ({
@@ -36,10 +39,10 @@ vi.mock("@/lib/supabase/server", () => ({
       const chain = {
         select: () => chain,
         eq: () => chain,
-        single: async () =>
-          table === "books" ? { data: bookRow } : { data: null },
         maybeSingle: async () =>
-          table === "purchases" ? { data: purchaseRow } : { data: null },
+          table === "books"
+            ? { data: bookRow, error: bookError }
+            : { data: purchaseRow, error: purchaseError },
       };
       return chain;
     },
@@ -58,6 +61,8 @@ const PUBLISHED_PAID: BookRow = {
 beforeEach(() => {
   bookRow = null;
   purchaseRow = null;
+  bookError = null;
+  purchaseError = null;
 });
 
 describe("checkBookAccess", () => {
@@ -162,6 +167,53 @@ describe("checkBookAccess", () => {
       reason: "preview",
       canRead: true,
       canSaveResponses: false,
+    });
+  });
+  it.each([
+    ["비공개로 내린 책", { visibility: "private" }],
+    ["보관한 책", { status: "archived" }],
+    ["초안으로 되돌린 책", { status: "draft" }],
+    ["링크 공유로 바꾼 책", { visibility: "unlisted" }],
+  ])("구매자는 저자가 %s도 계속 읽고 답을 저장한다", async (_label, change) => {
+    bookRow = { ...PUBLISHED_PAID, ...change };
+    purchaseRow = { id: "purchase-1" };
+
+    expect(await checkBookAccess(READER_ID, BOOK_ID)).toEqual({
+      hasAccess: true,
+      reason: "purchased",
+      canRead: true,
+      canSaveResponses: true,
+    });
+  });
+
+  it("무료 책을 비공개로 내리면 산 적 없는 독자는 잃는다 — 열어 두는 것은 구매뿐이다", async () => {
+    bookRow = { ...PUBLISHED_PAID, price: 0, visibility: "private" };
+
+    expect(await checkBookAccess(READER_ID, BOOK_ID)).toMatchObject({
+      hasAccess: false,
+      reason: "none",
+    });
+  });
+
+  it("책 조회가 실패하면 unavailable — '권한 없음'과 구분한다", async () => {
+    bookError = { message: "connection reset" };
+
+    expect(await checkBookAccess(READER_ID, BOOK_ID)).toEqual({
+      hasAccess: false,
+      reason: "unavailable",
+      canRead: false,
+      canSaveResponses: false,
+    });
+  });
+
+  it("구매 조회가 실패하면 unavailable — 산 독자를 미리보기로 떨어뜨리지 않는다", async () => {
+    bookRow = PUBLISHED_PAID;
+    purchaseError = { message: "timeout" };
+
+    expect(await checkBookAccess(READER_ID, BOOK_ID)).toMatchObject({
+      hasAccess: false,
+      reason: "unavailable",
+      canRead: false,
     });
   });
 });

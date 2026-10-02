@@ -8,7 +8,11 @@
  * 다루는지입니다.
  */
 
-export type QueryResult = { data: unknown; error: { message: string } | null };
+export type QueryResult = {
+  data: unknown;
+  /** `code`는 Postgres SQLSTATE (예: 23503 FK 위반). */
+  error: { message: string; code?: string } | null;
+};
 
 export type RecordedQuery = {
   table: string;
@@ -44,10 +48,12 @@ export function createFakeSupabase(
         return builder;
       };
     }
-    builder.single = () => {
-      query.ops.push("single");
-      return Promise.resolve(respond(query));
-    };
+    for (const terminal of ["single", "maybeSingle"]) {
+      builder[terminal] = () => {
+        query.ops.push(terminal);
+        return Promise.resolve(respond(query));
+      };
+    }
     builder.then = (
       resolve: (value: QueryResult) => unknown,
       reject: (reason: unknown) => unknown,

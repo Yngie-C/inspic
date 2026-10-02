@@ -11,14 +11,17 @@ interface Purchase {
   price_paid: number;
   purchased_at: string;
   status: string;
+  /** 환불된 구매의 책이 지금 공개 중이 아니면 null입니다. */
   books: {
     id: string;
     title: string;
-  };
+  } | null;
 }
 
 async function fetchPurchases(): Promise<Purchase[]> {
-  const res = await fetch("/api/purchases");
+  // 서재(/api/purchases)는 지금 읽을 수 있는 책만 돌려줍니다. 내역은
+  // 환불·실패까지 봐야 합니다.
+  const res = await fetch("/api/purchases?scope=history");
   if (!res.ok) throw new Error("구매 내역을 불러오지 못했어요.");
   const json = await res.json();
   return json.data ?? [];
@@ -51,7 +54,7 @@ export default function PurchasesPage() {
   const user = useAuthStore((s) => s.user);
 
   const { data: purchases = [], isLoading, isError, refetch } = useQuery<Purchase[]>({
-    queryKey: ["purchases"],
+    queryKey: ["purchases", "history"],
     queryFn: fetchPurchases,
     enabled: !!user,
   });
@@ -113,7 +116,7 @@ export default function PurchasesPage() {
                         {purchase.books.title}
                       </Link>
                     ) : (
-                      <span className="text-muted">삭제된 책</span>
+                      <span className="text-muted">더 볼 수 없는 책</span>
                     )}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-sm text-primary">

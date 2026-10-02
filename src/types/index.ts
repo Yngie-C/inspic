@@ -96,6 +96,8 @@ export interface Purchase {
   price_paid: number;
   payment_method: string | null;
   status: PurchaseStatus;
+  /** 지금 이 구매를 열어 준 결제. 회수는 이 결제의 취소일 때만 합니다 (00005). */
+  payment_transaction_id: string | null;
   purchased_at: string;
   created_at: string;
 }

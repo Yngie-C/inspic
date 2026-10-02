@@ -10,6 +10,7 @@ export type ErrorCode =
   | "CONTENT_TOO_LONG"
   | "UPLOAD_ERROR"
   | "PUBLISH_BLOCKED"
+  | "HAS_SALES"
   | "SERVER_ERROR";
 
 export async function getAuthUser(): Promise<User | null> {
