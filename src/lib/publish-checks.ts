@@ -2,7 +2,11 @@ import {
   countWorkbookBlockElements,
   extractWorkbookBlocks,
 } from "./workbook/extract-blocks";
-import { storableBlocks, unstorableBlocks } from "./workbook/sync-blocks";
+import {
+  blocksWithUnstorableFields,
+  storableBlocks,
+  unstorableBlocks,
+} from "./workbook/sync-blocks";
 
 /**
  * 공개 전 검수.
@@ -43,12 +47,14 @@ export interface PublishCheckInput {
   book: PublishCheckBook;
   chapters: readonly PublishCheckChapter[];
   /**
-   * `workbook_blocks`에 실제로 저장돼 있는 블록 ID.
+   * 이 책의 `workbook_blocks`에 실제로 저장돼 있는 블록과 그 소속 장.
    *
-   * 본문 HTML에는 있는데 여기 없는 블록은 동기화가 실패한 것입니다.
-   * 그 상태로 출간하면 독자 응답이 저장되지 않습니다.
+   * 본문 HTML에는 있는데 여기 없거나 다른 장 소속인 블록은 동기화가
+   * 실패했거나 다른 곳과 ID가 겹쳐 건너뛴 것입니다. 그 상태로 출간하면
+   * 독자 응답이 저장되지 않거나 다른 장의 블록과 섞입니다. 책 전체의 ID만
+   * 보면 다른 장에 저장된 같은 ID를 "저장됨"으로 오인합니다(4-P0-3).
    */
-  storedBlockIds: readonly string[];
+  storedBlocks: ReadonlyArray<{ id: string; chapter_id: string }>;
 }
 
 /**
@@ -71,7 +77,7 @@ function listChapters(chapters: readonly PublishCheckChapter[]): string {
 }
 
 export function runPublishChecks(input: PublishCheckInput): PublishCheck[] {
-  const { book, chapters, storedBlockIds } = input;
+  const { book, chapters, storedBlocks } = input;
   const checks: PublishCheck[] = [];
 
   if (book.title.trim() === "") {
@@ -108,10 +114,16 @@ export function runPublishChecks(input: PublishCheckInput): PublishCheck[] {
 
   // --- 워크북 블록 ---
 
-  const stored = new Set(storedBlockIds);
+  const storedChapterOf = new Map(
+    storedBlocks.map((block) => [block.id, block.chapter_id]),
+  );
   const brokenByChapter: PublishCheckChapter[] = [];
   const unsyncedByChapter: PublishCheckChapter[] = [];
   let totalBlocks = 0;
+
+  // 블록 ID → 그 ID가 본문에 있는 장들. 둘 이상이면 복사본이 원본 ID를
+  // 들고 간 것입니다. 두 장의 독자 답이 한 블록을 나눠 쓰게 됩니다.
+  const chaptersById = new Map<string, PublishCheckChapter[]>();
 
   for (const chapter of chapters) {
     // 본문에 있는 블록 수와, 그중 ID가 있어 뽑히는 블록. 두 수가 다르면
@@ -125,16 +137,53 @@ export function runPublishChecks(input: PublishCheckInput): PublishCheck[] {
     const extracted = extractWorkbookBlocks(chapter.content_html);
     const idless = present - extracted.length;
 
-    if (idless > 0 || unstorableBlocks(extracted).length > 0) {
+    if (
+      idless > 0 ||
+      unstorableBlocks(extracted).length > 0 ||
+      blocksWithUnstorableFields(extracted).length > 0
+    ) {
       brokenByChapter.push(chapter);
     }
 
-    const missing = storableBlocks(extracted).filter(
-      (block) => !stored.has(block.id),
+    const storable = storableBlocks(extracted);
+    for (const block of storable) {
+      const key = block.id.toLowerCase();
+      const holders = chaptersById.get(key) ?? [];
+      holders.push(chapter);
+      chaptersById.set(key, holders);
+    }
+
+    // DB는 uuid를 소문자로 돌려줍니다. 본문의 대문자 ID와도 맞춰 봅니다.
+    const missing = storable.filter(
+      (block) => storedChapterOf.get(block.id.toLowerCase()) !== chapter.id,
     );
     if (missing.length > 0) {
       unsyncedByChapter.push(chapter);
     }
+  }
+
+  // 겹치는 블록이 있는 장 중, DB가 그 블록의 소속으로 기록한 장이 아닌 쪽
+  // (= 나중에 붙여넣은 복사본)을 알려 줍니다. 소속이 어디에도 없으면 전부.
+  const duplicatedIn = new Set<PublishCheckChapter>();
+  for (const [blockId, holders] of chaptersById) {
+    if (holders.length < 2) continue;
+    const owner = storedChapterOf.get(blockId);
+    const copies = holders.filter((chapter) => chapter.id !== owner);
+    for (const chapter of copies.length < holders.length ? copies : holders) {
+      duplicatedIn.add(chapter);
+    }
+  }
+
+  if (duplicatedIn.size > 0) {
+    checks.push({
+      id: "duplicated-blocks",
+      level: "blocker",
+      title: "같은 블록이 여러 장에 들어 있어요",
+      detail:
+        `${listChapters(chapters.filter((chapter) => duplicatedIn.has(chapter)))} — ` +
+        "다른 장의 블록을 복사해 온 것으로 보여요. 두 장의 독자 답이 섞이니 " +
+        "그 장에서 블록을 지우고 새로 넣어 주세요.",
+    });
   }
 
   if (brokenByChapter.length > 0) {
@@ -143,19 +192,26 @@ export function runPublishChecks(input: PublishCheckInput): PublishCheck[] {
       level: "blocker",
       title: "독자의 답을 저장할 수 없는 블록이 있어요",
       detail:
-        `${listChapters(brokenByChapter)} — 블록 ID가 없거나 중복돼 독자가 ` +
-        "쓴 답이 저장되지 않아요. 그 블록을 지우고 다시 넣어 주세요.",
+        `${listChapters(brokenByChapter)} — 블록 ID나 체크리스트 항목 키가 ` +
+        "없거나 중복돼 독자가 쓴 답이 저장되지 않아요. 편집 화면에서 그 장을 " +
+        "열면 고쳐서 저장돼요. 그래도 남으면 그 블록을 지우고 다시 넣어 주세요.",
     });
   }
 
-  if (unsyncedByChapter.length > 0) {
+  // 겹침으로 이미 안내한 장은 여기서 다시 말하지 않습니다 — 원인이 같고,
+  // "열어서 저장"으로는 풀리지 않습니다.
+  const unsyncedOnly = unsyncedByChapter.filter(
+    (chapter) => !duplicatedIn.has(chapter),
+  );
+  if (unsyncedOnly.length > 0) {
     checks.push({
       id: "unsynced-blocks",
       level: "blocker",
       title: "워크북 블록이 아직 저장되지 않았어요",
       detail:
-        `${listChapters(unsyncedByChapter)} — 편집 화면에서 그 장을 열어 ` +
-        "'저장됨'이 뜬 것을 확인한 뒤 다시 검사해 주세요.",
+        `${listChapters(unsyncedOnly)} — 편집 화면에서 그 장을 열어 ` +
+        "'저장됨'이 뜬 것을 확인한 뒤 다시 검사해 주세요. 그래도 남으면 " +
+        "다른 책에서 복사해 온 블록일 수 있어요. 지우고 새로 넣어 주세요.",
     });
   }
 

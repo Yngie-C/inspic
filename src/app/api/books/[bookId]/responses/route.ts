@@ -132,6 +132,10 @@ export async function PUT(request: NextRequest, { params }: Params) {
   if (rows.length > 0) {
     const { error } = await supabase
       .from("workbook_responses")
+      // 충돌 키에 book_id가 없습니다. 동기화가 블록을 다른 책으로 옮기지
+      // 않으므로(00007) 에디터 경로로는 블록 ID 하나가 한 책에만 속합니다.
+      // 단, 지운 블록의 ID를 업로드·직접 편집으로 다른 책에 다시 넣으면
+      // 옛 책의 답 행을 덮을 수 있습니다(WP4 결과의 "범위 밖").
       .upsert(rows, { onConflict: "user_id,block_id,field_key" });
 
     if (error) return apiError(error.message, "SERVER_ERROR", 500);

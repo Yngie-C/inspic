@@ -15,6 +15,7 @@ import { EditorMenuBubble } from "./EditorMenuBubble";
 import { BlockExitOnEnter } from "./extensions/BlockExitOnEnter";
 import {
   ChecklistNode, CalloutNode, ReflectionNode, SmartGoalNode, ScaleNode,
+  TemplateNodeIds,
 } from "./extensions/templates";
 import { cn } from "@/lib/utils";
 
@@ -68,6 +69,8 @@ export function RichTextEditor({
       ReflectionNode,
       SmartGoalNode,
       ScaleNode,
+      // 잘라낸 블록이 ID를 지킬 수 있는 범위는 책 하나입니다.
+      TemplateNodeIds.configure({ scope: bookId }),
     ],
     content,
     editorProps: {

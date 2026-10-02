@@ -72,6 +72,7 @@
 - 무엇: `data-node-id`를 전역 키로 써서, 저장하는 챕터·책으로 기존 블록을 조용히 옮겨요.
 - 시나리오: 챕터 1의 블록을 챕터 2(또는 다른 책)에 복사·붙여넣기 → ProseMirror 중복 제거는 한 문서 안에서만 동작 → 두 챕터가 같은 id → 저장할 때마다 `chapter_id`/`book_id`가 마지막 저장 쪽으로 이동 → 다른 쪽의 출간 검수가 "DB에 없는 블록"으로 차단. 다른 소유자의 블록 id와 겹치면 `ON CONFLICT DO UPDATE`가 UPDATE RLS에 걸려 RPC 전체가 실패하고, 그 챕터는 다시는 동기화되지 않아요.
 - 고칠 방향: 다른 챕터·책의 블록과 충돌하면 덮지 말고 결과로 보고. 붙여넣기 시 문서 밖에서 온 id를 재부여할지는 4단계(저작 측)에서 함께 결정 — 재부여는 AGENTS.md의 "block_id 재생성 금지"와 부딪히므로 "붙여넣기 시점 1회"로만 한정해야 해요.
+- 2026-10-02 WP4: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP4).
 
 ### P1-4. `workbook_responses` 직접 쓰기가 서버 검증을 건너뜀
 - 위치: `00001_initial_schema.sql:375` (INSERT 정책), `:352` `workbook_blocks_insert_own`
@@ -87,7 +88,7 @@
 
 ## P2 — 정리·효율
 
-- **`00002_workbook_block_sync.sql:116` 페이로드에 같은 블록 id가 반복되면 문항이 섞임.** 블록은 `DISTINCT ON`으로 하나만 남기지만 문항은 `(block_id, field_key)`로만 중복을 거르고, `f.ordinality`가 블록마다 다시 시작해 어느 `input_type`이 남을지 정해지지 않아요. 정의가 `block_type`과 어긋나면 서버가 타입 불일치로 독자 응답을 거절해요. → 문항도 같은 블록 항목에서만 가져오게.
+- **`00002_workbook_block_sync.sql:116` 페이로드에 같은 블록 id가 반복되면 문항이 섞임.** 블록은 `DISTINCT ON`으로 하나만 남기지만 문항은 `(block_id, field_key)`로만 중복을 거르고, `f.ordinality`가 블록마다 다시 시작해 어느 `input_type`이 남을지 정해지지 않아요. 정의가 `block_type`과 어긋나면 서버가 타입 불일치로 독자 응답을 거절해요. → 문항도 같은 블록 항목에서만 가져오게. 2026-10-02 WP4: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP4).
 - **`00003_payment_integrity.sql:303` `chapters_select_preview`가 행마다 SECURITY DEFINER 함수 두 개.** 인라인되지 않아, 챕터 200개짜리 책 목차를 비구매자가 열면 `ORDER BY ... LIMIT 1` 서브쿼리 약 200번 + books 조회 약 200번. → `chapter_is_preview(id, book_id)` 하나로 합치거나 미리보기 플래그를 미리 계산.
 
 ## 다음 세션에서 할 일

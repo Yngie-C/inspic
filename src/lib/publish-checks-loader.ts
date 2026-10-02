@@ -37,7 +37,10 @@ export async function loadPublishChecks(
       .select("id, title, content_html, status, order_index")
       .eq("book_id", bookId)
       .order("order_index", { ascending: true }),
-    supabase.from("workbook_blocks").select("id").eq("book_id", bookId),
+    supabase
+      .from("workbook_blocks")
+      .select("id, chapter_id")
+      .eq("book_id", bookId),
   ]);
 
   return {
@@ -45,7 +48,7 @@ export async function loadPublishChecks(
     checks: runPublishChecks({
       book,
       chapters: (chapters ?? []) as PublishCheckChapter[],
-      storedBlockIds: (blocks ?? []).map((block) => block.id as string),
+      storedBlocks: (blocks ?? []) as Array<{ id: string; chapter_id: string }>,
     }),
   };
 }

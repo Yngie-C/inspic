@@ -62,7 +62,7 @@ TTS·오디오북 · 하이라이트/북마크/독서진행률/리더설정 · �
   - `payments/`: 결제 이행 — Toss 상태 매핑(순수), 이행·보상 절차, 서버 포트
 - `src/stores/`: Zustand stores
 - `src/types/`: TypeScript 타입 정의
-- `supabase/migrations/`: Supabase DB 마이그레이션. `00001_initial_schema.sql`(초기 스키마) + `00002_workbook_block_sync.sql`(블록 동기화 RPC, `chapter-images` 버킷) + `00003_payment_integrity.sql`(결제 이행 RPC, 구매 INSERT 봉인, 첫 챕터 미리보기) + `00004`(집계에서 소유자 응답 제외) + `00005_payment_fixes.sql`(결제 행 INSERT 봉인과 생성 RPC, 구매-결제 연결, 이행·취소 RPC 보강) + `00006_buyer_access.sql`(구매를 공개 상태보다 먼저 보는 접근 판정, `chapter-images` 목록 봉인, 결제·구매 FK RESTRICT)
+- `supabase/migrations/`: Supabase DB 마이그레이션. `00001_initial_schema.sql`(초기 스키마) + `00002_workbook_block_sync.sql`(블록 동기화 RPC, `chapter-images` 버킷) + `00003_payment_integrity.sql`(결제 이행 RPC, 구매 INSERT 봉인, 첫 챕터 미리보기) … `00007_block_id_conflicts.sql`(블록 ID 충돌 보고). 코드 리뷰 WP별 마이그레이션은 `docs/agent-knowledge/code-review-fix-plan.md`를 보세요 + `00004`(집계에서 소유자 응답 제외) + `00005_payment_fixes.sql`(결제 행 INSERT 봉인과 생성 RPC, 구매-결제 연결, 이행·취소 RPC 보강) + `00006_buyer_access.sql`(구매를 공개 상태보다 먼저 보는 접근 판정, `chapter-images` 목록 봉인, 결제·구매 FK RESTRICT)
 - `content/`: 전자책 원고 및 콘텐츠 문서
 - `creator-outreach/`: 크리에이터 아웃리치 관련 문서
 - `.claude/`: Claude Code 커스텀 커맨드/프로젝트 메모
@@ -157,7 +157,8 @@ workbook_responses         독자 응답. (user_id, block_id, field_key) 유일
 도메인 코드는 `src/lib/workbook/`에 있습니다. 관련 코드를 만질 때 아래를 반드시 지키세요.
 
 - **응답과 정의는 오직 `(block_id, field_key)`로만 만납니다.** 배열 인덱스나 길이로 매칭하지 마세요. 크리에이터가 문항을 하나만 추가/삭제해도 독자 응답이 전부 밀리거나 사라집니다. 복원은 `restoreBlockAnswers()`를 쓰세요.
-- **`block_id`는 블록이 문서에 들어올 때 1회 부여하고 절대 재생성하지 마세요.** `parseHTML`에서 `|| generateNodeId()` 같은 폴백을 두면 속성이 유실될 때 키가 바뀌어 응답이 끊깁니다. 부여는 `BaseTemplateNode.ts`의 ProseMirror 플러그인이 담당합니다. ID가 없는 블록은 만들어 붙이지 말고 건너뛰세요.
+- **`block_id`는 블록이 문서에 들어올 때 1회 부여하고 절대 재생성하지 마세요.** `parseHTML`에서 `|| generateNodeId()` 같은 폴백을 두면 속성이 유실될 때 키가 바뀌어 응답이 끊깁니다. 부여는 에디터의 `TemplateNodeIds` 확장(`editor/extensions/templates/TemplateNodeIds.ts`) 하나가 템플릿 노드 전부를 맡습니다 — 템플릿 노드를 쓰는 에디터에는 이 확장도 넣으세요. 서버·추출 쪽에서는 ID가 없는 블록을 만들어 붙이지 말고 건너뛰세요.
+- **"들어올 때"에는 붙여넣기가 포함됩니다 (2026-10-02, WP4).** 규칙은 **원래 문서에 있던 블록은 ID를 유지하고, 새로 들어온 블록만 새 ID를 받는다**입니다. 붙여넣은 블록은 새 ID를 받습니다 — 복사본이 원본 ID를 들고 오면 두 블록이 한 응답을 나눠 갖고, 다른 장·책에서 온 블록이면 블록이 두 곳을 오갑니다. 예외는 **같은 책 안의 잘라내기 → 붙여넣기**(옮기기)와 끌어서 옮기기뿐이고, 이때는 ID를 유지해 독자 답이 따라갑니다. 같은 ID가 겹치면 원래 있던 쪽(`tr.mapping`으로 판별)이 지킵니다. 불러올 때 ID가 없거나 UUID가 아니거나 겹치는 블록, 체크리스트 항목 키가 비었거나 겹치거나 64자를 넘는 것은 그때 한 번 고치고 저장되게 합니다 — 그런 ID·키에는 애초에 독자 답이 매달릴 수 없어서 바꿔도 끊기는 것이 없습니다.
 - **`data-*` 속성에 독자 응답을 담지 마세요.** 챕터 HTML은 문항만 싣습니다. 체크 여부·스케일 선택값·SMART 답변은 전부 `workbook_responses`에 있습니다. 저작 화면에서 답변처럼 보이는 입력을 만들지 마세요.
 - **문항은 `data-*` 안의 JSON이 아니라 `workbook_block_fields` 행으로 저장하세요.** 크리에이터 지표는 이 테이블을 조인해 냅니다.
 - **`workbook_responses.block_id`에는 FK가 없습니다. 의도적입니다.** 크리에이터가 문항을 지워도 독자가 쓴 내용은 남아야 합니다. 정의가 사라진 응답은 `orphanedResponses()`로 분리해 다루세요. `book_id`/`chapter_id`에는 FK CASCADE가 있습니다 — 책·챕터 삭제는 소유자의 명시적 파기로 봅니다. 단, 판매·결제 기록이 있는 책은 지울 수 없습니다(아래 "결제와 접근 제어").
@@ -172,6 +173,7 @@ workbook_responses         독자 응답. (user_id, block_id, field_key) 유일
 - **리더 템플릿은 `chapterId`를 받지 않습니다.** 응답의 정체성에 챕터가 들어가지 않기 때문입니다. 크리에이터가 블록을 다른 챕터로 옮겨도 응답은 따라갑니다.
 - **파싱된 노드에 `instanceof Element`를 쓰지 마세요.** `html-dom-parser`가 ESM 경로에서 자체 `domhandler` 사본을 끌어와 클래스 정체성이 어긋납니다. `lib/workbook/dom.ts`의 `isElementNode()`를 쓰세요.
 - **블록 정의를 DB에 쓸 때는 `syncChapterWorkbookBlocks()`만 쓰세요.** `workbook_blocks` / `workbook_block_fields`에 직접 INSERT/UPDATE 하지 마세요. 실제 쓰기는 `sync_chapter_workbook_blocks` RPC가 upsert와 삭제를 **한 트랜잭션**으로 처리합니다(마이그레이션 00002). 여러 왕복으로 나누면 중간 실패 시 블록은 새 정의, 문항은 옛 정의로 남고 다음 저장 전까지 복구되지 않습니다.
+- **동기화는 다른 장·책의 블록을 덮지 않습니다** (마이그레이션 00007). 같은 ID가 다른 책에 있거나, 같은 책의 다른 장 **본문에 아직 있으면** 건너뛰고 결과의 `conflicts`로 돌려줍니다. 원래 장의 본문에 그 ID가 더는 없으면 옮긴 것으로 보고 소속을 옮기며, 그 블록의 독자 답도 `repoint_workbook_responses()`가 새 장을 가리키게 합니다(옛 장을 지워도 답이 CASCADE로 지워지지 않게). 공개 전 검수는 블록을 `(id, chapter_id)`로 대조하고, 두 장에 같은 ID가 있으면 차단합니다.
 - **동기화가 실패해도 챕터 저장을 실패시키지 마세요.** 본문은 이미 저장된 뒤라 여기서 던지면 크리에이터에게는 글이 날아간 것처럼 보입니다. 결과를 응답의 `workbook_sync`에 싣고, 공개 전 검수(`lib/publish-checks.ts`)가 본문과 DB가 어긋난 상태를 차단합니다.
 - **`data-node-id`가 없는 블록에 ID를 만들어 붙이지 마세요.** `extractWorkbookBlocks()`는 그런 블록을 건너뜁니다. 세어야 할 때는 `countWorkbookBlockElements()`를 쓰세요 — 두 수의 차이가 곧 "화면에는 보이지만 응답을 받을 수 없는 블록"이고, 검수가 그것을 차단 사유로 씁니다.
 - 워크북 블록을 추가/변경하면 에디터 Node, 리더 컴포넌트, `lib/sanitize.ts` 허용 목록, `lib/template-fallback.ts`(EPUB/PDF 정적 폴백), `lib/workbook/extract-blocks.ts`의 `BLOCK_TYPE_BY_TEMPLATE` 표, `00001` 스키마의 `block_type` CHECK 제약을 **함께** 확인하세요. `data-template-type` 문자열은 앞의 네 곳이 공유합니다.

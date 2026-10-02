@@ -46,9 +46,13 @@ function input(overrides: Partial<PublishCheckInput> = {}): PublishCheckInput {
       cover_image_url: "https://example.com/cover.png",
     },
     chapters: [chapter()],
-    storedBlockIds: [],
+    storedBlocks: [],
     ...overrides,
   };
+}
+
+function stored(id: string, chapterId = "ch-1") {
+  return { id, chapter_id: chapterId };
 }
 
 function ids(checks: ReturnType<typeof runPublishChecks>): string[] {
@@ -122,7 +126,7 @@ describe("차단 항목", () => {
             content_html: reflectionHtml(BLOCK_ID) + reflectionHtml(BLOCK_ID),
           }),
         ],
-        storedBlockIds: [BLOCK_ID],
+        storedBlocks: [stored(BLOCK_ID)],
       }),
     );
 
@@ -135,18 +139,72 @@ describe("차단 항목", () => {
     const checks = runPublishChecks(
       input({
         chapters: [chapter({ content_html: reflectionHtml(BLOCK_ID) })],
-        storedBlockIds: [],
+        storedBlocks: [],
       }),
     );
 
     expect(ids(blockers(checks))).toContain("unsynced-blocks");
   });
 
+  it("DB에서 다른 장 소속인 블록은 이 장에 저장되지 않은 것이다", () => {
+    // 책 전체의 ID만 보면 "저장됨"으로 오인합니다(4-P0-3).
+    const checks = runPublishChecks(
+      input({
+        chapters: [chapter({ content_html: reflectionHtml(BLOCK_ID) })],
+        storedBlocks: [stored(BLOCK_ID, "ch-other")],
+      }),
+    );
+
+    expect(ids(blockers(checks))).toContain("unsynced-blocks");
+  });
+
+  it("같은 블록 ID가 두 장에 있으면 막고, 복사본 쪽 장을 알려준다", () => {
+    const checks = runPublishChecks(
+      input({
+        chapters: [
+          chapter({ id: "ch-1", title: "원본 장", content_html: reflectionHtml(BLOCK_ID) }),
+          chapter({
+            id: "ch-2",
+            title: "복사한 장",
+            order_index: 1,
+            content_html: reflectionHtml(BLOCK_ID),
+          }),
+        ],
+        storedBlocks: [stored(BLOCK_ID, "ch-1")],
+      }),
+    );
+
+    const duplicated = blockers(checks).find((c) => c.id === "duplicated-blocks");
+    expect(duplicated?.detail).toContain("복사한 장");
+    expect(duplicated?.detail).not.toContain("원본 장");
+    // 같은 원인을 "저장되지 않음"으로 한 번 더 말하지 않습니다.
+    expect(ids(blockers(checks))).not.toContain("unsynced-blocks");
+  });
+
+  it("체크리스트 항목 키가 겹치거나 너무 길면 막는다", () => {
+    const items = JSON.stringify([
+      { id: "k", text: "하나" },
+      { id: "k", text: "둘" },
+    ]).replace(/"/g, "&quot;");
+    const checks = runPublishChecks(
+      input({
+        chapters: [
+          chapter({
+            content_html: `<section data-template-type="checklist" data-node-id="${BLOCK_ID}" data-items="${items}"></section>`,
+          }),
+        ],
+        storedBlocks: [stored(BLOCK_ID)],
+      }),
+    );
+
+    expect(ids(blockers(checks))).toContain("broken-blocks");
+  });
+
   it("DB에 저장된 블록은 막지 않는다", () => {
     const checks = runPublishChecks(
       input({
         chapters: [chapter({ content_html: reflectionHtml(BLOCK_ID) })],
-        storedBlockIds: [BLOCK_ID, OTHER_BLOCK_ID],
+        storedBlocks: [stored(BLOCK_ID), stored(OTHER_BLOCK_ID, "ch-2")],
       }),
     );
 
@@ -222,7 +280,7 @@ describe("전부 통과", () => {
     const checks = runPublishChecks(
       input({
         chapters: [chapter({ content_html: `<p>가</p>${reflectionHtml(BLOCK_ID)}` })],
-        storedBlockIds: [BLOCK_ID],
+        storedBlocks: [stored(BLOCK_ID)],
       }),
     );
 

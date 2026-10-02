@@ -109,6 +109,8 @@ interface SyncCounts {
   blocks_removed: number;
   fields_upserted: number;
   fields_removed: number;
+  responses_repointed: number;
+  conflicts: string[];
 }
 
 function sync(
@@ -140,6 +142,26 @@ async function answer(
       [userId, book, chapter, blockId, fieldKey, value],
     ),
   );
+}
+
+/** 장 본문을 바꿉니다. 실제 저장 경로처럼 본문을 먼저 쓰고 동기화합니다. */
+async function setChapterHtml(chapterId: string, html: string): Promise<void> {
+  await db.query(`UPDATE chapters SET content_html = $2 WHERE id = $1`, [
+    chapterId,
+    html,
+  ]);
+}
+
+function blockHtml(id: string): string {
+  return `<section data-template-type="reflection" data-node-id="${id}"></section>`;
+}
+
+async function blockChapter(blockId: string): Promise<string | null> {
+  const result = await db.query<{ chapter_id: string }>(
+    `SELECT chapter_id FROM workbook_blocks WHERE id = $1`,
+    [blockId],
+  );
+  return result.rows[0]?.chapter_id ?? null;
 }
 
 async function blockRows(chapterId: string) {
@@ -421,19 +443,161 @@ describe("권한", () => {
     ).rejects.toThrow(/not found/);
   });
 
-  it("남의 블록을 내 챕터로 끌어오지 못한다", async () => {
+  it("남의 블록을 내 챕터로 끌어오지 못한다 — 실패 대신 충돌로 알려 준다", async () => {
     // 소유자가 만든 블록을 다른 사람이 payload에 실어 자기 챕터로
-    // 옮기려는 시도. workbook_blocks UPDATE 정책이 막습니다.
+    // 옮기려는 시도. 예전에는 UPDATE 정책에 걸려 RPC 전체가 실패했고,
+    // 그 장의 다른 블록까지 다시는 동기화되지 않았습니다(2-P1-3).
     await sync(creator, chapter, [reflection(BLOCK_A, "원본")]);
 
     const otherBook = await seedBook(outsider);
     const otherBookChapter = await seedChapter(otherBook, "outsider-ch-1");
 
-    await expect(
-      sync(outsider, otherBookChapter, [reflection(BLOCK_A, "가져오기")]),
-    ).rejects.toThrow();
+    const counts = await sync(outsider, otherBookChapter, [
+      reflection(BLOCK_A, "가져오기"),
+      reflection(BLOCK_B, "자기 블록"),
+    ]);
 
+    expect(counts.conflicts).toEqual([BLOCK_A]);
+    expect((await blockRows(otherBookChapter)).map((row) => row.id)).toEqual([
+      BLOCK_B,
+    ]);
     const rows = await blockRows(chapter);
     expect(rows.map((row) => row.id)).toEqual([BLOCK_A]);
+    expect(await fieldLabel(BLOCK_A, "answer")).toBe("원본");
+  });
+});
+
+describe("블록 ID 충돌 (WP4)", () => {
+  it("같은 책의 다른 장에 아직 있는 블록은 덮지 않고 충돌로 알려 준다", async () => {
+    // 1장의 블록을 복사해 2장에 붙였는데 ID가 그대로 따라온 경우.
+    await setChapterHtml(chapter, blockHtml(BLOCK_A));
+    await sync(creator, chapter, [reflection(BLOCK_A, "1장 질문")]);
+
+    await setChapterHtml(otherChapter, blockHtml(BLOCK_A));
+    const counts = await sync(creator, otherChapter, [
+      reflection(BLOCK_A, "2장 질문"),
+    ]);
+
+    expect(counts.conflicts).toEqual([BLOCK_A]);
+    expect(counts.blocks_upserted).toBe(0);
+    expect(await blockChapter(BLOCK_A)).toBe(chapter);
+    expect(await fieldLabel(BLOCK_A, "answer")).toBe("1장 질문");
+  });
+
+  it("2장에서 그 블록을 지워도 1장의 정의는 남는다", async () => {
+    await setChapterHtml(chapter, blockHtml(BLOCK_A));
+    await sync(creator, chapter, [reflection(BLOCK_A, "1장 질문")]);
+    await setChapterHtml(otherChapter, blockHtml(BLOCK_A));
+    await sync(creator, otherChapter, [reflection(BLOCK_A, "2장 질문")]);
+
+    await setChapterHtml(otherChapter, "<p>지움</p>");
+    const counts = await sync(creator, otherChapter, []);
+
+    expect(counts.blocks_removed).toBe(0);
+    expect((await blockRows(chapter)).map((row) => row.id)).toEqual([BLOCK_A]);
+  });
+
+  it("같은 소유자의 다른 책에 있는 블록도 충돌이다 — 소속을 옮기지 않는다", async () => {
+    await sync(creator, chapter, [reflection(BLOCK_A, "책 X")]);
+
+    const secondBook = await seedBook(creator);
+    const secondChapter = await seedChapter(secondBook, "y-ch-1");
+    const counts = await sync(creator, secondChapter, [
+      reflection(BLOCK_A, "책 Y"),
+    ]);
+
+    expect(counts.conflicts).toEqual([BLOCK_A]);
+    expect(await blockChapter(BLOCK_A)).toBe(chapter);
+  });
+
+  it("옮긴 블록은 소속을 옮기고, 독자 답도 새 장을 가리킨다 — 옛 장을 지워도 답이 남는다", async () => {
+    await sync(creator, chapter, [reflection(BLOCK_A, "질문")]);
+    await answer(reader, BLOCK_A, "answer", "옮기기 전에 쓴 답");
+
+    // 잘라내기 → 2장에 붙여넣기. 1장 본문에는 이제 그 블록이 없습니다.
+    await setChapterHtml(otherChapter, blockHtml(BLOCK_A));
+    const counts = await sync(creator, otherChapter, [reflection(BLOCK_A, "질문")]);
+
+    expect(counts.conflicts).toEqual([]);
+    expect(counts.responses_repointed).toBe(1);
+    expect(await blockChapter(BLOCK_A)).toBe(otherChapter);
+
+    await db.query(`DELETE FROM chapters WHERE id = $1`, [chapter]);
+
+    expect(await myAnswers(reader)).toEqual([
+      { block_id: BLOCK_A, field_key: "answer", value_text: "옮기기 전에 쓴 답" },
+    ]);
+  });
+
+  it("독자 답을 옮기는 함수는 소유자가 아니면 아무것도 하지 않는다", async () => {
+    await sync(creator, chapter, [reflection(BLOCK_A, "질문")]);
+    await answer(reader, BLOCK_A, "answer", "답");
+
+    const moved = await asUser(outsider, async () => {
+      const result = await db.query<{ repoint_workbook_responses: number }>(
+        `SELECT public.repoint_workbook_responses($1)`,
+        [otherChapter],
+      );
+      return result.rows[0].repoint_workbook_responses;
+    });
+
+    expect(moved).toBe(0);
+  });
+
+  it("다른 책의 블록 ID 확인 함수는 소유자가 아니면 빈 배열이다", async () => {
+    await sync(creator, chapter, [reflection(BLOCK_A, "질문")]);
+    const outsiderBook = await seedBook(outsider);
+
+    // outsider가 남의 책(book)을 기준으로 물으면 아무것도 알려 주지 않습니다.
+    const found = await asUser(outsider, async () => {
+      const result = await db.query<{ ids: string[] }>(
+        `SELECT public.workbook_block_ids_in_other_books($1, $2::uuid[]) AS ids`,
+        [book, [BLOCK_A]],
+      );
+      return result.rows[0].ids;
+    });
+    expect(found).toEqual([]);
+
+    // 자기 책 기준이면 "다른 책에 있다"는 것만 압니다.
+    const own = await asUser(outsider, async () => {
+      const result = await db.query<{ ids: string[] }>(
+        `SELECT public.workbook_block_ids_in_other_books($1, $2::uuid[]) AS ids`,
+        [outsiderBook, [BLOCK_A]],
+      );
+      return result.rows[0].ids;
+    });
+    expect(own).toEqual([BLOCK_A]);
+  });
+
+  it("payload에 같은 ID가 다른 타입으로 반복되면 문항도 앞의 항목에서만 가져온다", async () => {
+    // 예전에는 블록은 앞의 것, 문항은 섞여서 input_type이 block_type과
+    // 어긋났고, 서버가 그 블록의 독자 답을 타입 불일치로 거절했습니다.
+    await sync(creator, chapter, [
+      checklist(BLOCK_A, [{ key: "answer", label: "체크 항목" }]),
+      reflection(BLOCK_A, "뒤에 온 질문"),
+    ]);
+
+    const result = await db.query<{ block_type: string; input_type: string }>(
+      `SELECT wb.block_type, wf.input_type
+         FROM workbook_blocks wb JOIN workbook_block_fields wf ON wf.block_id = wb.id
+        WHERE wb.id = $1`,
+      [BLOCK_A],
+    );
+    expect(result.rows).toEqual([{ block_type: "checklist", input_type: "boolean" }]);
+    expect(await fieldLabel(BLOCK_A, "answer")).toBe("체크 항목");
+  });
+
+  it("64자를 넘는 문항 키는 건너뛰고 나머지는 저장한다 — 장 전체가 롤백되지 않는다", async () => {
+    const counts = await sync(creator, chapter, [
+      checklist(BLOCK_A, [
+        { key: "ok", label: "정상" },
+        { key: "x".repeat(65), label: "너무 긴 키" },
+      ]),
+      reflection(BLOCK_B, "다른 블록"),
+    ]);
+
+    expect(counts.blocks_upserted).toBe(2);
+    expect(await fieldKeys(BLOCK_A)).toEqual(["ok"]);
+    expect(await fieldKeys(BLOCK_B)).toEqual(["answer"]);
   });
 });
