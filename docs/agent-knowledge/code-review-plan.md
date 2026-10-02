@@ -19,6 +19,7 @@
 - **리뷰와 수정을 나눠요.** 먼저 지적만 받고, 확인한 것만 `--fix` 또는 별도 요청으로 고쳐요. 고친 뒤에는 `npm run typecheck && npm test && npm run lint`를 실행해요 (lint 에러는 기존 10개보다 늘지 않으면 돼요).
 - **이미 아는 부채는 제외해요.** 기존 lint 에러 10개(React Compiler)는 리뷰 결과에서 무시해요.
 - 각 단계가 끝나면 아래 체크리스트에 날짜와 발견 개수를 적어요.
+- **1~4단계 수정은 [code-review-fix-plan.md](code-review-fix-plan.md)를 따라요.** 수정이 모두 끝난 뒤 5단계부터 리뷰를 이어 가요.
 
 ## 단계
 
