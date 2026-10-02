@@ -761,3 +761,241 @@ describe("결제 행", () => {
     ).rejects.toThrow();
   });
 });
+
+/**
+ * 판매된 책 (마이그레이션 00006, 코드 리뷰 2-P1-1 · 4-P0-5 · 4-P1-15).
+ *
+ * "돈이 나갔으면 책이 열린다." 저자가 책을 내려도 산 독자는 계속 읽고
+ * 답을 저장합니다. 판매·결제 기록이 있는 책은 지울 수 없습니다.
+ */
+describe("판매된 책 — 저자가 내린 뒤", () => {
+  let soldBook: string;
+  let soldPreview: string;
+  let soldChapter: string;
+  let refundedReader: string;
+  const SOLD_BLOCK = "cccccccc-0000-4000-8000-000000000001";
+
+  beforeAll(async () => {
+    refundedReader = await seedUser("refunded@example.com");
+
+    soldBook = await seedBook(creator, "팔린 뒤 내린 책", {
+      price: 15000,
+      status: "published",
+      visibility: "public",
+    });
+    soldPreview = await seedChapter(soldBook, "sold-ch-1", "published", 0);
+    soldChapter = await seedChapter(soldBook, "sold-ch-2", "published", 1);
+    await seedBlock(SOLD_BLOCK, soldBook, soldChapter);
+
+    await db.query(
+      `INSERT INTO purchases (user_id, book_id, price_paid, status)
+       VALUES ($1, $3, 15000, 'completed'), ($2, $3, 15000, 'refunded')`,
+      [readerA, refundedReader, soldBook],
+    );
+
+    // 저자가 책을 내립니다.
+    await db.query(
+      `UPDATE books SET status = 'archived', visibility = 'private' WHERE id = $1`,
+      [soldBook],
+    );
+  });
+
+  it("구매자는 내린 책의 행을 본다 — 서재와 리더가 책 정보부터 읽는다", async () => {
+    const found = await asUser(readerA, () =>
+      countRows(`SELECT 1 FROM books WHERE id = $1`, [soldBook]),
+    );
+    expect(found).toBe(1);
+  });
+
+  it("구매자는 내린 책의 published 챕터를 전부 읽는다", async () => {
+    const found = await asUser(readerA, () =>
+      countRows(`SELECT 1 FROM chapters WHERE book_id = $1`, [soldBook]),
+    );
+    expect(found).toBe(2);
+  });
+
+  it("구매자는 내린 책의 문항을 읽고 답을 남긴다", async () => {
+    const fields = await asUser(readerA, () =>
+      countRows(`SELECT 1 FROM workbook_block_fields WHERE block_id = $1`, [SOLD_BLOCK]),
+    );
+    expect(fields).toBe(1);
+
+    await asUser(readerA, () =>
+      db.query(
+        `INSERT INTO workbook_responses
+           (user_id, book_id, chapter_id, block_id, field_key, value_text)
+         VALUES ($1, $2, $3, $4, 'answer', '내린 뒤에도 쓴 답')`,
+        [readerA, soldBook, soldChapter, SOLD_BLOCK],
+      ),
+    );
+
+    const affected = await asUser(readerA, async () => {
+      const result = await db.query(
+        `UPDATE workbook_responses SET value_text = '고친 답'
+          WHERE block_id = $1 AND user_id = $2`,
+        [SOLD_BLOCK, readerA],
+      );
+      return result.affectedRows;
+    });
+    expect(affected).toBe(1);
+  });
+
+  it("비구매자와 비로그인은 내린 책을 보지 못한다 — 미리보기도 닫힌다", async () => {
+    const asReader = await asUser(readerB, async () => ({
+      books: await countRows(`SELECT 1 FROM books WHERE id = $1`, [soldBook]),
+      chapters: await countRows(`SELECT 1 FROM chapters WHERE id IN ($1, $2)`, [
+        soldPreview,
+        soldChapter,
+      ]),
+    }));
+    const asGuest = await asAnon(async () => ({
+      books: await countRows(`SELECT 1 FROM books WHERE id = $1`, [soldBook]),
+      chapters: await countRows(`SELECT 1 FROM chapters WHERE book_id = $1`, [soldBook]),
+    }));
+
+    expect(asReader).toEqual({ books: 0, chapters: 0 });
+    expect(asGuest).toEqual({ books: 0, chapters: 0 });
+  });
+
+  it("환불된 구매자는 잃는다 — 여는 것은 completed 구매뿐이다", async () => {
+    const seen = await asUser(refundedReader, async () => ({
+      books: await countRows(`SELECT 1 FROM books WHERE id = $1`, [soldBook]),
+      chapters: await countRows(`SELECT 1 FROM chapters WHERE book_id = $1`, [soldBook]),
+    }));
+    expect(seen).toEqual({ books: 0, chapters: 0 });
+
+    await expect(
+      asUser(refundedReader, () =>
+        db.query(
+          `INSERT INTO workbook_responses
+             (user_id, book_id, chapter_id, block_id, field_key, value_text)
+           VALUES ($1, $2, $3, $4, 'answer', '환불 뒤 쓴 답')`,
+          [refundedReader, soldBook, soldChapter, SOLD_BLOCK],
+        ),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("구매자에게 열린 책 행 때문에 남의 구매가 보이지는 않는다", async () => {
+    const found = await asUser(readerA, () =>
+      countRows(`SELECT 1 FROM purchases WHERE book_id = $1`, [soldBook]),
+    );
+    // 자기 구매 하나뿐. 환불된 독자의 행은 보이지 않습니다.
+    expect(found).toBe(1);
+  });
+});
+
+describe("판매·결제 기록이 있는 책은 지울 수 없다", () => {
+  it("판매된 책 삭제는 거절되고 구매 기록이 남는다", async () => {
+    const sold = await seedBook(creator, "지우려는 판매된 책", {
+      price: 9900,
+      status: "published",
+      visibility: "public",
+    });
+    await seedChapter(sold, "delete-sold-ch", "published", 0);
+    await db.query(
+      `INSERT INTO purchases (user_id, book_id, price_paid, status)
+       VALUES ($1, $2, 9900, 'completed')`,
+      [readerB, sold],
+    );
+
+    await expect(
+      asUser(creator, () => db.query(`DELETE FROM books WHERE id = $1`, [sold])),
+    ).rejects.toThrow(/foreign key/);
+
+    const remaining = await db.query<{ books: number; purchases: number; chapters: number }>(
+      `SELECT (SELECT count(*)::int FROM books WHERE id = $1) AS books,
+              (SELECT count(*)::int FROM purchases WHERE book_id = $1) AS purchases,
+              (SELECT count(*)::int FROM chapters WHERE book_id = $1) AS chapters`,
+      [sold],
+    );
+    expect(remaining.rows[0]).toEqual({ books: 1, purchases: 1, chapters: 1 });
+  });
+
+  it("결제창만 열었던 책도 결제 기록이 남아 지울 수 없다", async () => {
+    const opened = await seedBook(creator, "결제창만 열린 책", {
+      price: 9900,
+      status: "published",
+      visibility: "public",
+    });
+    await db.query(`SELECT create_payment_request($1, $2, 'rls-delete-ready')`, [
+      readerB,
+      opened,
+    ]);
+
+    await expect(
+      asUser(creator, () => db.query(`DELETE FROM books WHERE id = $1`, [opened])),
+    ).rejects.toThrow(/foreign key/);
+  });
+
+  it("팔린 적 없는 책은 지워지고 챕터도 함께 지워진다", async () => {
+    const unsold = await seedBook(creator, "팔린 적 없는 원고", {
+      price: 9900,
+      status: "draft",
+      visibility: "private",
+    });
+    await seedChapter(unsold, "unsold-ch", "published", 0);
+
+    const affected = await asUser(creator, async () => {
+      const result = await db.query(`DELETE FROM books WHERE id = $1`, [unsold]);
+      return result.affectedRows;
+    });
+
+    expect(affected).toBe(1);
+    expect(await countRows(`SELECT 1 FROM chapters WHERE book_id = $1`, [unsold])).toBe(0);
+  });
+});
+
+/**
+ * 본문 이미지 버킷 (마이그레이션 00006, 코드 리뷰 2-P1-2).
+ *
+ * 공개 버킷이라 파일은 공개 URL로 정책 없이 내려갑니다. SELECT 정책이
+ * 열어 주던 것은 파일 목록(list)이었고, 유료 책의 이미지 파일명을 전부
+ * 얻을 수 있었습니다.
+ */
+describe("chapter-images 파일 목록", () => {
+  beforeAll(async () => {
+    await db.query(
+      `INSERT INTO storage.buckets (id, name, public) VALUES ('covers', 'covers', true)
+       ON CONFLICT (id) DO NOTHING`,
+    );
+    await db.query(
+      `INSERT INTO storage.objects (bucket_id, name) VALUES
+         ('chapter-images', $1),
+         ('chapter-images', 'not-a-book/x/stray.png'),
+         ('covers', 'covers/not-a-uuid/cover.png')`,
+      [`${paidBook}/${paidChapter}/secret.png`],
+    );
+  });
+
+  it("비로그인은 유료 책 이미지 목록을 보지 못한다", async () => {
+    const found = await asAnon(() =>
+      countRows(`SELECT 1 FROM storage.objects WHERE bucket_id = 'chapter-images'`),
+    );
+    expect(found).toBe(0);
+  });
+
+  it("구매자도 목록은 보지 못한다 — 이미지는 본문 URL로 받는다", async () => {
+    const found = await asUser(readerA, () =>
+      countRows(`SELECT 1 FROM storage.objects WHERE bucket_id = 'chapter-images'`),
+    );
+    expect(found).toBe(0);
+  });
+
+  it("소유자는 자기 책 이미지를 본다 — Storage의 삭제·이동이 SELECT를 요구한다", async () => {
+    const names = await asUser(creator, async () => {
+      const result = await db.query<{ name: string }>(
+        `SELECT name FROM storage.objects WHERE bucket_id = 'chapter-images'`,
+      );
+      return result.rows.map((row) => row.name);
+    });
+    expect(names).toEqual([`${paidBook}/${paidChapter}/secret.png`]);
+  });
+
+  it("첫 폴더가 uuid가 아닌 파일이 있어도 조회가 깨지지 않는다", async () => {
+    // 정책이 캐스팅부터 하면 다른 버킷(covers) 조회까지 에러가 납니다.
+    await expect(
+      asUser(creator, () => db.query(`SELECT name FROM storage.objects`)),
+    ).resolves.toBeDefined();
+  });
+});

@@ -97,6 +97,10 @@ export async function PUT(request: NextRequest, { params }: Params) {
   // workbook_responses_insert_own도 같은 판정을 하지만, 여기서 먼저 보면
   // "저장은 조용히 안 됐는데 화면은 저장됨"이 되지 않습니다.
   const access = await checkBookAccess(user.id, bookId);
+  // 판정 실패는 500이어야 리더가 답을 큐에 남겨 다음 저장 때 다시 보냅니다.
+  if (access.reason === "unavailable") {
+    return apiError("접근 권한을 확인하지 못했어요. 잠시 뒤 다시 저장할게요.", "SERVER_ERROR", 500);
+  }
   if (!access.hasAccess) {
     return apiError("이 책에 답을 저장할 권한이 없어요. 구매했는지 확인해 주세요.", "FORBIDDEN", 403);
   }

@@ -83,6 +83,7 @@
 - 무엇: 판매 여부를 보지 않고 `books`를 지워요. `purchases`·`payment_transactions`·`workbook_responses`가 FK CASCADE로 함께 지워져요.
 - 시나리오: 10권 팔린 유료 책을 크리에이터가 삭제 → 구매자의 서재에서 책이 사라지고 환불·정산 근거도 DB에서 없어져요. "돈이 나갔으면 책이 열리거나, 책이 열리지 않으면 돈이 돌아간다"에 어긋나요.
 - 고칠 방향: 구매가 있는 책은 삭제 대신 보관(구매자 접근 유지). 결제 기록은 CASCADE가 아니라 RESTRICT/SET NULL로 남길지 2단계와 함께 결정(새 마이그레이션).
+- 2026-10-02 WP3: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP3). 결제·구매 FK를 RESTRICT로, 삭제는 409 `HAS_SALES`로 비공개 전환 안내.
 
 ## P1 — 저장 정합성·출간 게이트·입력 검증
 
@@ -112,7 +113,7 @@
 
 ### 책 API (`src/app/api/books/[bookId]/route.ts`)
 
-- **P1-15. PUT으로 비공개·`unlisted`로 바꾸면 구매자가 책을 잃음.** 93행. `has_book_access()`가 구매자에게도 `published` + `public`을 요구해서, 내리기나 "링크 공유" 선택만으로 구매자의 GET이 404가 돼요. 2단계 P1-1과 같은 근본 원인.
+- **P1-15. PUT으로 비공개·`unlisted`로 바꾸면 구매자가 책을 잃음.** 93행. `has_book_access()`가 구매자에게도 `published` + `public`을 요구해서, 내리기나 "링크 공유" 선택만으로 구매자의 GET이 404가 돼요. 2단계 P1-1과 같은 근본 원인. → **수정됨 (WP3)** 구매자는 비공개·보관 뒤에도 접근 유지, `unlisted`는 새로 고를 수 없음.
 - **P1-16. 출간 게이트를 우회하는 경로들.**
   - 102행: 검수가 status가 published로 바뀌는 순간에만 돌아요. `published` + `private`인 책을 `{visibility:'public'}`만 보내 공개하면 blocker 없이 나가요.
   - 121행: "공개는 status와 visibility를 함께 바꾼다"를 서버가 강제하지 않아요. `{status:'published'}`만 보내면 아무도 못 보는 책에 `published_at`이 찍히고, 이후 visibility 전환은 위 경로로 검수를 건너뛰어요.
@@ -120,7 +121,7 @@
   - → 결과적으로 "공개 상태가 된다"(published + public/unlisted)로 바뀌는 모든 전환에서 검수. status 단독 출간은 거절하거나 visibility를 함께 설정.
 - **P1-17. PUT 본문을 런타임에 검증하지 않음.** 93행. 본문이 `null`이면 `'title' in null`이 TypeError로 500. `{title:null}`·`{status:'PUBLISHED'}`는 DB 원문 500. `{status:'processing'}`이나 임의 `language`는 그대로 저장. 출간된 책에 `{title:''}`을 보내면 검수의 "제목이 비어 있어요"를 건너뛰어 제목 없는 공개 책이 돼요.
 - **P1-18. `cover_image_url`에 아무 문자열이나 받음.** 89행. `/cover` 업로드의 검증과 이전 파일 정리를 거치지 않아요. 외부 추적 픽셀 URL이 OG 메타·공개 카드에 노출되고 기존 커버는 고아로 남아요. `.../covers/<남의 bookId>/a.png`를 넣고 `DELETE /cover`를 부르면 cover 라우트가 그 경로로 `storage.remove()`를 불러요 — 실제로 지워지는지는 `covers` 버킷 정책(마이그레이션에 없음, 대시보드 관리로 보임)에 달려 있어요. 5단계(`/cover`)와 함께.
-- **P1-19. DELETE의 선행 `chapters` 삭제가 결과를 보지 않고 트랜잭션도 아님.** 155행. chapters 삭제 성공 뒤 books 삭제가 실패하면 500인데 본문과(CASCADE로) 독자 답은 이미 사라져요. FK CASCADE와 겹쳐 필요하지도 않아요. → books 삭제 하나로(P0-5의 정책 결정 뒤).
+- **P1-19. DELETE의 선행 `chapters` 삭제가 결과를 보지 않고 트랜잭션도 아님.** 155행. chapters 삭제 성공 뒤 books 삭제가 실패하면 500인데 본문과(CASCADE로) 독자 답은 이미 사라져요. FK CASCADE와 겹쳐 필요하지도 않아요. → books 삭제 하나로(P0-5의 정책 결정 뒤). → **수정됨 (WP3)**
 
 ### 공개 전 검수 (`src/lib/publish-checks.ts`, `src/lib/publish-checks-loader.ts`)
 

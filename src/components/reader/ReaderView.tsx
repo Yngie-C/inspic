@@ -320,15 +320,21 @@ export function ReaderNotice({
 }: {
   title: string;
   description: string;
-  action: { href: string; label: string };
+  action: { href: string; label: string } | { onClick: () => void; label: string };
 }) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-paper px-6 text-center">
       <h1 className="text-title text-primary">{title}</h1>
       <p className="max-w-sm text-body-sm text-muted">{description}</p>
-      <Button asChild variant="secondary" className="mt-2">
-        <Link href={action.href}>{action.label}</Link>
-      </Button>
+      {"href" in action ? (
+        <Button asChild variant="secondary" className="mt-2">
+          <Link href={action.href}>{action.label}</Link>
+        </Button>
+      ) : (
+        <Button variant="secondary" className="mt-2" onClick={action.onClick}>
+          {action.label}
+        </Button>
+      )}
     </div>
   );
 }
