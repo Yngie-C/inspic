@@ -71,6 +71,8 @@
 
 ### 병행 — 라이브 계약 트랙
 
+> 2026-10-02: Toss 대신 같은 사업자의 기존 PortOne(NHN KCP) 계약을 옮겨 쓰는 안을 검토 중입니다(보류, KCP 재심사 여부 문의 필요). → `docs/agent-knowledge/payment-provider-portone.md`
+
 - [ ] 사업자등록 → 통신판매업 신고
 - [ ] 도메인 확정·연결 (심사 전에 필요)
 - [ ] `Footer.tsx`의 사업자 정보 자리표시자 채우기
