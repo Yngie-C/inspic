@@ -97,6 +97,10 @@ export async function PUT(request: NextRequest, { params }: Params) {
   // workbook_responses_insert_own도 같은 판정을 하지만, 여기서 먼저 보면
   // "저장은 조용히 안 됐는데 화면은 저장됨"이 되지 않습니다.
   const access = await checkBookAccess(user.id, bookId);
+  // 판정 실패는 500이어야 리더가 답을 큐에 남겨 다음 저장 때 다시 보냅니다.
+  if (access.reason === "unavailable") {
+    return apiError("접근 권한을 확인하지 못했어요. 잠시 뒤 다시 저장할게요.", "SERVER_ERROR", 500);
+  }
   if (!access.hasAccess) {
     return apiError("이 책에 답을 저장할 권한이 없어요. 구매했는지 확인해 주세요.", "FORBIDDEN", 403);
   }
@@ -113,11 +117,16 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
   if (blocksError) return apiError(blocksError.message, "SERVER_ERROR", 500);
 
-  const definitions = await loadFieldDefinitions(supabase, blocks ?? []);
+  // 조회가 실패했는데 정의 0개로 넘어가면 모든 답이 `rejected`로 담긴
+  // 200이 됩니다. 리더는 그것을 "보냈다"로 보고 큐에서 지우므로 답이
+  // 다시 전송되지 않습니다. 500이면 큐에 남아 다음 저장 때 다시 갑니다.
+  const loaded = await loadFieldDefinitions(supabase, blocks ?? []);
+  if (!loaded.ok) return apiError(loaded.error, "SERVER_ERROR", 500);
+
   const { rows, rejected } = buildResponseRows(
     user.id,
     parsed.writes,
-    definitions,
+    loaded.definitions,
   );
 
   if (rows.length > 0) {
@@ -136,10 +145,13 @@ type BlockRow = { id: string; book_id: string; chapter_id: string };
 async function loadFieldDefinitions(
   supabase: Awaited<ReturnType<typeof createClient>>,
   blocks: readonly BlockRow[],
-): Promise<StoredFieldDefinition[]> {
-  if (blocks.length === 0) return [];
+): Promise<
+  | { ok: true; definitions: StoredFieldDefinition[] }
+  | { ok: false; error: string }
+> {
+  if (blocks.length === 0) return { ok: true, definitions: [] };
 
-  const { data: fields } = await supabase
+  const { data: fields, error } = await supabase
     .from("workbook_block_fields")
     .select("block_id, field_key, input_type")
     .in(
@@ -147,9 +159,11 @@ async function loadFieldDefinitions(
       blocks.map((block) => block.id),
     );
 
+  if (error) return { ok: false, error: error.message };
+
   const blockById = new Map(blocks.map((block) => [block.id, block]));
 
-  return (fields ?? []).flatMap((field) => {
+  const definitions = (fields ?? []).flatMap((field) => {
     const block = blockById.get(field.block_id);
     if (!block) return [];
     return [
@@ -162,4 +176,5 @@ async function loadFieldDefinitions(
       },
     ];
   });
+  return { ok: true, definitions };
 }

@@ -45,21 +45,49 @@ async function seedUser(email: string): Promise<string> {
   return result.rows[0].id;
 }
 
+/**
+ * 결제 행은 서버가 create_payment_request로 만듭니다(00005). 테스트도
+ * 같은 자리로 심어야 금액을 정하는 규칙이 바뀔 때 함께 깨집니다.
+ */
 async function seedTransaction(
   orderId: string,
-  options: { user?: string; amount?: number } = {},
+  options: { user?: string } = {},
 ): Promise<string> {
-  const result = await db.query<{ id: string }>(
-    `INSERT INTO payment_transactions (user_id, book_id, toss_order_id, amount, status)
-     VALUES ($1, $2, $3, $4, 'ready') RETURNING id`,
-    [options.user ?? reader, paidBook, orderId, options.amount ?? PRICE],
+  const result = await requestPayment(orderId, options.user ?? reader);
+  if (result.outcome !== "created" || !result.transaction_id) {
+    throw new Error(`결제 행을 심지 못했습니다: ${result.outcome}`);
+  }
+  return result.transaction_id;
+}
+
+interface RequestResult {
+  outcome: string;
+  transaction_id?: string;
+  amount?: number;
+  title?: string;
+}
+
+async function requestPayment(
+  orderId: string,
+  userId = reader,
+  bookId = paidBook,
+): Promise<RequestResult> {
+  const result = await db.query<{ r: RequestResult }>(
+    `SELECT create_payment_request($1, $2, $3) AS r`,
+    [userId, bookId, orderId],
   );
-  return result.rows[0].id;
+  return result.rows[0].r;
 }
 
 interface FulfillResult {
-  outcome: "granted" | "already_fulfilled" | "duplicate_purchase";
-  purchase_id: string;
+  outcome:
+    | "granted"
+    | "restored"
+    | "already_fulfilled"
+    | "duplicate_purchase"
+    | "voided";
+  status?: string;
+  purchase_id: string | null;
   book_id: string;
   user_id: string;
 }
@@ -83,7 +111,7 @@ async function fulfill(
 }
 
 async function voidPayment(orderId: string, status: string) {
-  const result = await db.query<{ void_payment: { revoked: boolean } }>(
+  const result = await db.query<{ void_payment: { outcome: string; revoked: boolean } }>(
     `SELECT void_payment($1, $2) AS void_payment`,
     [orderId, status],
   );
@@ -244,7 +272,7 @@ describe("중복 호출", () => {
 
 describe("승인 내용 검증", () => {
   it("승인 금액이 요청 시점과 다르면 던진다", async () => {
-    await seedTransaction("order-1", { amount: PRICE });
+    await seedTransaction("order-1");
 
     await expect(fulfill("order-1", { amount: 100 })).rejects.toThrow();
     expect(await countPurchases()).toBe(0);
@@ -441,5 +469,235 @@ describe("구매 기록 생성 경로", () => {
 
     // UPDATE 정책이 없으므로 0행이 바뀝니다 (에러가 아니라 조용한 무시).
     expect((await transactionRow("order-1")).status).toBe("ready");
+  });
+});
+
+// ------------------------------------------------------------
+// 결제 요청 — 결제 행은 서버 RPC로만, 금액은 책 가격에서 (00005)
+// ------------------------------------------------------------
+
+describe("결제 요청", () => {
+  it("금액은 책 가격에서 정한다", async () => {
+    const result = await requestPayment("order-1");
+
+    expect(result).toMatchObject({ outcome: "created", amount: PRICE, title: "유료 워크북" });
+    const row = await db.query<{ amount: number; status: string; user_id: string }>(
+      `SELECT amount, status, user_id FROM payment_transactions WHERE toss_order_id = 'order-1'`,
+    );
+    expect(row.rows[0]).toEqual({ amount: PRICE, status: "ready", user_id: reader });
+  });
+
+  it("팔 수 없는 책에는 결제 행을 만들지 않는다", async () => {
+    const privateBook = await db.query<{ id: string }>(
+      `INSERT INTO books (owner_id, title, price, status, visibility)
+       VALUES ($1, '비공개', $2, 'published', 'private') RETURNING id`,
+      [creator, PRICE],
+    );
+    const freeBook = await db.query<{ id: string }>(
+      `INSERT INTO books (owner_id, title, price, status, visibility)
+       VALUES ($1, '무료', 0, 'published', 'public') RETURNING id`,
+      [creator],
+    );
+
+    expect((await requestPayment("o-1", reader, privateBook.rows[0].id)).outcome).toBe("not_for_sale");
+    expect((await requestPayment("o-2", reader, freeBook.rows[0].id)).outcome).toBe("free");
+    expect((await requestPayment("o-3", creator)).outcome).toBe("own_book");
+    expect(
+      (await requestPayment("o-4", reader, "00000000-0000-4000-8000-000000000000")).outcome,
+    ).toBe("not_found");
+
+    const rows = await db.query(`SELECT 1 FROM payment_transactions`);
+    expect(rows.rows).toHaveLength(0);
+  });
+
+  it("이미 산 책에는 결제 행을 만들지 않는다", async () => {
+    await seedTransaction("order-1");
+    await fulfill("order-1");
+
+    expect((await requestPayment("order-2")).outcome).toBe("already_owned");
+  });
+
+  it("비로그인은 create_payment_request를 실행할 수 없다", async () => {
+    await expect(
+      asAnon(() =>
+        db.query(`SELECT create_payment_request($1, $2, 'order-anon')`, [reader, paidBook]),
+      ),
+    ).rejects.toThrow();
+  });
+});
+
+// ------------------------------------------------------------
+// 재구매와 옛 결제 (1-P0-2, 2-P0-2)
+// ------------------------------------------------------------
+
+describe("재구매 뒤 옛 결제", () => {
+  async function refundThenRebuy() {
+    await seedTransaction("order-1");
+    await fulfill("order-1");
+    await voidPayment("order-1", "canceled");
+    await seedTransaction("order-2");
+    await fulfill("order-2");
+    expect(await hasAccess(reader)).toBe(true);
+  }
+
+  it("옛 결제의 취소 webhook이 다시 와도 재구매한 책이 닫히지 않는다", async () => {
+    await refundThenRebuy();
+
+    const result = await voidPayment("order-1", "canceled");
+
+    expect(result.revoked).toBe(false);
+    expect(await hasAccess(reader)).toBe(true);
+  });
+
+  it("구매는 마지막으로 이행한 결제를 가리킨다", async () => {
+    await refundThenRebuy();
+
+    const row = await db.query<{ payment_transaction_id: string; tx: string }>(
+      `SELECT p.payment_transaction_id,
+              (SELECT id FROM payment_transactions WHERE toss_order_id = 'order-2') AS tx
+         FROM purchases p WHERE p.user_id = $1`,
+      [reader],
+    );
+    expect(row.rows[0].payment_transaction_id).toBe(row.rows[0].tx);
+  });
+
+  it("재구매한 결제가 취소되면 그때는 닫힌다", async () => {
+    await refundThenRebuy();
+
+    const result = await voidPayment("order-2", "canceled");
+
+    expect(result.revoked).toBe(true);
+    expect(await hasAccess(reader)).toBe(false);
+  });
+
+  it("옛 결제의 기록(purchase_id)은 지우지 않는다", async () => {
+    await refundThenRebuy();
+
+    expect((await transactionRow("order-1")).purchase_id).not.toBeNull();
+  });
+});
+
+// ------------------------------------------------------------
+// 종결된 결제 행 (2-P0-3)
+// ------------------------------------------------------------
+
+describe("종결된 결제 행의 이행", () => {
+  it("취소가 먼저 반영된 결제는 이행하지 않는다 — 환불된 결제로 책이 열리지 않는다", async () => {
+    // confirm이 Toss에서 DONE을 받은 뒤 RPC를 부르기 전에 취소 webhook이
+    // 먼저 반영된 경우입니다.
+    await seedTransaction("order-1");
+    await voidPayment("order-1", "canceled");
+
+    const result = await fulfill("order-1");
+
+    expect(result.outcome).toBe("voided");
+    expect(result.status).toBe("canceled");
+    expect(await countPurchases()).toBe(0);
+    expect(await hasAccess(reader)).toBe(false);
+    // 취소 기록을 done으로 덮지 않습니다.
+    expect((await transactionRow("order-1")).status).toBe("canceled");
+  });
+
+  it("중단·만료된 결제도 이행하지 않는다", async () => {
+    for (const [orderId, status] of [
+      ["order-a", "aborted"],
+      ["order-e", "expired"],
+    ]) {
+      await seedTransaction(orderId);
+      await voidPayment(orderId, status);
+
+      const result = await fulfill(orderId);
+
+      expect(result.outcome).toBe("voided");
+      expect((await transactionRow(orderId)).status).toBe(status);
+    }
+    expect(await countPurchases()).toBe(0);
+  });
+
+  it("부분 취소된 결제는 이미 열린 구매를 유지한다 — already_fulfilled", async () => {
+    await seedTransaction("order-1");
+    await fulfill("order-1");
+    await voidPayment("order-1", "partial_canceled");
+
+    const result = await fulfill("order-1");
+
+    expect(result.outcome).toBe("already_fulfilled");
+    expect(await hasAccess(reader)).toBe(true);
+  });
+
+  it("환불된 결제는 다시 이행해도 열리지 않는다", async () => {
+    await seedTransaction("order-1");
+    await fulfill("order-1");
+    await voidPayment("order-1", "canceled");
+
+    const result = await fulfill("order-1");
+
+    expect(result.outcome).toBe("voided");
+    expect(await hasAccess(reader)).toBe(false);
+  });
+});
+
+// ------------------------------------------------------------
+// 회수된 구매 (1-P0-3)
+// ------------------------------------------------------------
+
+describe("승인된 결제의 닫힌 구매", () => {
+  it("승인 결제가 가리키는 구매가 닫혀 있으면 되살린다", async () => {
+    // 00005 이전의 void_payment가 재구매한 구매를 옛 결제의 취소로
+    // 닫았던 상태를 그대로 만듭니다. 결제 행은 done인데 구매는 refunded.
+    await seedTransaction("order-1");
+    await fulfill("order-1");
+    await db.query(`UPDATE purchases SET status = 'refunded' WHERE user_id = $1`, [reader]);
+    expect(await hasAccess(reader)).toBe(false);
+
+    const result = await fulfill("order-1");
+
+    expect(result.outcome).toBe("restored");
+    expect(await hasAccess(reader)).toBe(true);
+    expect(await countPurchases()).toBe(1);
+  });
+
+  it("되살린 구매는 이 결제에 묶여, 이 결제가 취소되면 다시 닫힌다", async () => {
+    await seedTransaction("order-1");
+    await fulfill("order-1");
+    await db.query(
+      `UPDATE purchases SET status = 'refunded', payment_transaction_id = NULL WHERE user_id = $1`,
+      [reader],
+    );
+    await fulfill("order-1");
+
+    const result = await voidPayment("order-1", "canceled");
+
+    expect(result.revoked).toBe(true);
+    expect(await hasAccess(reader)).toBe(false);
+  });
+});
+
+// ------------------------------------------------------------
+// 승인 실패 오판 (1-P0-1)
+// ------------------------------------------------------------
+
+describe("승인 전 상태로 덮기", () => {
+  it("승인된 결제 행을 aborted로 덮지 않는다 — 열린 책이 닫히지 않는다", async () => {
+    await seedTransaction("order-1");
+    await fulfill("order-1");
+
+    const result = await voidPayment("order-1", "aborted");
+
+    expect(result.outcome).toBe("ignored");
+    expect(result.revoked).toBe(false);
+    expect((await transactionRow("order-1")).status).toBe("done");
+    expect(await hasAccess(reader)).toBe(true);
+  });
+
+  it("취소된 결제 행을 expired로 덮지 않는다 — 취소 기록이 남는다", async () => {
+    await seedTransaction("order-1");
+    await fulfill("order-1");
+    await voidPayment("order-1", "canceled");
+
+    const result = await voidPayment("order-1", "expired");
+
+    expect(result.outcome).toBe("ignored");
+    expect((await transactionRow("order-1")).status).toBe("canceled");
   });
 });

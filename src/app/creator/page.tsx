@@ -57,7 +57,17 @@ export default function CreatorPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("이 책을 삭제할까요? 장과 독자의 답까지 모두 지워지고 되돌릴 수 없어요.")) return;
-    await fetch(`/api/books/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/books/${id}`, { method: "DELETE" }).catch(() => null);
+    if (!res?.ok) {
+      // 판매된 책은 서버가 삭제를 거절하고(HAS_SALES) 비공개 전환을
+      // 안내합니다. 그 문구만 그대로 보여 주고 나머지는 일반 문구로.
+      const json = await res?.json().catch(() => null);
+      alert(
+        json?.code === "HAS_SALES"
+          ? json.error
+          : "책을 삭제하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+      );
+    }
     refetch();
   };
 
