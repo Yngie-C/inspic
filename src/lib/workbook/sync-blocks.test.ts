@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   blocksWithUnstorableFields,
   isStorableBlockId,
+  sha256Hex,
   storableBlocks,
   syncChapterWorkbookBlocks,
   unstorableBlocks,
@@ -173,9 +174,10 @@ describe("syncChapterWorkbookBlocks", () => {
       `<p>본문</p>${reflectionHtml(VALID_ID)}`,
     );
 
-    expect(rpc).toHaveBeenCalledWith("sync_chapter_workbook_blocks", {
+    expect(rpc).toHaveBeenCalledWith("sync_chapter_workbook_blocks_if_current", {
       p_chapter_id: "ch-1",
       p_blocks: [expect.objectContaining({ id: VALID_ID, block_type: "reflection" })],
+      p_content_sha256: expect.stringMatching(/^[0-9a-f]{64}$/),
     });
     expect(result).toMatchObject({ ok: true, skipped: 0 });
   });
@@ -185,9 +187,10 @@ describe("syncChapterWorkbookBlocks", () => {
 
     await syncChapterWorkbookBlocks(client, "ch-1", "<p>글만 있는 챕터</p>");
 
-    expect(rpc).toHaveBeenCalledWith("sync_chapter_workbook_blocks", {
+    expect(rpc).toHaveBeenCalledWith("sync_chapter_workbook_blocks_if_current", {
       p_chapter_id: "ch-1",
       p_blocks: [],
+      p_content_sha256: expect.any(String),
     });
   });
 
@@ -236,5 +239,29 @@ describe("syncChapterWorkbookBlocks", () => {
     );
 
     expect(result).toEqual({ ok: false, error: "permission denied", skipped: 0 });
+  });
+
+  it("본문 해시는 Postgres sha256(convert_to(text, 'UTF8'))의 hex와 같다", async () => {
+    // 같은 값을 SQL로 계산해 대조하는 것은 workbook-sync.test.ts가 합니다.
+    expect(await sha256Hex("")).toBe(
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    );
+    expect(await sha256Hex("한글")).toHaveLength(64);
+  });
+
+  it("그 사이 다른 저장이 끼었으면(stale) 실패가 아니라 건너뛴 것으로 돌려준다", async () => {
+    // 끼어든 저장이 자기 본문으로 동기화합니다. 실패로 보면 크리에이터에게
+    // 멀쩡한 저장을 "동기화 실패"로 보여 줍니다.
+    const client = {
+      rpc: vi.fn().mockResolvedValue({ data: { stale: true }, error: null }),
+    } as unknown as WorkbookSyncClient;
+
+    const result = await syncChapterWorkbookBlocks(
+      client,
+      "ch-1",
+      reflectionHtml(VALID_ID),
+    );
+
+    expect(result).toMatchObject({ ok: true, stale: true });
   });
 });

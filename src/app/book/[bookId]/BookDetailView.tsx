@@ -32,7 +32,7 @@ interface Props {
   access: DetailAccess | null;
   otherBooks: BookWithAuthor[];
   publishing: boolean;
-  onTogglePublish: () => void;
+  onUnpublish: () => void;
 }
 
 const VISIBLE_CHAPTERS = 5;
@@ -44,10 +44,12 @@ export function BookDetailView({
   access,
   otherBooks,
   publishing,
-  onTogglePublish,
+  onUnpublish,
 }: Props) {
   const [showAllChapters, setShowAllChapters] = useState(false);
-  const isPublished = book.status === "published";
+  // published여도 private이면 아무도 찾을 수 없습니다. 독자에게 보이는
+  // 것은 둘이 함께일 때뿐입니다.
+  const isPublished = book.status === "published" && book.visibility === "public";
   const isPreviewOnly = !isOwner && access?.reason === "preview";
   const displayChapters = showAllChapters
     ? chapters
@@ -110,7 +112,7 @@ export function BookDetailView({
               isPublished={isPublished}
               access={access}
               publishing={publishing}
-              onTogglePublish={onTogglePublish}
+              onUnpublish={onUnpublish}
             />
             <ShareButton />
           </div>
@@ -220,14 +222,14 @@ function Actions({
   isPublished,
   access,
   publishing,
-  onTogglePublish,
+  onUnpublish,
 }: {
   book: DetailBook;
   isOwner: boolean;
   isPublished: boolean;
   access: DetailAccess | null;
   publishing: boolean;
-  onTogglePublish: () => void;
+  onUnpublish: () => void;
 }) {
   const readHref = `/reader/${book.id}`;
 
@@ -240,9 +242,17 @@ function Actions({
         <Button variant="secondary" asChild>
           <Link href={`/create/edit/${book.id}`}>편집</Link>
         </Button>
-        <Button variant="secondary" isLoading={publishing} onClick={onTogglePublish}>
-          {isPublished ? "비공개로 전환" : "공개하기"}
-        </Button>
+        {/* 공개는 검수 화면을 거칩니다. 여기서 바로 공개하면 차단 사유를
+            보지 못한 채 422만 받습니다. */}
+        {isPublished ? (
+          <Button variant="secondary" isLoading={publishing} onClick={onUnpublish}>
+            비공개로 전환
+          </Button>
+        ) : (
+          <Button variant="secondary" asChild>
+            <Link href={`/create/preview/${book.id}`}>검수 후 공개</Link>
+          </Button>
+        )}
       </>
     );
   }

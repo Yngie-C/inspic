@@ -28,14 +28,12 @@ async function fetchBookDetail(bookId: string): Promise<BookDetailData> {
   return json.data;
 }
 
-async function togglePublish(bookId: string, publish: boolean): Promise<void> {
+/** 공개는 검수 화면(`/create/preview`)에서 합니다. 여기서는 내리기만. */
+async function unpublish(bookId: string): Promise<void> {
   const res = await fetch(`/api/books/${bookId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      status: publish ? "published" : "draft",
-      visibility: publish ? "public" : "private",
-    }),
+    body: JSON.stringify({ status: "draft", visibility: "private" }),
   });
   if (!res.ok) throw new Error("상태를 바꾸지 못했어요.");
 }
@@ -73,8 +71,7 @@ export function BookDetailClient() {
   });
 
   const publishMutation = useMutation({
-    mutationFn: ({ publish }: { publish: boolean }) =>
-      togglePublish(bookId, publish),
+    mutationFn: () => unpublish(bookId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["book-detail", bookId] });
     },
@@ -125,9 +122,7 @@ export function BookDetailClient() {
       access={accessInfo}
       otherBooks={otherBooks}
       publishing={publishMutation.isPending}
-      onTogglePublish={() =>
-        publishMutation.mutate({ publish: book.status !== "published" })
-      }
+      onUnpublish={() => publishMutation.mutate()}
     />
   );
 }

@@ -379,4 +379,17 @@ describe("체크리스트 항목 키", () => {
     expect(normalizeChecklistItems("깨진 JSON")).toBeNull();
     expect(normalizeChecklistItems(JSON.stringify({ id: "a" }))).toBeNull();
   });
+
+  it("문자열·숫자만 적힌 항목은 그 글을 문구로 한 항목이 된다 (4-P1-3)", () => {
+    // 읽는 쪽이 객체가 아닌 항목을 버리므로, 그대로 두면 "항목 추가"를
+    // 누르는 순간 HTML에서 지워집니다.
+    const next = JSON.parse(
+      normalizeChecklistItems(JSON.stringify(["운동하기", 7, { id: "a", text: 3 }]))!,
+    );
+
+    expect(next.map((item: { text: string }) => item.text)).toEqual(["운동하기", "7", "3"]);
+    expect(next[2].id).toBe("a");
+    expect(new Set(next.map((item: { id: string }) => item.id)).size).toBe(3);
+  });
 });
+

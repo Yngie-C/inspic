@@ -1,9 +1,21 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getAuthUser, apiError, apiSuccess } from "@/lib/api-utils";
+import {
+  getAuthUser,
+  apiError,
+  apiSuccess,
+  readJsonObject,
+} from "@/lib/api-utils";
+import {
+  BOOK_LANGUAGES,
+  BOOK_VISIBILITIES,
+  EDITABLE_BOOK_STATUSES,
+  INVALID_BODY_MESSAGE,
+  isOneOf,
+  readBookTitle,
+} from "@/lib/authoring-input";
 import { loadPublishChecks } from "@/lib/publish-checks-loader";
 import { blockers } from "@/lib/publish-checks";
-import type { BookStatus, BookVisibility } from "@/types";
 
 type Params = { params: Promise<{ bookId: string }> };
 
@@ -40,7 +52,9 @@ export async function GET(_request: NextRequest, { params }: Params) {
     .from("chapters")
     .select("*")
     .eq("book_id", bookId)
-    .order("order_index", { ascending: true });
+    .order("order_index", { ascending: true })
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true });
 
   if (!isOwner) {
     chaptersQuery = chaptersQuery.eq("status", "published");
@@ -62,42 +76,71 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
   const { data: existing, error: fetchError } = await supabase
     .from("books")
-    .select("owner_id, status, visibility, published_at")
+    .select("owner_id, status, visibility, published_at, language")
     .eq("id", bookId)
     .single();
 
   if (fetchError || !existing) return apiError("Book not found", "NOT_FOUND", 404);
   if (existing.owner_id !== user.id) return apiError("Access denied", "FORBIDDEN", 403);
 
-  let body: {
-    title?: string;
-    description?: string;
-    language?: string;
-    status?: BookStatus;
-    visibility?: BookVisibility;
-    cover_image_url?: string;
-  };
-  try {
-    body = await request.json();
-  } catch {
-    return apiError("Invalid JSON body", "VALIDATION_ERROR", 400);
-  }
+  const body = await readJsonObject(request);
+  if (!body) return apiError(INVALID_BODY_MESSAGE, "VALIDATION_ERROR", 400);
 
-  const allowedFields: (keyof typeof body)[] = [
-    "title",
-    "description",
-    "language",
-    "status",
-    "visibility",
-    "cover_image_url",
-  ];
+  // 타입 선언만 믿으면 `{title:null}`·`{status:'PUBLISHED'}`가 DB 원문
+  // 500이 되고, `{status:'processing'}`이나 임의 언어가 그대로 저장되고,
+  // 출간된 책에 `{title:''}`을 보내면 검수를 건너뛰어 제목 없는 공개 책이
+  // 됩니다(코드 리뷰 4-P1-17).
   const updates: Record<string, unknown> = {};
-  for (const field of allowedFields) {
-    if (field in body) updates[field] = body[field];
+
+  if ("title" in body) {
+    const title = readBookTitle(body.title);
+    if (!title.ok) return apiError(title.message, "VALIDATION_ERROR", 400);
+    updates.title = title.value;
+  }
+  if ("description" in body) {
+    if (body.description !== null && typeof body.description !== "string") {
+      return apiError(INVALID_BODY_MESSAGE, "VALIDATION_ERROR", 400);
+    }
+    updates.description =
+      typeof body.description === "string" ? body.description.trim() || null : null;
+  }
+  // 업로드는 언어를 자유롭게 받았으므로, 목록 밖이어도 지금 값 그대로면
+  // 받습니다 — 설정 폼은 제목만 고쳐도 현재 언어를 함께 보냅니다.
+  if ("language" in body) {
+    if (
+      !isOneOf(BOOK_LANGUAGES, body.language) &&
+      body.language !== existing.language
+    ) {
+      return apiError("고를 수 없는 언어예요.", "VALIDATION_ERROR", 400);
+    }
+    updates.language = body.language;
+  }
+  if ("status" in body) {
+    if (!isOneOf(EDITABLE_BOOK_STATUSES, body.status)) {
+      return apiError(INVALID_BODY_MESSAGE, "VALIDATION_ERROR", 400);
+    }
+    updates.status = body.status;
+  }
+  if ("visibility" in body) {
+    if (!isOneOf(BOOK_VISIBILITIES, body.visibility)) {
+      return apiError(INVALID_BODY_MESSAGE, "VALIDATION_ERROR", 400);
+    }
+    updates.visibility = body.visibility;
+  }
+  // 표지는 `/cover` 업로드로만 바꿉니다. 거기서 파일을 검사하고 이전
+  // 파일을 정리합니다. 여기서 아무 URL이나 받으면 외부 추적 픽셀이 공개
+  // 카드에 뜨고, 남의 책 경로를 넣은 뒤 표지 삭제를 부를 수 있습니다
+  // (4-P1-18).
+  if ("cover_image_url" in body) {
+    return apiError(
+      "표지는 표지 올리기로 바꿔 주세요.",
+      "VALIDATION_ERROR",
+      400,
+    );
   }
 
   if (Object.keys(updates).length === 0) {
-    return apiError("No valid fields to update", "VALIDATION_ERROR", 400);
+    return apiError("바꿀 내용이 없어요.", "VALIDATION_ERROR", 400);
   }
 
   // "링크 공유"는 열어 주는 경로가 없어(has_book_access·is_book_public
@@ -113,14 +156,37 @@ export async function PUT(request: NextRequest, { params }: Params) {
     );
   }
 
-  // 출간으로 넘어가는 순간에만 검수합니다. 이미 출간된 책의 제목을
-  // 고치는 것까지 막으면 크리에이터가 오탈자를 못 고칩니다.
-  const isPublishing =
-    body.status === "published" && existing.status !== "published";
+  // 공개는 status와 visibility가 함께 바뀌어야 합니다. `{status:'published'}`
+  // 만 보내면 published + private이라 아무도 못 보는 책에 출간일이 찍히고,
+  // 그 뒤 visibility만 바꾸는 공개가 검수를 건너뛰었습니다(4-P1-16).
+  // 출간으로 넘어가며 visibility를 정하지 않았으면 공개로 둡니다.
+  if (
+    updates.status === "published" &&
+    existing.status !== "published" &&
+    !("visibility" in updates)
+  ) {
+    updates.visibility = "public";
+  }
 
-  if (isPublishing) {
+  // 독자에게 보이게 되는 모든 전환에서 검수합니다 — 출간이든, 내렸던 책을
+  // 다시 공개로 돌리는 것이든. 이미 공개된 책의 제목을 고치는 것까지 막으면
+  // 크리에이터가 오탈자를 못 고칩니다.
+  const nextStatus = updates.status ?? existing.status;
+  const nextVisibility = updates.visibility ?? existing.visibility;
+  const wasPublic =
+    existing.status === "published" && existing.visibility === "public";
+  const becomesPublic =
+    !wasPublic && nextStatus === "published" && nextVisibility === "public";
+
+  if (becomesPublic) {
+    // 검수는 UPDATE 바로 앞에서 돌립니다. 그 사이에 끼는 자동 저장은 공개
+    // 뒤의 편집과 같고, 편집 화면 배너가 계속 보여 줍니다(4-P1-12 결정).
     const result = await loadPublishChecks(supabase, bookId);
-    if (!result.ok) return apiError("Book not found", "NOT_FOUND", 404);
+    if (!result.ok) {
+      return result.reason === "not-found"
+        ? apiError("Book not found", "NOT_FOUND", 404)
+        : apiError("검수하지 못했어요. 잠시 뒤 다시 시도해 주세요.", "SERVER_ERROR", 500);
+    }
 
     const failed = blockers(result.checks);
     if (failed.length > 0) {
@@ -146,7 +212,10 @@ export async function PUT(request: NextRequest, { params }: Params) {
     .select()
     .single();
 
-  if (error) return apiError(error.message, "SERVER_ERROR", 500);
+  if (error) {
+    console.error("[books] 책을 저장하지 못했습니다", { bookId, error });
+    return apiError("저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.", "SERVER_ERROR", 500);
+  }
 
   return apiSuccess(data);
 }

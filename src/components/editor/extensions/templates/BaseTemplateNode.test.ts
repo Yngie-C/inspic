@@ -79,3 +79,61 @@ describe("워크북 블록 직렬화", () => {
     expect(saved).toContain('data-label-max="매우"');
   });
 });
+
+describe("불러온 블록의 속성 (4-P1-1, 4-P1-2)", () => {
+  function attrsOf(html: string) {
+    editor = new Editor({ extensions, content: html });
+    let attrs: Record<string, unknown> | null = null;
+    editor.state.doc.descendants((node) => {
+      if (node.type.name !== "paragraph" && node.type.name !== "doc" && !attrs) {
+        attrs = node.attrs;
+      }
+    });
+    return attrs as unknown as Record<string, unknown>;
+  }
+
+  it("일부러 비운 문구를 기본 문구로 되살리지 않는다", () => {
+    const attrs = attrsOf(
+      `<section data-template-type="reflection" data-node-id="block-a" data-prompt="" data-placeholder=""></section>`,
+    );
+
+    expect(attrs.prompt).toBe("");
+    expect(attrs.placeholder).toBe("");
+  });
+
+  it("속성이 아예 없을 때만 기본값을 쓴다", () => {
+    const attrs = attrsOf(
+      `<section data-template-type="reflection" data-node-id="block-a"></section>`,
+    );
+
+    expect(attrs.prompt).toBe("이 장의 내용을 이번 주에 어디에 써 볼 수 있을까요?");
+  });
+
+  it("척도·참고의 빈 값도 그대로 둔다", () => {
+    expect(
+      attrsOf(`<section data-template-type="scale" data-node-id="block-a" data-label-min=""></section>`)
+        .labelMin,
+    ).toBe("");
+    editor?.destroy();
+    expect(
+      attrsOf(`<section data-template-type="callout" data-node-id="block-a" data-content=""></section>`)
+        .content,
+    ).toBe("");
+  });
+
+  it("data-items가 없는 체크리스트에 항목을 지어내지 않는다", () => {
+    const attrs = attrsOf(
+      `<section data-template-type="checklist" data-node-id="block-a"></section>`,
+    );
+
+    expect(JSON.parse(attrs.items as string)).toEqual([]);
+  });
+
+  it("새로 넣는 체크리스트는 첫 항목을 받는다", () => {
+    editor = new Editor({ extensions, content: "<p>본문</p>" });
+    editor.commands.insertContent({ type: "checklist" });
+
+    expect(editor.getHTML()).toContain("항목 1");
+  });
+});
+

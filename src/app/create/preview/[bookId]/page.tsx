@@ -20,7 +20,7 @@ export default async function PreviewPage({ params }: Props) {
 
   const { data: book } = await supabase
     .from("books")
-    .select("id, title, owner_id, status")
+    .select("id, title, owner_id, status, visibility")
     .eq("id", bookId)
     .single();
 
@@ -32,7 +32,8 @@ export default async function PreviewPage({ params }: Props) {
     <PreviewClient
       bookId={bookId}
       bookTitle={book.title}
-      isPublished={book.status === "published"}
+      // 내렸던 책(published + private)도 다시 공개할 수 있어야 합니다.
+      isPublished={book.status === "published" && book.visibility === "public"}
     />
   );
 }

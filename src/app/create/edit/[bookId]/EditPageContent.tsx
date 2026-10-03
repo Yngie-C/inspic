@@ -20,6 +20,7 @@ import { Header } from "@/components/layout/Header";
 import { RichTextEditor } from "@/components/editor";
 import { BookMetadataForm } from "@/components/dashboard/BookMetadataForm";
 import { ExportMenu } from "@/components/dashboard/ExportMenu";
+import type { PublishCheck } from "@/lib/publish-checks";
 import type { Book, Chapter } from "@/types";
 
 async function fetchBook(id: string): Promise<Book> {
@@ -28,6 +29,12 @@ async function fetchBook(id: string): Promise<Book> {
   const json = await res.json();
   const { chapters: _chapters, ...book } = json.data;
   return book as Book;
+}
+
+async function fetchPublishBlockers(bookId: string): Promise<PublishCheck[]> {
+  const res = await fetch(`/api/books/${bookId}/publish-checks`);
+  if (!res.ok) throw new Error("검수 결과를 불러오지 못했어요.");
+  return (await res.json()).data?.blockers ?? [];
 }
 
 async function fetchChapters(bookId: string): Promise<Chapter[]> {
@@ -51,6 +58,17 @@ export function EditPageContent() {
     queryFn: () => fetchChapters(bookId),
   });
 
+  // 출간한 뒤의 편집은 바로 독자 화면입니다(공개본/편집본 분리는 M6
+  // 이후). 저장은 막지 않고, 공개 검수의 차단 사유를 배너로 계속 보여
+  // 줍니다(4-P1-12 결정). 내린 책도 산 독자는 계속 읽으므로 출간한 적이
+  // 있으면 봅니다.
+  const everPublished = !!book?.published_at;
+  const { data: publishBlockers = [] } = useQuery<PublishCheck[]>({
+    queryKey: ["publish-blockers", bookId],
+    queryFn: () => fetchPublishBlockers(bookId),
+    enabled: everPublished,
+  });
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
@@ -58,6 +76,10 @@ export function EditPageContent() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [metaOpen, setMetaOpen] = useState(false);
+  // 장 추가·삭제·공개 전환 실패. 본문 저장 실패(saveError)와 따로 둡니다 —
+  // 그쪽의 "다시 시도"는 본문을 다시 저장합니다.
+  const [chapterError, setChapterError] = useState<string | null>(null);
+  const [statusChanging, setStatusChanging] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -78,17 +100,23 @@ export function EditPageContent() {
   const saveChapter = useCallback(
     async (id: string, title: string, contentHtml: string): Promise<boolean> => {
       try {
+        // 제목을 지우고 다시 쓰는 사이에도 본문은 저장돼야 합니다. 빈
+        // 제목은 서버가 거절하므로 보내지 않고, 이전 제목을 그대로 둡니다.
         const res = await fetch(`/api/chapters/${id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, content_html: contentHtml }),
+          body: JSON.stringify(
+            title.trim()
+              ? { title, content_html: contentHtml }
+              : { content_html: contentHtml },
+          ),
         });
         if (!res.ok) {
           const json = await res.json().catch(() => ({}));
           // 서버 문구는 크리에이터가 풀 수 있는 거절일 때만 띄웁니다.
-          // 나머지는 DB 원문이 섞여 있을 수 있습니다.
           setSaveError(
-            json.code === "CONTENT_TOO_LONG" && typeof json.error === "string"
+            (json.code === "CONTENT_TOO_LONG" || json.code === "VALIDATION_ERROR") &&
+              typeof json.error === "string"
               ? json.error
               : "저장하지 못했어요. 연결을 확인한 뒤 다시 시도하세요.",
           );
@@ -101,6 +129,7 @@ export function EditPageContent() {
       setSaved(true);
       setSaveError(null);
       qc.invalidateQueries({ queryKey: ["chapters", bookId] });
+      qc.invalidateQueries({ queryKey: ["publish-blockers", bookId] });
       return true;
     },
     [bookId, qc],
@@ -145,33 +174,91 @@ export function EditPageContent() {
     }, 1500);
   };
 
+  /**
+   * 순서와 공개 상태는 서버가 정합니다. 새 장은 맨 뒤에 붙고, 공개된
+   * 책이면 비공개로 들어갑니다 — 빈 "새 장"이 독자 목차에 바로 뜨지
+   * 않게 하기 위해서입니다.
+   */
   const addChapter = async () => {
-    const res = await fetch(`/api/chapters`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        book_id: bookId,
-        title: "새 장",
-        content_html: "",
-        content_raw: "",
-        order_index: chapters.length,
-      }),
-    });
-    if (res.ok) {
+    setChapterError(null);
+    try {
+      const res = await fetch(`/api/chapters`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          book_id: bookId,
+          title: "새 장",
+          content_html: "",
+          content_raw: "",
+        }),
+      });
+      if (!res.ok) throw new Error();
       const json = await res.json();
       qc.invalidateQueries({ queryKey: ["chapters", bookId] });
       await selectChapter(json.data);
+    } catch {
+      setChapterError("장을 추가하지 못했어요. 잠시 뒤 다시 시도해 주세요.");
     }
   };
 
   const deleteChapter = async (id: string) => {
     if (!confirm("이 장을 삭제할까요? 되돌릴 수 없어요.")) return;
-    await fetch(`/api/chapters/${id}`, { method: "DELETE" });
+    setChapterError(null);
+    try {
+      const res = await fetch(`/api/chapters/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+    } catch {
+      setChapterError("장을 삭제하지 못했어요. 잠시 뒤 다시 시도해 주세요.");
+      return;
+    }
     qc.invalidateQueries({ queryKey: ["chapters", bookId] });
+    qc.invalidateQueries({ queryKey: ["book", bookId] });
     if (selectedId === id) {
       setSelectedId(null);
       setEditTitle("");
       setEditContent("");
+    }
+  };
+
+  const bookPublished = book?.status === "published";
+
+  /**
+   * 장 하나를 독자에게 보이거나 숨깁니다. 공개된 책에서는 바로 독자
+   * 목차가 바뀌므로 확인을 받습니다.
+   */
+  const setChapterStatus = async (id: string, status: Chapter["status"]) => {
+    if (bookPublished) {
+      const question =
+        status === "published"
+          ? "이 장을 독자에게 공개할까요?"
+          : "이 장을 비공개로 돌릴까요? 독자 목차에서 사라져요.";
+      if (!confirm(question)) return;
+    }
+    setChapterError(null);
+    setStatusChanging(true);
+    try {
+      const res = await fetch(`/api/chapters/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        // 검수에 막힌 것이면 무엇을 고칠지 서버 문구가 말해 줍니다.
+        setChapterError(
+          json.code === "PUBLISH_BLOCKED" && typeof json.error === "string"
+            ? json.error
+            : "공개 상태를 바꾸지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+        );
+        return;
+      }
+      qc.invalidateQueries({ queryKey: ["chapters", bookId] });
+      qc.invalidateQueries({ queryKey: ["book", bookId] });
+      qc.invalidateQueries({ queryKey: ["publish-blockers", bookId] });
+    } catch {
+      setChapterError("공개 상태를 바꾸지 못했어요. 잠시 뒤 다시 시도해 주세요.");
+    } finally {
+      setStatusChanging(false);
     }
   };
 
@@ -260,10 +347,19 @@ export function EditPageContent() {
             !saved && <span className="text-xs text-muted">저장 중</span>
           )}
           {saved && selectedId && (
-            <span className="flex items-center gap-1 text-xs text-success">
-              <Check className="h-3.5 w-3.5" />
-              저장됨
-            </span>
+            editTitle.trim() ? (
+              <span className="flex items-center gap-1 text-xs text-success">
+                <Check className="h-3.5 w-3.5" />
+                저장됨
+              </span>
+            ) : (
+              // 빈 제목은 보내지 않으므로 본문만 저장됐습니다. "저장됨"만
+              // 띄우면 제목도 비운 채 저장된 줄 압니다.
+              <span className="flex items-center gap-1 text-xs text-warning">
+                <Check className="h-3.5 w-3.5" />
+                본문 저장됨 · 제목이 비어 있어 이전 제목이 남아 있어요
+              </span>
+            )
           )}
         </div>
 
@@ -287,6 +383,24 @@ export function EditPageContent() {
         </div>
       </div>
 
+      {everPublished && publishBlockers.length > 0 && (
+        <div role="alert" className="border-b border-line bg-paper px-4 py-3 sm:px-6">
+          <p className="text-sm font-semibold text-danger">
+            독자 화면에 고쳐야 할 곳이 있어요
+          </p>
+          <p className="mt-0.5 text-xs text-muted">
+            출간한 책은 저장하는 대로 독자에게 보여요. 아래를 고쳐 주세요.
+          </p>
+          <ul className="mt-2 space-y-1">
+            {publishBlockers.map((check) => (
+              <li key={check.id} className="text-xs leading-relaxed text-danger">
+                <span className="font-medium">{check.title}</span> — {check.detail}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar: chapter list */}
         <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-paper">
@@ -303,6 +417,12 @@ export function EditPageContent() {
             </button>
           </div>
 
+          {chapterError && (
+            <p role="alert" className="border-b border-line px-4 py-2 text-xs text-danger">
+              {chapterError}
+            </p>
+          )}
+
           <nav className="flex-1 overflow-y-auto py-2">
             {chapters.map((ch) => (
               <div
@@ -316,6 +436,9 @@ export function EditPageContent() {
               >
                 <GripVertical className="h-4 w-4 shrink-0 opacity-40" />
                 <span className="flex-1 truncate">{ch.title}</span>
+                {ch.status === "draft" && (
+                  <span className="shrink-0 text-xs font-normal text-muted">비공개</span>
+                )}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -353,6 +476,28 @@ export function EditPageContent() {
                   placeholder="장 제목"
                   className="w-full border-none bg-transparent text-2xl font-bold text-primary outline-none placeholder:text-muted"
                 />
+                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+                  <span className="text-muted">
+                    {selectedChapter.status === "draft"
+                      ? "비공개 장이에요. 독자에게 보이지 않아요."
+                      : bookPublished
+                        ? "독자에게 공개 중인 장이에요."
+                        : "책을 공개하면 독자에게 보이는 장이에요."}
+                  </span>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    isLoading={statusChanging}
+                    onClick={() =>
+                      void setChapterStatus(
+                        selectedChapter.id,
+                        selectedChapter.status === "draft" ? "published" : "draft",
+                      )
+                    }
+                  >
+                    {selectedChapter.status === "draft" ? "이 장 공개하기" : "비공개로 돌리기"}
+                  </Button>
+                </div>
               </div>
 
               <div className="flex flex-1 flex-col overflow-hidden bg-surface">

@@ -41,6 +41,7 @@ export function createFakeSupabase(
       "eq",
       "in",
       "order",
+      "limit",
       "range",
     ]) {
       builder[method] = (...args: unknown[]) => {
