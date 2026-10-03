@@ -43,33 +43,57 @@ export async function updateSession(request: NextRequest) {
     user = null;
   }
 
+  const { pathname, search } = request.nextUrl;
+
   // `/reader`는 여기 없습니다. 무료 책과 유료 책의 첫 챕터는
   // 비로그인도 읽기 때문입니다. 무엇을 보여 줄지는 리더가 접근
   // 판정을 받아 정하고, 실제 차단은 RLS가 합니다.
   const protectedRoutes = ["/create", "/my", "/creator"];
-  const isProtected = protectedRoutes.some((route) =>
-    request.nextUrl.pathname.startsWith(route),
-  );
+  const isProtected = protectedRoutes.some((route) => matchesRoute(pathname, route));
 
   if (isProtected && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
-    url.searchParams.set("redirect", request.nextUrl.pathname);
-    return NextResponse.redirect(url);
+    // 원래 쿼리를 로그인 주소에 섞지 않고, 돌아갈 주소 안에만 담습니다.
+    url.search = "";
+    url.searchParams.set("redirect", `${pathname}${search}`);
+    return redirectWithSession(url, supabaseResponse);
   }
 
   // 콜백과 비밀번호 재설정은 메일 링크로 세션이 생긴 직후에 거쳐 가는
   // 곳이라 로그인 상태여도 들어와야 합니다.
   const authPassthrough = ["/auth/callback", "/auth/reset-password"];
-  const isAuthPassthrough = authPassthrough.some((route) =>
-    request.nextUrl.pathname.startsWith(route),
-  );
+  const isAuthPassthrough = authPassthrough.some((route) => matchesRoute(pathname, route));
 
-  if (request.nextUrl.pathname.startsWith("/auth") && user && !isAuthPassthrough) {
+  if (matchesRoute(pathname, "/auth") && user && !isAuthPassthrough) {
     const url = request.nextUrl.clone();
     url.pathname = "/creator";
-    return NextResponse.redirect(url);
+    url.search = "";
+    return redirectWithSession(url, supabaseResponse);
   }
 
   return supabaseResponse;
+}
+
+/**
+ * 경로 단위로 비교합니다. `startsWith("/auth")`로 보면 `/author/...`까지
+ * 걸려, 로그인한 사용자가 작가 페이지에 들어가지 못하고 `/creator`로 튕깁니다.
+ */
+export function matchesRoute(pathname: string, route: string): boolean {
+  return pathname === route || pathname.startsWith(`${route}/`);
+}
+
+/**
+ * 리디렉트 응답에 `getUser()`가 갱신한 세션 쿠키를 옮겨 담습니다.
+ *
+ * 새 `NextResponse.redirect`만 돌려주면 `setAll`이 `supabaseResponse`에
+ * 써 둔 쿠키가 버려집니다. 그사이 refresh token이 회전됐다면 브라우저에는
+ * 이미 폐기된 옛 토큰이 남아, 다음 요청에서 예고 없이 로그아웃됩니다.
+ */
+function redirectWithSession(url: URL, supabaseResponse: NextResponse): NextResponse {
+  const response = NextResponse.redirect(url);
+  for (const cookie of supabaseResponse.cookies.getAll()) {
+    response.cookies.set(cookie);
+  }
+  return response;
 }
