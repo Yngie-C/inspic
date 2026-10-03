@@ -49,6 +49,18 @@ vi.mock("@/lib/workbook/sync-blocks", () => ({
   syncChapterWorkbookBlocks: sync,
 }));
 
+const loader = vi.hoisted(() => ({
+  load: vi.fn<
+    (...args: unknown[]) => Promise<
+      | { ok: true; checks: Array<Record<string, unknown>> }
+      | { ok: false; reason: "not-found" | "error" }
+    >
+  >(async () => ({ ok: true, checks: [] })),
+}));
+vi.mock("@/lib/publish-checks-loader", () => ({
+  loadPublishChecks: loader.load,
+}));
+
 const { POST } = await import("./route");
 const { PUT, DELETE } = await import("./[chapterId]/route");
 
@@ -88,6 +100,8 @@ function insertedChapter(): Record<string, unknown> | undefined {
 
 beforeEach(() => {
   sync.mockClear();
+  loader.load.mockClear();
+  loader.load.mockImplementation(async () => ({ ok: true, checks: [] }));
   // 입력 검증에서 돌아가면 클라이언트를 만들지 않아, 이전 테스트의 기록이
   // 남습니다.
   mocks.queries = [];
@@ -222,11 +236,15 @@ describe("PUT /api/chapters/[chapterId] 입력 검증 (4-P1-11)", () => {
 });
 
 describe("POST /api/chapters 순서와 상태 (4-P1-9, 4-P1-14)", () => {
-  function respondBook(status: string, lastOrder: number | null) {
+  function respondBook(
+    status: string,
+    lastOrder: number | null,
+    publishedAt: string | null = status === "published" ? "2026-01-01T00:00:00Z" : null,
+  ) {
     const base = mocks.respond;
     mocks.respond = (query) => {
       if (query.table === "books" && query.ops.includes("single")) {
-        return { data: { owner_id: USER, status }, error: null };
+        return { data: { owner_id: USER, status, published_at: publishedAt }, error: null };
       }
       if (query.table === "chapters" && query.ops.includes("maybeSingle")) {
         return {
@@ -277,11 +295,28 @@ describe("POST /api/chapters 순서와 상태 (4-P1-9, 4-P1-14)", () => {
   });
 
   it("상태를 보내면 그것을 따른다", async () => {
+    respondBook("draft", 0);
+
+    await POST(jsonRequest({ ...newChapter, status: "draft" }));
+
+    expect(insertedChapter()?.status).toBe("draft");
+  });
+
+  it("출간한 책에 장을 곧바로 공개해 만들 수 없다 — 장 공개 검수를 건너뛴다 (WP7)", async () => {
     respondBook("published", 0);
 
-    await POST(jsonRequest({ ...newChapter, status: "published" }));
+    const res = await POST(jsonRequest({ ...newChapter, status: "published" }));
 
-    expect(insertedChapter()?.status).toBe("published");
+    expect(res.status).toBe(400);
+    expect(writes()).toEqual([]);
+  });
+
+  it("내렸던 책(출간일 있음)에 더한 장도 draft — 산 독자는 계속 읽는다", async () => {
+    respondBook("draft", 0, "2026-01-01T00:00:00Z");
+
+    await POST(jsonRequest(newChapter));
+
+    expect(insertedChapter()?.status).toBe("draft");
   });
 
   it("책 집계를 직접 고치지 않는다", async () => {
@@ -299,6 +334,116 @@ describe("POST /api/chapters 순서와 상태 (4-P1-9, 4-P1-14)", () => {
     ["모르는 상태", { ...newChapter, status: "processing" }],
   ])("%s → 400, DB에 쓰지 않는다", async (_label, body) => {
     const res = await POST(jsonRequest(body));
+
+    expect(res.status).toBe(400);
+    expect(writes()).toEqual([]);
+  });
+});
+
+describe("PUT /api/chapters/[chapterId] — 장 공개 전환 검수 (WP7)", () => {
+  function respondChapter(status: string, publishedAt: string | null) {
+    mocks.respond = (query) => {
+      if (query.table === "chapters" && query.ops.includes("update")) {
+        return { data: { id: CHAPTER }, error: null };
+      }
+      if (query.table === "chapters" && query.ops.includes("single")) {
+        return {
+          data: {
+            id: CHAPTER,
+            book_id: BOOK,
+            status,
+            books: { owner_id: USER, published_at: publishedAt },
+          },
+          error: null,
+        };
+      }
+      return OK_EMPTY;
+    };
+  }
+
+  const PUBLISHED_AT = "2026-01-01T00:00:00Z";
+
+  function blocker(id: string, chapterIds?: string[]) {
+    return { id, level: "blocker", title: `${id} 제목`, detail: "", chapterIds };
+  }
+
+  it("출간한 책에서 장을 공개하면 그 장을 공개했다고 가정해 검수한다", async () => {
+    respondChapter("draft", PUBLISHED_AT);
+
+    const res = await PUT(jsonRequest({ status: "published" }), params);
+
+    expect(res.status).toBe(200);
+    expect(loader.load).toHaveBeenCalledWith(expect.anything(), BOOK, {
+      assumeChapterStatus: { id: CHAPTER, status: "published" },
+    });
+  });
+
+  it("그 장에 걸린 차단이 있으면 422이고 공개하지 않는다", async () => {
+    respondChapter("draft", PUBLISHED_AT);
+    loader.load.mockImplementation(async () => ({
+      ok: true,
+      checks: [blocker("unsynced-blocks", [CHAPTER])],
+    }));
+
+    const res = await PUT(jsonRequest({ status: "published" }), params);
+    const json = await res.json();
+
+    expect(res.status).toBe(422);
+    expect(json.code).toBe("PUBLISH_BLOCKED");
+    expect(json.error).toContain("unsynced-blocks 제목");
+    expect(writes()).toEqual([]);
+  });
+
+  it("다른 장의 차단으로 이 장의 공개를 막지 않는다", async () => {
+    respondChapter("draft", PUBLISHED_AT);
+    loader.load.mockImplementation(async () => ({
+      ok: true,
+      checks: [blocker("unsynced-blocks", ["other-chapter"]), blocker("title")],
+    }));
+
+    const res = await PUT(jsonRequest({ status: "published" }), params);
+
+    expect(res.status).toBe(200);
+  });
+
+  it("독자에게 보이는 마지막 장은 내릴 수 없다", async () => {
+    respondChapter("published", PUBLISHED_AT);
+    loader.load.mockImplementation(async () => ({
+      ok: true,
+      checks: [blocker("no-published-chapters", [CHAPTER])],
+    }));
+
+    const res = await PUT(jsonRequest({ status: "draft" }), params);
+
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toContain("마지막 장");
+    expect(writes()).toEqual([]);
+  });
+
+  it("출간 전 책의 장 공개 전환은 검수하지 않는다 — 책을 공개할 때 본다", async () => {
+    respondChapter("draft", null);
+
+    const res = await PUT(jsonRequest({ status: "published" }), params);
+
+    expect(res.status).toBe(200);
+    expect(loader.load).not.toHaveBeenCalled();
+  });
+
+  it("검수 데이터를 읽지 못하면 500이고 바꾸지 않는다", async () => {
+    respondChapter("draft", PUBLISHED_AT);
+    loader.load.mockImplementation(async () => ({ ok: false, reason: "error" }));
+
+    const res = await PUT(jsonRequest({ status: "published" }), params);
+
+    expect(res.status).toBe(500);
+    expect(writes()).toEqual([]);
+  });
+
+  it("상태는 본문과 함께 바꿀 수 없다 — 검수가 저장 전 본문을 보게 된다", async () => {
+    const res = await PUT(
+      jsonRequest({ status: "published", content_html: "<p>가</p>" }),
+      params,
+    );
 
     expect(res.status).toBe(400);
     expect(writes()).toEqual([]);

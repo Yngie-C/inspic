@@ -76,8 +76,8 @@ export async function GET(request: NextRequest) {
  * 순서(`order_index`)는 서버가 정합니다 — 맨 뒤. 클라이언트가 보내던
  * `chapters.length`는 중간 장을 지운 뒤 기존 장과 겹쳤습니다(4-P1-14).
  *
- * 상태를 보내지 않으면 책 상태를 따릅니다(2026-10-02 결정). 출간된 책에
- * 더한 장은 `draft`라 저자가 공개하기 전까지 독자에게 보이지 않습니다 —
+ * 상태를 보내지 않으면 책 상태를 따릅니다(2026-10-02 결정). 출간한 적
+ * 있는 책에 더한 장은 `draft`라 저자가 공개하기 전까지 독자에게 보이지 않습니다 —
  * 예전에는 "장 추가"를 누르는 순간 빈 "새 장"이 구매자 목차에 떴습니다
  * (4-P1-9). 출간 전 책은 어차피 독자에게 보이지 않으므로 `published`로
  * 두어, 처음 출간할 때 장마다 공개를 누르지 않아도 되게 합니다.
@@ -116,13 +116,25 @@ export async function POST(request: NextRequest) {
   // Verify book ownership
   const { data: book, error: bookError } = await supabase
     .from("books")
-    .select("owner_id, status")
+    .select("owner_id, status, published_at")
     .eq("id", book_id)
     .single();
 
   if (bookError || !book) return apiError("책을 찾을 수 없어요.", "NOT_FOUND", 404);
   if (book.owner_id !== user.id) {
     return apiError("이 책을 고칠 수 없어요.", "FORBIDDEN", 403);
+  }
+
+  // 한 번이라도 출간한 책은 내렸어도 산 독자가 published 장을 읽습니다
+  // (00006). 그런 책에 장을 바로 공개하면 검수를 건너뛰므로, draft로 만든
+  // 뒤 장 공개 전환(PUT `{status}`)으로 올리게 합니다(WP7).
+  const wasPublished = book.status === "published" || !!book.published_at;
+  if (wasPublished && status === "published") {
+    return apiError(
+      "출간한 책에 더하는 장은 비공개로 만든 뒤 공개해 주세요.",
+      "VALIDATION_ERROR",
+      400,
+    );
   }
 
   const { data: last, error: lastError } = await supabase
@@ -140,7 +152,7 @@ export async function POST(request: NextRequest) {
 
   const order_index = typeof last?.order_index === "number" ? last.order_index + 1 : 0;
   const resolvedStatus =
-    status ?? (book.status === "published" ? "draft" : "published");
+    status ?? (wasPublished ? "draft" : "published");
 
   // published_at과 책의 장 수·글자 수는 DB 트리거가 맞춥니다(00009).
   const { data: chapter, error: insertError } = await supabase

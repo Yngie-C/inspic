@@ -19,7 +19,10 @@ import {
   readChapterTitle,
 } from "@/lib/authoring-input";
 import { isUuid } from "@/lib/template-node-id";
+import type { ChapterStatus } from "@/types";
 import { syncChapterWorkbookBlocks } from "@/lib/workbook/sync-blocks";
+import { loadPublishChecks } from "@/lib/publish-checks-loader";
+import { blockers, type PublishCheck } from "@/lib/publish-checks";
 
 type Params = { params: Promise<{ chapterId: string }> };
 
@@ -93,9 +96,15 @@ export async function PUT(request: NextRequest, { params }: Params) {
   }
   // 모르는 상태를 조용히 무시하면 저자는 공개한 줄 압니다.
   // published_at은 DB 트리거가 찍습니다(00009).
+  //
+  // 상태는 따로 바꿉니다. 출간된 책에서는 공개 전환이 검수를 거치는데,
+  // 본문과 함께 오면 검수가 저장 전 본문과 저장 전 블록 정의를 봅니다.
   if (body.status !== undefined) {
     if (!isChapterStatus(body.status)) {
       return apiError(INVALID_BODY_MESSAGE, "VALIDATION_ERROR", 400);
+    }
+    if (Object.keys(body).some((key) => key !== "status")) {
+      return apiError("공개 상태는 따로 바꿔 주세요.", "VALIDATION_ERROR", 400);
     }
     updates.status = body.status;
   }
@@ -121,16 +130,48 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
   const { data: chapter, error: fetchError } = await supabase
     .from("chapters")
-    .select("id, book_id, books(owner_id)")
+    .select("id, book_id, status, books(owner_id, published_at)")
     .eq("id", chapterId)
     .single();
 
   if (fetchError || !chapter) return apiError(CHAPTER_NOT_FOUND, "NOT_FOUND", 404);
 
-  const book = chapter.books as unknown as { owner_id: string } | null;
+  const book = chapter.books as unknown as {
+    owner_id: string;
+    published_at: string | null;
+  } | null;
   if (!book) return apiError("책을 찾을 수 없어요.", "NOT_FOUND", 404);
   if (book.owner_id !== user.id) {
     return apiError("이 장을 고칠 수 없어요.", "FORBIDDEN", 403);
+  }
+
+  // 한 번이라도 출간한 책에서는 장의 공개 전환이 곧 독자 화면의 변화입니다
+  // — 공개를 거둔 뒤에도 산 독자는 published 장을 계속 읽습니다(00006).
+  // 그래서 책을 공개할 때와 같은 검수를 거칩니다(WP7).
+  if (
+    updates.status !== undefined &&
+    updates.status !== chapter.status &&
+    book.published_at
+  ) {
+    const blocked = await chapterStatusBlockers(
+      supabase,
+      chapter.book_id,
+      chapterId,
+      updates.status as ChapterStatus,
+    );
+    if (blocked === "error") {
+      return apiError("검수하지 못했어요. 잠시 뒤 다시 시도해 주세요.", "SERVER_ERROR", 500);
+    }
+    if (blocked.length > 0) {
+      return apiError(
+        updates.status === "published"
+          ? `공개할 수 없어요: ${blocked.map((check) => check.title).join(", ")}`
+          : "독자에게 보이는 마지막 장이에요. 이미 산 독자는 책을 내려도 계속 읽으니, 다른 장을 먼저 공개해 주세요.",
+        "PUBLISH_BLOCKED",
+        422,
+        { blockers: blocked },
+      );
+    }
   }
 
   // 책의 장 수·글자 수는 DB 트리거가 published 장 기준으로 다시 셉니다
@@ -157,6 +198,31 @@ export async function PUT(request: NextRequest, { params }: Params) {
       : await syncChapterWorkbookBlocks(supabase, chapterId, sanitizedHtml);
 
   return apiSuccess({ ...data, workbook_sync: workbookSync });
+}
+
+/**
+ * 이 장의 상태를 바꾸면 생기는 차단 항목.
+ *
+ * 공개할 때는 이 장에 걸린 것만 봅니다 — 이미 공개된 다른 장의 문제로 새
+ * 장을 못 올리게 하지 않습니다(그것은 편집 화면 배너가 계속 보여 줍니다).
+ * 내릴 때는 독자에게 보이는 장이 하나도 남지 않게 되는지만 봅니다.
+ */
+async function chapterStatusBlockers(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  bookId: string,
+  chapterId: string,
+  status: ChapterStatus,
+): Promise<PublishCheck[] | "error"> {
+  const result = await loadPublishChecks(supabase, bookId, {
+    assumeChapterStatus: { id: chapterId, status },
+  });
+  if (!result.ok) return "error";
+
+  return blockers(result.checks).filter((check) =>
+    status === "published"
+      ? check.chapterIds?.includes(chapterId)
+      : check.id === "no-published-chapters",
+  );
 }
 
 export async function DELETE(_request: NextRequest, { params }: Params) {

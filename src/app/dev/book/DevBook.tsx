@@ -16,7 +16,7 @@ export function DevBook({ as }: { as: string }) {
       }
       otherBooks={DEV_BOOKS.filter((b) => b.author_name === "inspic").slice(1, 5)}
       publishing={false}
-      onTogglePublish={() => {}}
+      onUnpublish={() => {}}
     />
   );
 }

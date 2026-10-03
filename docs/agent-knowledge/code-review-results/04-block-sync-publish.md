@@ -109,7 +109,7 @@
   - `route.ts:128`: draft 챕터도 더해 상세 페이지의 장 수가 구매 후 실제와 달라요. PUT으로 status를 바꿀 때도 조정하지 않아요.
   - → 저장할 때마다 `chapters`에서 published 기준 SUM/COUNT로 다시 계산(트리거나 RPC). 2026-10-02 WP6: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP6).
 - **P1-11. PUT이 입력을 검증하지 않음.** `[chapterId]/route.ts:78`. `{"title":"   "}`는 빈 제목으로, `{"title":null}`은 문자열 `'null'`로 저장돼요. `{"order_index":"abc"}`는 DB 원문 500, `{"content_html":123}`은 DOMPurify에 숫자가 넘어가요. 본문이 JSON `null`이면 PUT·POST 모두 TypeError로 처리되지 않은 500. 2026-10-02 WP6: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP6).
-- **P1-12. 출간된 책의 published 챕터는 PUT 한 번으로 검수 없이 반영됨.** `[chapterId]/route.ts:102`. ID 없는 블록을 붙이거나 sync가 실패해도 200과 `workbook_sync.ok=false`만 돌려줘요. 구매자 리더에 저장되지 않는 블록이 그대로 보여요. → 출간 후 편집에도 blocker를 적용할지(저장은 하되 공개 반영을 막는 draft/공개 분리 등) 결정.
+- **P1-12. 출간된 책의 published 챕터는 PUT 한 번으로 검수 없이 반영됨.** `[chapterId]/route.ts:102`. ID 없는 블록을 붙이거나 sync가 실패해도 200과 `workbook_sync.ok=false`만 돌려줘요. 구매자 리더에 저장되지 않는 블록이 그대로 보여요. → 출간 후 편집에도 blocker를 적용할지(저장은 하되 공개 반영을 막는 draft/공개 분리 등) 결정. 2026-10-03 WP7: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP7).
 - **P1-13. 본문 UPDATE와 블록 sync가 다른 트랜잭션.** `[chapterId]/route.ts:113`. 같은 챕터 저장 A·B가 겹쳐 UPDATE는 A→B, sync는 B→A로 끝나면 본문은 B, 정의는 A. B에서 추가한 문항의 답은 `rejected`, A에만 있던 문항은 유령 정의로 남아요. → 저장된 행의 `content_html`을 다시 읽어 sync하거나 한 트랜잭션으로. 2026-10-02 WP6: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP6).
 - **P1-14. 챕터 정렬에 동순위 기준이 없음.** `chapters/route.ts:36`. 클라이언트가 삭제 뒤에도 `order_index = chapters.length`를 넣어 같은 값이 생기고(0,1,2 중 1 삭제 → 추가하면 2가 둘), 요청마다 순서가 흔들려요. `book_preview_chapter_id()`(order_index, created_at, id)와도 순서가 달라질 수 있어요. → 서버가 order_index를 정하고, 정렬에 `created_at, id`를 덧붙임. 2026-10-02 WP6: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP6).
 
@@ -120,24 +120,24 @@
   - 102행: 검수가 status가 published로 바뀌는 순간에만 돌아요. `published` + `private`인 책을 `{visibility:'public'}`만 보내 공개하면 blocker 없이 나가요.
   - 121행: "공개는 status와 visibility를 함께 바꾼다"를 서버가 강제하지 않아요. `{status:'published'}`만 보내면 아무도 못 보는 책에 `published_at`이 찍히고, 이후 visibility 전환은 위 경로로 검수를 건너뛰어요.
   - 106행: status 조회·검수·UPDATE가 따로 왕복해, 검수와 UPDATE 사이에 자동 저장이 sync에 실패하면 이전 스냅샷 기준 통과로 공개돼요(TOCTOU).
-  - → 결과적으로 "공개 상태가 된다"(published + public/unlisted)로 바뀌는 모든 전환에서 검수. status 단독 출간은 거절하거나 visibility를 함께 설정.
+  - → 결과적으로 "공개 상태가 된다"(published + public/unlisted)로 바뀌는 모든 전환에서 검수. status 단독 출간은 거절하거나 visibility를 함께 설정. 2026-10-03 WP7: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP7).
 - **P1-17. PUT 본문을 런타임에 검증하지 않음.** 93행. 본문이 `null`이면 `'title' in null`이 TypeError로 500. `{title:null}`·`{status:'PUBLISHED'}`는 DB 원문 500. `{status:'processing'}`이나 임의 `language`는 그대로 저장. 출간된 책에 `{title:''}`을 보내면 검수의 "제목이 비어 있어요"를 건너뛰어 제목 없는 공개 책이 돼요. 2026-10-02 WP6: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP6).
 - **P1-18. `cover_image_url`에 아무 문자열이나 받음.** 89행. `/cover` 업로드의 검증과 이전 파일 정리를 거치지 않아요. 외부 추적 픽셀 URL이 OG 메타·공개 카드에 노출되고 기존 커버는 고아로 남아요. `.../covers/<남의 bookId>/a.png`를 넣고 `DELETE /cover`를 부르면 cover 라우트가 그 경로로 `storage.remove()`를 불러요 — 실제로 지워지는지는 `covers` 버킷 정책(마이그레이션에 없음, 대시보드 관리로 보임)에 달려 있어요. 5단계(`/cover`)와 함께. 2026-10-02 WP6: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP6).
 - **P1-19. DELETE의 선행 `chapters` 삭제가 결과를 보지 않고 트랜잭션도 아님.** 155행. chapters 삭제 성공 뒤 books 삭제가 실패하면 500인데 본문과(CASCADE로) 독자 답은 이미 사라져요. FK CASCADE와 겹쳐 필요하지도 않아요. → books 삭제 하나로(P0-5의 정책 결정 뒤). → **수정됨 (WP3)**
 
 ### 공개 전 검수 (`src/lib/publish-checks.ts`, `src/lib/publish-checks-loader.ts`)
 
-- **P1-20. 모든 챕터가 draft여도 경고만 나와 빈 책이 공개됨.** `publish-checks.ts:173`. 독자 GET은 published 챕터만 보여 구매자는 빈 책을 받고, `book_preview_chapter_id()`도 미리보기를 못 찾아요. 크리에이터 미리보기는 소유자라 draft가 보여 문제를 볼 수 없어요. → published 챕터 0개는 blocker.
-- **P1-21. 미동기화 검사가 블록 ID만 보고 문항은 보지 않음.** `publish-checks.ts:132`, `publish-checks-loader.ts:40`. 이미 저장된 블록에 항목을 추가하고 저장했는데 sync만 실패하면 검수를 통과하고, 출간 뒤 새 field_key의 답은 전부 `rejected`. "공개 전 검수가 본문과 DB가 어긋난 상태를 차단합니다"가 지켜지지 않아요. → 로더가 `workbook_block_fields`까지 읽어 추출 결과의 field_key 집합과 비교.
-- **P1-22. 독자에게 보이지 않는 draft 챕터가 blocker를 만듦.** `publish-checks.ts:97`, `publish-checks-loader.ts:36`. 빈 draft 6장이나 ID 없는 블록이 든 draft 때문에 출간이 막혀요. draft의 블록이 `totalBlocks`에 들어가 "워크북 블록 없음" 경고도 가려져요. → 본문 검사는 published 챕터만.
-- **P1-23. 이미지만 있는 챕터를 빈 챕터로 판정.** `publish-checks.ts:62` `isEmptyChapter`가 태그를 전부 지워요. 삽화·도표 한 장짜리 장이 blocker가 돼요. → `img` 등 텍스트 없는 콘텐츠를 비어 있지 않은 것으로.
-- **P1-24. 빈 제목·빈 챕터가 blocker — AGENTS.md 규칙과 어긋남.** `publish-checks.ts:77,100`. AGENTS.md는 "차단은 크리에이터가 자기 화면에서 확인할 수 없는 것만"이라고 해요. 둘 다 에디터에서 보여요. 다만 빈 제목은 P1-17처럼 공개 뒤에 생길 수 있으니, 경고로 내릴지 규칙 문구를 고칠지 **결정이 필요**해요.
+- **P1-20. 모든 챕터가 draft여도 경고만 나와 빈 책이 공개됨.** `publish-checks.ts:173`. 독자 GET은 published 챕터만 보여 구매자는 빈 책을 받고, `book_preview_chapter_id()`도 미리보기를 못 찾아요. 크리에이터 미리보기는 소유자라 draft가 보여 문제를 볼 수 없어요. → published 챕터 0개는 blocker. 2026-10-03 WP7: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP7).
+- **P1-21. 미동기화 검사가 블록 ID만 보고 문항은 보지 않음.** `publish-checks.ts:132`, `publish-checks-loader.ts:40`. 이미 저장된 블록에 항목을 추가하고 저장했는데 sync만 실패하면 검수를 통과하고, 출간 뒤 새 field_key의 답은 전부 `rejected`. "공개 전 검수가 본문과 DB가 어긋난 상태를 차단합니다"가 지켜지지 않아요. → 로더가 `workbook_block_fields`까지 읽어 추출 결과의 field_key 집합과 비교. 2026-10-03 WP7: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP7).
+- **P1-22. 독자에게 보이지 않는 draft 챕터가 blocker를 만듦.** `publish-checks.ts:97`, `publish-checks-loader.ts:36`. 빈 draft 6장이나 ID 없는 블록이 든 draft 때문에 출간이 막혀요. draft의 블록이 `totalBlocks`에 들어가 "워크북 블록 없음" 경고도 가려져요. → 본문 검사는 published 챕터만. 2026-10-03 WP7: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP7).
+- **P1-23. 이미지만 있는 챕터를 빈 챕터로 판정.** `publish-checks.ts:62` `isEmptyChapter`가 태그를 전부 지워요. 삽화·도표 한 장짜리 장이 blocker가 돼요. → `img` 등 텍스트 없는 콘텐츠를 비어 있지 않은 것으로. 2026-10-03 WP7: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP7).
+- **P1-24. 빈 제목·빈 챕터가 blocker — AGENTS.md 규칙과 어긋남.** `publish-checks.ts:77,100`. AGENTS.md는 "차단은 크리에이터가 자기 화면에서 확인할 수 없는 것만"이라고 해요. 둘 다 에디터에서 보여요. 다만 빈 제목은 P1-17처럼 공개 뒤에 생길 수 있으니, 경고로 내릴지 규칙 문구를 고칠지 **결정이 필요**해요. 2026-10-03 WP7: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP7).
 - **P1-25. 쿼리 에러를 삼켜 DB 장애가 거짓 blocker로 보임.** `publish-checks-loader.ts:26,34`.
   - books 조회 에러 → `not-found` → 자기 책인데 404 "Book not found".
   - chapters 에러 → "장이 하나도 없어요".
   - workbook_blocks 에러 → `storedBlockIds=[]` → 모든 블록이 "unsynced", 고칠 수 없는 재저장 안내.
-  - → `{ ok: false, reason: 'error' }`로 돌려 호출부가 500.
-- **P1-26. `workbook_blocks` 조회가 1000행에서 잘림.** `publish-checks-loader.ts:40`. 정렬·범위가 없어 PostgREST 기본 `max_rows`에 걸리면 임의의 1000개만 와요. 동기화가 다 된 챕터가 호출마다 다르게 "unsynced"로 막혀 출간이 영구히 막혀요(3단계 P1-3과 같은 종류).
+  - → `{ ok: false, reason: 'error' }`로 돌려 호출부가 500. 2026-10-03 WP7: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP7).
+- **P1-26. `workbook_blocks` 조회가 1000행에서 잘림.** `publish-checks-loader.ts:40`. 정렬·범위가 없어 PostgREST 기본 `max_rows`에 걸리면 임의의 1000개만 와요. 동기화가 다 된 챕터가 호출마다 다르게 "unsynced"로 막혀 출간이 영구히 막혀요(3단계 P1-3과 같은 종류). 2026-10-03 WP7: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP7).
 
 ## P2 — 정리·효율
 
@@ -151,8 +151,8 @@
 - **P2-8. 로더가 소유자 확인을 RLS에 맡기고 계약에 적지 않음.** `publish-checks-loader.ts:22`. 비소유자가 부르면 공개 책의 published 챕터와 접근 가능한 블록만으로 판정해요. → 함수 계약에 "소유자 확인 후 호출" 명시 또는 내부 확인.
 - **P2-9. 로더가 `as PublishCheckChapter[]`, `block.id as string`으로 행 모양을 강제.** `publish-checks-loader.ts:47`. 스키마가 바뀌면 컴파일러가 못 잡고 런타임 TypeError로 500.
 - **P2-10. 챕터마다 HTML을 세 번 파싱.** `publish-checks.ts:120`. `isEmptyChapter`, `countWorkbookBlockElements`, `extractWorkbookBlocks`. 미리보기 패널이 다시 불러올 때마다 반복. → 한 번 파싱해서 셋을 모두 도출.
-- **P2-11. 블록이 callout뿐이어도 "답할 곳이 없음" 경고가 안 뜸.** `publish-checks.ts:123` `totalBlocks`에 callout이 들어가요. → 문항이 있는 블록만 세기.
-- **P2-12. 이름 없는 챕터를 `order_index + 1`장으로 부름.** `publish-checks.ts:66`. 삭제로 index에 틈이 생기면(0, 2, 5) 실제 3번째 장을 "6장"이라고 안내해요. → 정렬된 배열의 순번.
+- **P2-11. 블록이 callout뿐이어도 "답할 곳이 없음" 경고가 안 뜸.** `publish-checks.ts:123` `totalBlocks`에 callout이 들어가요. → 문항이 있는 블록만 세기. 2026-10-03 WP7: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP7).
+- **P2-12. 이름 없는 챕터를 `order_index + 1`장으로 부름.** `publish-checks.ts:66`. 삭제로 index에 틈이 생기면(0, 2, 5) 실제 3번째 장을 "6장"이라고 안내해요. → 정렬된 배열의 순번. 2026-10-03 WP7: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP7).
 
 ## 다음 세션에서 할 일
 

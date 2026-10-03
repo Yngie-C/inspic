@@ -20,6 +20,7 @@ import { Header } from "@/components/layout/Header";
 import { RichTextEditor } from "@/components/editor";
 import { BookMetadataForm } from "@/components/dashboard/BookMetadataForm";
 import { ExportMenu } from "@/components/dashboard/ExportMenu";
+import type { PublishCheck } from "@/lib/publish-checks";
 import type { Book, Chapter } from "@/types";
 
 async function fetchBook(id: string): Promise<Book> {
@@ -28,6 +29,12 @@ async function fetchBook(id: string): Promise<Book> {
   const json = await res.json();
   const { chapters: _chapters, ...book } = json.data;
   return book as Book;
+}
+
+async function fetchPublishBlockers(bookId: string): Promise<PublishCheck[]> {
+  const res = await fetch(`/api/books/${bookId}/publish-checks`);
+  if (!res.ok) throw new Error("검수 결과를 불러오지 못했어요.");
+  return (await res.json()).data?.blockers ?? [];
 }
 
 async function fetchChapters(bookId: string): Promise<Chapter[]> {
@@ -49,6 +56,17 @@ export function EditPageContent() {
   const { data: chapters = [], isLoading: chaptersLoading } = useQuery<Chapter[]>({
     queryKey: ["chapters", bookId],
     queryFn: () => fetchChapters(bookId),
+  });
+
+  // 출간한 뒤의 편집은 바로 독자 화면입니다(공개본/편집본 분리는 M6
+  // 이후). 저장은 막지 않고, 공개 검수의 차단 사유를 배너로 계속 보여
+  // 줍니다(4-P1-12 결정). 내린 책도 산 독자는 계속 읽으므로 출간한 적이
+  // 있으면 봅니다.
+  const everPublished = !!book?.published_at;
+  const { data: publishBlockers = [] } = useQuery<PublishCheck[]>({
+    queryKey: ["publish-blockers", bookId],
+    queryFn: () => fetchPublishBlockers(bookId),
+    enabled: everPublished,
   });
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -111,6 +129,7 @@ export function EditPageContent() {
       setSaved(true);
       setSaveError(null);
       qc.invalidateQueries({ queryKey: ["chapters", bookId] });
+      qc.invalidateQueries({ queryKey: ["publish-blockers", bookId] });
       return true;
     },
     [bookId, qc],
@@ -223,9 +242,19 @@ export function EditPageContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        // 검수에 막힌 것이면 무엇을 고칠지 서버 문구가 말해 줍니다.
+        setChapterError(
+          json.code === "PUBLISH_BLOCKED" && typeof json.error === "string"
+            ? json.error
+            : "공개 상태를 바꾸지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+        );
+        return;
+      }
       qc.invalidateQueries({ queryKey: ["chapters", bookId] });
       qc.invalidateQueries({ queryKey: ["book", bookId] });
+      qc.invalidateQueries({ queryKey: ["publish-blockers", bookId] });
     } catch {
       setChapterError("공개 상태를 바꾸지 못했어요. 잠시 뒤 다시 시도해 주세요.");
     } finally {
@@ -318,10 +347,19 @@ export function EditPageContent() {
             !saved && <span className="text-xs text-muted">저장 중</span>
           )}
           {saved && selectedId && (
-            <span className="flex items-center gap-1 text-xs text-success">
-              <Check className="h-3.5 w-3.5" />
-              저장됨
-            </span>
+            editTitle.trim() ? (
+              <span className="flex items-center gap-1 text-xs text-success">
+                <Check className="h-3.5 w-3.5" />
+                저장됨
+              </span>
+            ) : (
+              // 빈 제목은 보내지 않으므로 본문만 저장됐습니다. "저장됨"만
+              // 띄우면 제목도 비운 채 저장된 줄 압니다.
+              <span className="flex items-center gap-1 text-xs text-warning">
+                <Check className="h-3.5 w-3.5" />
+                본문 저장됨 · 제목이 비어 있어 이전 제목이 남아 있어요
+              </span>
+            )
           )}
         </div>
 
@@ -344,6 +382,24 @@ export function EditPageContent() {
           </Button>
         </div>
       </div>
+
+      {everPublished && publishBlockers.length > 0 && (
+        <div role="alert" className="border-b border-line bg-paper px-4 py-3 sm:px-6">
+          <p className="text-sm font-semibold text-danger">
+            독자 화면에 고쳐야 할 곳이 있어요
+          </p>
+          <p className="mt-0.5 text-xs text-muted">
+            출간한 책은 저장하는 대로 독자에게 보여요. 아래를 고쳐 주세요.
+          </p>
+          <ul className="mt-2 space-y-1">
+            {publishBlockers.map((check) => (
+              <li key={check.id} className="text-xs leading-relaxed text-danger">
+                <span className="font-medium">{check.title}</span> — {check.detail}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar: chapter list */}

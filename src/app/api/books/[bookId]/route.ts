@@ -156,14 +156,37 @@ export async function PUT(request: NextRequest, { params }: Params) {
     );
   }
 
-  // 출간으로 넘어가는 순간에만 검수합니다. 이미 출간된 책의 제목을
-  // 고치는 것까지 막으면 크리에이터가 오탈자를 못 고칩니다.
-  const isPublishing =
-    body.status === "published" && existing.status !== "published";
+  // 공개는 status와 visibility가 함께 바뀌어야 합니다. `{status:'published'}`
+  // 만 보내면 published + private이라 아무도 못 보는 책에 출간일이 찍히고,
+  // 그 뒤 visibility만 바꾸는 공개가 검수를 건너뛰었습니다(4-P1-16).
+  // 출간으로 넘어가며 visibility를 정하지 않았으면 공개로 둡니다.
+  if (
+    updates.status === "published" &&
+    existing.status !== "published" &&
+    !("visibility" in updates)
+  ) {
+    updates.visibility = "public";
+  }
 
-  if (isPublishing) {
+  // 독자에게 보이게 되는 모든 전환에서 검수합니다 — 출간이든, 내렸던 책을
+  // 다시 공개로 돌리는 것이든. 이미 공개된 책의 제목을 고치는 것까지 막으면
+  // 크리에이터가 오탈자를 못 고칩니다.
+  const nextStatus = updates.status ?? existing.status;
+  const nextVisibility = updates.visibility ?? existing.visibility;
+  const wasPublic =
+    existing.status === "published" && existing.visibility === "public";
+  const becomesPublic =
+    !wasPublic && nextStatus === "published" && nextVisibility === "public";
+
+  if (becomesPublic) {
+    // 검수는 UPDATE 바로 앞에서 돌립니다. 그 사이에 끼는 자동 저장은 공개
+    // 뒤의 편집과 같고, 편집 화면 배너가 계속 보여 줍니다(4-P1-12 결정).
     const result = await loadPublishChecks(supabase, bookId);
-    if (!result.ok) return apiError("Book not found", "NOT_FOUND", 404);
+    if (!result.ok) {
+      return result.reason === "not-found"
+        ? apiError("Book not found", "NOT_FOUND", 404)
+        : apiError("검수하지 못했어요. 잠시 뒤 다시 시도해 주세요.", "SERVER_ERROR", 500);
+    }
 
     const failed = blockers(result.checks);
     if (failed.length > 0) {
