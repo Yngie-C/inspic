@@ -85,6 +85,51 @@ describe.each([
     });
   });
 
+  describe("에디터 서식 보존", () => {
+    it("밑줄·취소선·형광펜을 남긴다", () => {
+      const html = "<p><u>밑줄</u> <s>취소선</s> <mark>형광펜</mark></p>";
+      expect(sanitize(html)).toBe(html);
+    });
+
+    it("문단·제목의 정렬을 남긴다", () => {
+      const html =
+        '<h2 style="text-align: center">제목</h2><p style="text-align: right">본문</p>';
+      expect(sanitize(html)).toBe(html);
+    });
+
+    it("style에서 정렬 말고는 지운다 — 본문이 화면을 덮지 못하게", () => {
+      const output = sanitize(
+        '<p style="position: fixed; inset: 0; text-align: justify">본문</p>',
+      );
+      expect(output).toBe('<p style="text-align: justify">본문</p>');
+    });
+
+    it("정렬이 없는 style은 속성째 지운다", () => {
+      expect(sanitize('<div style="position:fixed;top:0">덮개</div>')).toBe(
+        "<div>덮개</div>",
+      );
+      expect(sanitize('<p style="text-align: expression(alert(1))">글</p>')).toBe(
+        "<p>글</p>",
+      );
+    });
+
+    it("새 탭 링크를 남기고 rel을 강제한다", () => {
+      expect(
+        sanitize('<a href="https://example.com" target="_blank" rel="noopener noreferrer">링크</a>'),
+      ).toBe('<a href="https://example.com" target="_blank" rel="noopener noreferrer">링크</a>');
+      expect(sanitize('<a href="https://example.com" target="_blank">링크</a>')).toBe(
+        '<a href="https://example.com" target="_blank" rel="noopener noreferrer">링크</a>',
+      );
+    });
+
+    it("새 탭이 아닌 target과 링크 밖의 target·rel은 지운다", () => {
+      expect(sanitize('<a href="https://example.com" target="top" rel="opener">링크</a>')).toBe(
+        '<a href="https://example.com">링크</a>',
+      );
+      expect(sanitize('<p target="_blank" rel="opener">글</p>')).toBe("<p>글</p>");
+    });
+  });
+
   describe("input 제한", () => {
     it("checkbox input은 남긴다", () => {
       expect(sanitize('<input type="checkbox">')).toContain("checkbox");
@@ -94,5 +139,15 @@ describe.each([
       expect(sanitize('<input type="password" name="pw">')).not.toContain("input");
       expect(sanitize('<input type="text" name="card">')).not.toContain("input");
     });
+  });
+});
+
+describe("훅 범위", () => {
+  it("다른 곳의 DOMPurify 호출에는 이 파일의 훅이 걸리지 않는다", async () => {
+    const { default: DOMPurify } = await import("isomorphic-dompurify");
+    sanitizeContent("<p>먼저 한 번 부른다</p>");
+    const output = DOMPurify.sanitize('<input type="text"><p style="color: red">글</p>');
+    expect(output).toContain("<input");
+    expect(output).toContain('style="color: red"');
   });
 });
