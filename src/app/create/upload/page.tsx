@@ -13,6 +13,11 @@ interface DetectedChapter {
   preview: string;
 }
 
+interface UploadResponse {
+  data?: { book: { id: string }; chapters: DetectedChapter[] };
+  error?: string;
+}
+
 function UploadContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -58,14 +63,16 @@ function UploadContent() {
       clearInterval(ticker);
       setProgress(100);
 
-      if (!res.ok) {
-        const json = await res.json();
-        throw new Error(json.error ?? "파일을 올리지 못했어요.");
+      // 플랫폼이 본문 크기 제한 등으로 먼저 거절하면 JSON이 아닌 응답이 옵니다.
+      const json = (await res.json().catch(() => null)) as UploadResponse | null;
+      if (!res.ok || !json?.data) {
+        throw new Error(json?.error ?? "파일을 올리지 못했어요. 잠시 뒤 다시 시도해 주세요.");
       }
 
-      const json = await res.json();
-      setBookId(json.data.id);
-      setChapters(json.data.chapters ?? []);
+      // 라우트는 `{ book, chapters }`를 돌려줍니다. 예전에는 `data.id`를 읽어
+      // bookId가 비었고, "확인" 버튼이 안 떠서 다시 올리면 책이 하나 더 생겼어요.
+      setBookId(json.data.book.id);
+      setChapters(json.data.chapters);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "파일을 올리지 못했어요. 잠시 뒤 다시 시도해 주세요.");
     } finally {
