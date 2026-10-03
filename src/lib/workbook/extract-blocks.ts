@@ -196,6 +196,39 @@ export function parseChecklistItems(raw: string | undefined): ChecklistItem[] {
 }
 
 /**
+ * `data-items`를 읽은 목록이 원문을 빠짐없이 담는가.
+ *
+ * 읽는 쪽(`readChecklistItems`)은 깨진 JSON·객체가 아닌 항목·`id` 없는
+ * 항목을 버립니다. 그 목록으로 편집해 다시 쓰면 버린 것이 HTML에서 영구히
+ * 지워지므로(4-P1-3), 에디터는 이것이 false면 편집을 막고 안내합니다.
+ * 에디터가 불러올 때 고칠 수 있는 것(겹치거나 빈 키, 문자열 항목)은
+ * `TemplateNodeIds`가 먼저 고칩니다.
+ */
+export function isChecklistItemsIntact(raw: string | undefined): boolean {
+  if (raw === undefined || raw === "") return true;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return false;
+  }
+  if (!Array.isArray(parsed)) return false;
+
+  return parsed.every((item: unknown) => {
+    if (typeof item !== "object" || item === null || Array.isArray(item)) {
+      return false;
+    }
+    const { id, text } = item as { id?: unknown; text?: unknown };
+    return (
+      typeof id === "string" &&
+      id.length > 0 &&
+      (text === undefined || typeof text === "string")
+    );
+  });
+}
+
+/**
  * 체크리스트 항목을 HTML에 적힌 그대로 읽습니다. 겹친 `id`도 남깁니다 —
  * 블록 추출이 이것을 써서, 동기화(`storableBlocks`)와 검수
  * (`blocksWithUnstorableFields`)가 겹친 키를 보고 다룹니다.

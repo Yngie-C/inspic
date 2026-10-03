@@ -7,7 +7,9 @@ import type { WorkbookBlock, WorkbookBlockField } from "./types";
  *
  * 저작 측에서 `workbook_blocks` / `workbook_block_fields`에 쓰는 곳은
  * 여기 하나뿐입니다. 실제 쓰기는 `sync_chapter_workbook_blocks` RPC가
- * 한 트랜잭션으로 처리합니다 (마이그레이션 00002).
+ * 한 트랜잭션으로 처리합니다 (마이그레이션 00002). 라우트는 그 앞에
+ * 본문 대조를 붙인 `sync_chapter_workbook_blocks_if_current`(00009)를
+ * 부릅니다.
  */
 
 export { isStorableBlockId };
@@ -106,7 +108,7 @@ export interface WorkbookSyncCounts {
 }
 
 export type WorkbookSyncResult =
-  | { ok: true; counts: WorkbookSyncCounts; skipped: number }
+  | { ok: true; counts: WorkbookSyncCounts; skipped: number; stale?: true }
   | { ok: false; error: string; skipped: number };
 
 /**
@@ -117,16 +119,23 @@ export type WorkbookSyncResult =
  */
 export interface WorkbookSyncClient {
   rpc(
-    fn: "sync_chapter_workbook_blocks",
-    args: { p_chapter_id: string; p_blocks: WorkbookBlock[] },
+    fn: "sync_chapter_workbook_blocks_if_current",
+    args: {
+      p_chapter_id: string;
+      p_blocks: WorkbookBlock[];
+      p_content_sha256: string;
+    },
   ): PromiseLike<{ data: unknown; error: { message: string } | null }>;
 }
 
 /**
  * 챕터 HTML에서 블록 정의를 뽑아 DB에 반영합니다.
  *
- * 호출 시점의 HTML은 이미 sanitize된 것이어야 합니다 — 저장된 본문과
- * 다른 HTML에서 뽑으면 블록 정의가 본문과 어긋납니다.
+ * `storedHtml`은 방금 DB에 쓴 본문과 글자 하나까지 같아야 합니다(sanitize한
+ * 쪽). RPC가 그 해시를 지금 DB의 본문과 대조해, 그 사이 같은 장의 다른 저장이
+ * 끼었으면 아무것도 쓰지 않고 `stale`을 돌려줍니다(코드 리뷰 4-P1-13). 그
+ * 저장이 자기 본문으로 동기화하므로, 늦게 끝난 쪽이 옛 본문의 정의로 덮는
+ * 일이 없습니다.
  *
  * 실패해도 던지지 않습니다. 챕터 본문은 이미 저장된 뒤이고, 여기서
  * 던지면 크리에이터에게는 글이 날아간 것처럼 보이기 때문입니다. 대신
@@ -136,20 +145,49 @@ export interface WorkbookSyncClient {
 export async function syncChapterWorkbookBlocks(
   client: WorkbookSyncClient,
   chapterId: string,
-  sanitizedHtml: string,
+  storedHtml: string,
 ): Promise<WorkbookSyncResult> {
-  const extracted = extractWorkbookBlocks(sanitizedHtml);
+  const extracted = extractWorkbookBlocks(storedHtml);
   const blocks = storableBlocks(extracted);
   const skipped = extracted.length - blocks.length;
 
-  const { data, error } = await client.rpc("sync_chapter_workbook_blocks", {
-    p_chapter_id: chapterId,
-    p_blocks: blocks,
-  });
+  const { data, error } = await client.rpc(
+    "sync_chapter_workbook_blocks_if_current",
+    {
+      p_chapter_id: chapterId,
+      p_blocks: blocks,
+      p_content_sha256: await sha256Hex(storedHtml),
+    },
+  );
 
   if (error) return { ok: false, error: error.message, skipped };
 
-  return { ok: true, counts: readCounts(data), skipped };
+  const counts = readCounts(data);
+  return isStale(data)
+    ? { ok: true, counts, skipped, stale: true }
+    : { ok: true, counts, skipped };
+}
+
+/**
+ * Postgres `encode(sha256(convert_to(text, 'UTF8')), 'hex')`와 같은 값.
+ * Web Crypto라 서버(Node)와 테스트 환경 어디서나 같습니다.
+ */
+export async function sha256Hex(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(text),
+  );
+  return Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+}
+
+function isStale(data: unknown): boolean {
+  return (
+    typeof data === "object" &&
+    data !== null &&
+    (data as { stale?: unknown }).stale === true
+  );
 }
 
 /**

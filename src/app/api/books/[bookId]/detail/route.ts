@@ -39,7 +39,9 @@ export async function GET(
     .from("chapters")
     .select("id, title, slug, order_index, word_count, estimated_reading_time, created_at, updated_at, book_id, status, published_at")
     .eq("book_id", bookId)
-    .order("order_index", { ascending: true });
+    .order("order_index", { ascending: true })
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true });
 
   if (!isOwner) {
     chaptersQuery = chaptersQuery.eq("status", "published");

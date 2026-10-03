@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { extractWorkbookBlocks, parseChecklistItems } from "./extract-blocks";
+import {
+  extractWorkbookBlocks,
+  isChecklistItemsIntact,
+  parseChecklistItems,
+} from "./extract-blocks";
 
 /**
  * 챕터 HTML에서 블록 정의를 뽑는 단계입니다. 여기서 ID를 새로 만들거나
@@ -218,3 +222,22 @@ describe("parseChecklistItems", () => {
     expect(block.fields.map((field) => field.field_key)).toEqual(["a", "a"]);
   });
 });
+
+describe("isChecklistItemsIntact (4-P1-3)", () => {
+  it("읽은 목록이 원문을 다 담으면 true", () => {
+    expect(isChecklistItemsIntact(undefined)).toBe(true);
+    expect(isChecklistItemsIntact("[]")).toBe(true);
+    expect(isChecklistItemsIntact(JSON.stringify([{ id: "a", text: "운동" }, { id: "b" }]))).toBe(true);
+  });
+
+  it.each([
+    ["깨진 JSON", "[{"],
+    ["배열이 아님", JSON.stringify({ id: "a" })],
+    ["id 없는 항목", JSON.stringify([{ text: "운동하기" }])],
+    ["문자열 항목", JSON.stringify(["운동하기"])],
+    ["문구가 객체", JSON.stringify([{ id: "a", text: { b: 1 } }])],
+  ])("%s → false — 편집하면 읽지 못한 항목이 지워진다", (_label, raw) => {
+    expect(isChecklistItemsIntact(raw)).toBe(false);
+  });
+});
+

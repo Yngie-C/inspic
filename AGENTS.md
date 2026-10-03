@@ -62,7 +62,7 @@ TTS·오디오북 · 하이라이트/북마크/독서진행률/리더설정 · �
   - `payments/`: 결제 이행 — Toss 상태 매핑(순수), 이행·보상 절차, 서버 포트
 - `src/stores/`: Zustand stores
 - `src/types/`: TypeScript 타입 정의
-- `supabase/migrations/`: Supabase DB 마이그레이션. `00001_initial_schema.sql`(초기 스키마) + `00002_workbook_block_sync.sql`(블록 동기화 RPC, `chapter-images` 버킷) + `00003_payment_integrity.sql`(결제 이행 RPC, 구매 INSERT 봉인, 첫 챕터 미리보기) … `00007_block_id_conflicts.sql`(블록 ID 충돌 보고) · `00008_response_integrity.sql`(응답 쓰기 정책, 공개 전 문항 가림, 장 삭제 시 답 보존). 코드 리뷰 WP별 마이그레이션은 `docs/agent-knowledge/code-review-fix-plan.md`를 보세요 + `00004`(집계에서 소유자 응답 제외) + `00005_payment_fixes.sql`(결제 행 INSERT 봉인과 생성 RPC, 구매-결제 연결, 이행·취소 RPC 보강) + `00006_buyer_access.sql`(구매를 공개 상태보다 먼저 보는 접근 판정, `chapter-images` 목록 봉인, 결제·구매 FK RESTRICT)
+- `supabase/migrations/`: Supabase DB 마이그레이션. `00001_initial_schema.sql`(초기 스키마) + `00002_workbook_block_sync.sql`(블록 동기화 RPC, `chapter-images` 버킷) + `00003_payment_integrity.sql`(결제 이행 RPC, 구매 INSERT 봉인, 첫 챕터 미리보기) … `00007_block_id_conflicts.sql`(블록 ID 충돌 보고) · `00008_response_integrity.sql`(응답 쓰기 정책, 공개 전 문항 가림, 장 삭제 시 답 보존) · `00009_chapter_integrity.sql`(책 집계 트리거, 장 출간 시각, 본문 대조 동기화). 코드 리뷰 WP별 마이그레이션은 `docs/agent-knowledge/code-review-fix-plan.md`를 보세요 + `00004`(집계에서 소유자 응답 제외) + `00005_payment_fixes.sql`(결제 행 INSERT 봉인과 생성 RPC, 구매-결제 연결, 이행·취소 RPC 보강) + `00006_buyer_access.sql`(구매를 공개 상태보다 먼저 보는 접근 판정, `chapter-images` 목록 봉인, 결제·구매 FK RESTRICT)
 - `content/`: 전자책 원고 및 콘텐츠 문서
 - `creator-outreach/`: 크리에이터 아웃리치 관련 문서
 - `.claude/`: Claude Code 커스텀 커맨드/프로젝트 메모
@@ -177,7 +177,7 @@ workbook_responses         독자 응답. (user_id, block_id, field_key) 유일
 - **리더 템플릿은 `chapterId`를 받지 않습니다.** 응답의 정체성에 챕터가 들어가지 않기 때문입니다. 크리에이터가 블록을 다른 챕터로 옮겨도 응답은 따라갑니다.
 - **답을 받을 수 없는 블록은 입력을 막으세요.** `data-node-id`가 UUID가 아니면 `useBlockResponses().canWrite`가 false이고, 템플릿은 읽기 전용 + `BlockUnavailable` 안내를 그립니다. 받아 두면 저장되지 않은 채 저장된 것처럼 보이고, ID 없는 블록끼리 답 하나를 나눠 갖습니다. textarea에는 서버 상한(`MAX_TEXT_LENGTH`)을 `maxLength`로 거세요.
 - **파싱된 노드에 `instanceof Element`를 쓰지 마세요.** `html-dom-parser`가 ESM 경로에서 자체 `domhandler` 사본을 끌어와 클래스 정체성이 어긋납니다. `lib/workbook/dom.ts`의 `isElementNode()`를 쓰세요.
-- **블록 정의를 DB에 쓸 때는 `syncChapterWorkbookBlocks()`만 쓰세요.** `workbook_blocks` / `workbook_block_fields`에 직접 INSERT/UPDATE 하지 마세요. 실제 쓰기는 `sync_chapter_workbook_blocks` RPC가 upsert와 삭제를 **한 트랜잭션**으로 처리합니다(마이그레이션 00002). 여러 왕복으로 나누면 중간 실패 시 블록은 새 정의, 문항은 옛 정의로 남고 다음 저장 전까지 복구되지 않습니다.
+- **블록 정의를 DB에 쓸 때는 `syncChapterWorkbookBlocks()`만 쓰세요.** `workbook_blocks` / `workbook_block_fields`에 직접 INSERT/UPDATE 하지 마세요. 실제 쓰기는 `sync_chapter_workbook_blocks` RPC가 upsert와 삭제를 **한 트랜잭션**으로 처리합니다(마이그레이션 00002). 여러 왕복으로 나누면 중간 실패 시 블록은 새 정의, 문항은 옛 정의로 남고 다음 저장 전까지 복구되지 않습니다. 앱은 그 앞에 본문 대조를 붙인 `sync_chapter_workbook_blocks_if_current`(00009)를 부릅니다 — **방금 DB에 쓴 본문 그대로**(sanitize한 쪽)를 넘기세요. RPC가 장 행을 잠그고 그 SHA-256을 지금 본문과 대조해, 그 사이 같은 장의 다른 저장이 끼었으면 아무것도 쓰지 않고 `stale`을 돌려줍니다. 끼어든 저장이 자기 본문으로 맞추므로, 늦게 끝난 옛 동기화가 새 정의를 덮지 않습니다(코드 리뷰 4-P1-13).
 - **동기화는 다른 장·책의 블록을 덮지 않습니다** (마이그레이션 00007). 같은 ID가 다른 책에 있거나, 같은 책의 다른 장 **본문에 아직 있으면** 건너뛰고 결과의 `conflicts`로 돌려줍니다. 원래 장의 본문에 그 ID가 더는 없으면 옮긴 것으로 보고 소속을 옮기며, 그 블록의 독자 답도 `repoint_workbook_responses()`가 새 장을 가리키게 합니다(옛 장을 지워도 답이 CASCADE로 지워지지 않게). 공개 전 검수는 블록을 `(id, chapter_id)`로 대조하고, 두 장에 같은 ID가 있으면 차단합니다.
 - **동기화가 실패해도 챕터 저장을 실패시키지 마세요.** 본문은 이미 저장된 뒤라 여기서 던지면 크리에이터에게는 글이 날아간 것처럼 보입니다. 결과를 응답의 `workbook_sync`에 싣고, 공개 전 검수(`lib/publish-checks.ts`)가 본문과 DB가 어긋난 상태를 차단합니다.
 - **`data-node-id`가 없는 블록에 ID를 만들어 붙이지 마세요.** `extractWorkbookBlocks()`는 그런 블록을 건너뜁니다. 세어야 할 때는 `countWorkbookBlockElements()`를 쓰세요 — 두 수의 차이가 곧 "화면에는 보이지만 응답을 받을 수 없는 블록"이고, 검수가 그것을 차단 사유로 씁니다.
@@ -242,6 +242,18 @@ M4(2026-08-05)에서 확정했습니다. 여기서 지키는 규칙은 하나입
 - **로그인 화면의 `?error=`는 정해 둔 값만 받습니다** (`authFailureFromQuery`). 쿼리 문자열을 그대로 띄우면 누구나 링크로 아무 문구나 보여 줄 수 있습니다.
 - **비밀번호 규칙은 `auth-errors.ts`의 `PASSWORD_MIN_LENGTH` / `checkPassword()`가 Supabase 대시보드 설정(최소 6자, Letters and digits)을 그대로 옮긴 것입니다.** 대시보드를 바꾸면 여기도 바꾸세요. 72바이트를 넘는 비밀번호는 서버가 `weak_password`가 아니라 `validation_failed`로 거절하므로 화면에서 먼저 막습니다.
 - `/auth/callback`과 `/auth/reset-password`는 로그인 상태여도 미들웨어가 `/creator`로 보내지 않습니다. 재설정 링크로 세션이 생긴 직후 거쳐 가는 곳이기 때문입니다.
+
+## 장 저장
+
+2026-10-02(WP6)에 정했습니다.
+
+- **새 장의 순서와 공개 상태는 서버가 정합니다.** `POST /api/chapters`는 `order_index`를 받지 않고 맨 뒤에 붙입니다. 상태를 보내지 않으면 **출간된 책에 더한 장은 `draft`, 출간 전 책이면 `published`**입니다 — 출간된 책에서 "장 추가"를 누르는 순간 빈 장이 독자 목차에 뜨지 않게, 출간 전 책은 처음 공개할 때 장마다 누르지 않게. 편집 화면의 장 공개/비공개 버튼이 `PUT {status}`를 보냅니다.
+- **장 목록의 정렬은 `order_index, created_at, id`입니다.** 미리보기 장을 고르는 `book_preview_chapter_id()`와 같은 기준입니다. `order_index`만으로 정렬하면 같은 값이 둘일 때 요청마다 순서가 흔들립니다.
+- **`books.total_words` / `total_chapters`를 앱에서 고치지 마세요.** 장이 바뀔 때마다 DB 트리거가 **published 장 기준**으로 다시 셉니다(00009). 읽은 값에 차이를 더해 덮으면 동시 저장에서 갱신을 잃습니다.
+- **장 `published_at`도 DB가 찍습니다**(00009). published가 될 때 비어 있으면 채웁니다.
+- **장·책 API의 입력은 `lib/authoring-input.ts`로 런타임 검증합니다.** 본문은 `readJsonObject()`로 읽어 `null`·배열을 400으로 거절하고, 빈 제목·모르는 상태·타입이 어긋난 값도 DB에 가기 전에 400입니다. 에디터는 빈 제목을 보내지 않고 본문만 저장합니다(제목을 지우고 다시 쓰는 사이에도 본문이 저장되게).
+- **표지는 `/api/books/[bookId]/cover`로만 바꿉니다.** 책 PUT은 `cover_image_url`을 거절합니다 — 거기서는 파일 검사도, 이전 파일 정리도 하지 않습니다.
+- **불러온 블록의 속성은 없을 때만 기본값입니다**(`??`). 저자가 비운 문구(`""`)를 기본 문구로 되살리면 리더·추출기와 달라집니다. `data-items`가 없는 체크리스트는 빈 목록이고, 읽을 수 없는 항목이 섞인 체크리스트(`isChecklistItemsIntact()`가 false)는 편집을 막고 원문을 보존합니다.
 
 ## 출간 경로
 

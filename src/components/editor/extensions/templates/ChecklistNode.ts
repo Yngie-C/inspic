@@ -15,8 +15,10 @@ const DEFAULT_ITEMS: ChecklistItem[] = [{ id: "item-1", text: "항목 1" }];
 export const ChecklistNode = createTemplateNode("checklist", "checklist", {
   items: {
     default: JSON.stringify(DEFAULT_ITEMS),
-    parseHTML: (el) =>
-      el.getAttribute("data-items") || JSON.stringify(DEFAULT_ITEMS),
+    // 새로 넣는 블록만 첫 항목을 받습니다. 불러온 HTML에 `data-items`가
+    // 없으면 빈 목록입니다 — 여기서 "항목 1"을 지어내면 저자가 쓴 적 없는
+    // 문항이 다음 저장에 동기화되고 검수도 통과합니다(4-P1-2).
+    parseHTML: (el) => el.getAttribute("data-items") ?? "[]",
     renderHTML: (attrs) => ({ "data-items": attrs.items as string }),
   },
 }).extend({

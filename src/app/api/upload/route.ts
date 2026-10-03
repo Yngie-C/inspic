@@ -77,11 +77,6 @@ export async function POST(request: NextRequest) {
     return apiError("No content found in file", "UPLOAD_ERROR", 422);
   }
 
-  const totalWords = chapters.reduce(
-    (sum, chapter) => sum + countWords(chapter.content_html),
-    0,
-  );
-
   const supabase = await createClient();
 
   const { data: book, error: bookError } = await supabase
@@ -94,14 +89,15 @@ export async function POST(request: NextRequest) {
       source_type: SOURCE_TYPE_BY_EXTENSION[ext],
       status: "draft",
       visibility: "private",
-      total_chapters: chapters.length,
-      total_words: totalWords,
     })
     .select()
     .single();
 
   if (bookError) return apiError(bookError.message, "SERVER_ERROR", 500);
 
+  // 책의 장 수·글자 수는 장을 넣을 때 DB 트리거가 셉니다(00009). 장은
+  // 상태를 주지 않아 published(기본값)로 들어갑니다 — 책이 draft·private이라
+  // 독자에게는 출간 전까지 보이지 않습니다.
   const uploadedAt = Date.now();
   const chapterRows = chapters.map((chapter, index) => ({
     book_id: book.id,

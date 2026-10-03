@@ -254,7 +254,12 @@ export function normalizeTemplateIds(
  * 키가 없는 항목을 버리지 않고 키를 주는 이유는, 버리면 크리에이터가 쓴
  * 항목 문구가 다음 저장에서 사라지기 때문입니다.
  *
- * JSON이 아니거나 배열이 아니면 손대지 않습니다(읽는 쪽이 빈 목록으로 봅니다).
+ * 문자열·숫자만 적힌 항목(`["운동하기"]`)은 그 글을 문구로 한 항목이 됩니다.
+ * 읽는 쪽이 객체가 아닌 항목을 버리므로, 그대로 두면 "항목 추가"를 누르는
+ * 순간 HTML에서 지워집니다(4-P1-3). 숫자 문구도 같은 이유로 글로 바꿉니다.
+ *
+ * JSON이 아니거나 배열이 아니면 손대지 않습니다. node view가 편집을 막고
+ * 안내합니다(`isChecklistItemsIntact`).
  */
 export function normalizeChecklistItems(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
@@ -270,18 +275,32 @@ export function normalizeChecklistItems(raw: unknown): string | null {
   const seen = new Set<string>();
   let changed = false;
 
-  const next = parsed.map((item: unknown) => {
-    if (typeof item !== "object" || item === null) return item;
-    const id = (item as { id?: unknown }).id;
-    if (isStorableFieldKey(id) && !seen.has(id)) {
-      seen.add(id);
-      return item;
-    }
+  const freshKey = () => {
     let fresh = generateFieldKey();
     while (seen.has(fresh)) fresh = generateFieldKey();
     seen.add(fresh);
     changed = true;
-    return { ...item, id: fresh };
+    return fresh;
+  };
+
+  const next = parsed.map((entry: unknown) => {
+    if (typeof entry === "string" || typeof entry === "number") {
+      return { id: freshKey(), text: String(entry) };
+    }
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+      return entry;
+    }
+    let item = entry as { id?: unknown; text?: unknown };
+    if (typeof item.text === "number") {
+      item = { ...item, text: String(item.text) };
+      changed = true;
+    }
+    const id = item.id;
+    if (isStorableFieldKey(id) && !seen.has(id)) {
+      seen.add(id);
+      return item;
+    }
+    return { ...item, id: freshKey() };
   });
 
   return changed ? JSON.stringify(next) : null;

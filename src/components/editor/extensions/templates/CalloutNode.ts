@@ -13,7 +13,8 @@ export const CalloutNode = createTemplateNode("callout", "callout", {
   },
   content: {
     default: "여기에 내용을 입력해 주세요.",
-    parseHTML: (el) => el.getAttribute("data-content") || "여기에 내용을 입력해 주세요.",
+    // 속성이 없을 때만 기본값입니다(4-P1-1).
+    parseHTML: (el) => el.getAttribute("data-content") ?? "여기에 내용을 입력해 주세요.",
     renderHTML: (attrs) => ({ "data-content": attrs.content as string }),
   },
 }).extend({

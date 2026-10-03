@@ -62,7 +62,9 @@ export async function loadExportSource(
     .select("*")
     .eq("book_id", bookId)
     .eq("status", "published")
-    .order("order_index", { ascending: true });
+    .order("order_index", { ascending: true })
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true });
 
   if (chaptersError) return { ok: false, reason: "server_error" };
 

@@ -39,6 +39,28 @@ export function apiError(
   );
 }
 
+/**
+ * 요청 본문을 JSON 객체로 읽습니다. 깨진 JSON·`null`·배열·원시값이면
+ * `null`입니다.
+ *
+ * `request.json()`만으로는 본문이 `null`일 때 다음 줄의 `'title' in body`나
+ * 구조 분해가 TypeError로 던져 처리되지 않은 500이 됩니다(코드 리뷰
+ * 4-P1-11, 4-P1-17). 필드 하나하나의 타입은 호출부가 봅니다.
+ */
+export async function readJsonObject(
+  request: Request,
+): Promise<Record<string, unknown> | null> {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return null;
+  }
+  return typeof body === "object" && body !== null && !Array.isArray(body)
+    ? (body as Record<string, unknown>)
+    : null;
+}
+
 export function apiSuccess<T>(data: T, status = 200): NextResponse {
   return NextResponse.json({ data }, { status });
 }

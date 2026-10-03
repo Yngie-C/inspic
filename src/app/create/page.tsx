@@ -65,7 +65,6 @@ export default function CreatePage() {
             title: "새 장",
             content_html: "",
             content_raw: "",
-            order_index: 0,
           }),
         });
         if (chapterRes.ok) {

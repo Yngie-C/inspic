@@ -59,7 +59,7 @@ function respondWith(
   mocks.respond = (query) => {
     if (query.table === "books" && query.ops.includes("single") && !query.ops.includes("update")) {
       return {
-        data: { owner_id: USER, status: "published", visibility: "public", published_at: null, ...book },
+        data: { owner_id: USER, status: "published", visibility: "public", published_at: null, language: "ko", ...book },
         error: null,
       };
     }
@@ -72,6 +72,9 @@ function deletes() {
 }
 
 beforeEach(() => {
+  // 입력 검증에서 돌아가면 클라이언트를 만들지 않아, 이전 테스트의 기록이
+  // 남습니다.
+  mocks.queries = [];
   respondWith(() => OK_EMPTY);
 });
 
@@ -165,5 +168,76 @@ describe("PUT /api/books/[bookId] — 링크 공유(unlisted)", () => {
 
     expect(res.status).toBe(200);
     expect(updates()[0].args.update).toEqual({ visibility: "private" });
+  });
+});
+
+describe("PUT /api/books/[bookId] — 입력 검증 (4-P1-17, 4-P1-18)", () => {
+  function updates() {
+    return mocks.queries.filter((q) => q.ops.includes("update"));
+  }
+
+  function rawRequest(body: string): NextRequest {
+    return new Request(`http://localhost/api/books/${BOOK}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body,
+    }) as unknown as NextRequest;
+  }
+
+  it.each([
+    ["본문이 JSON null", "null"],
+    ["제목이 null", JSON.stringify({ title: null })],
+    ["제목이 빈 문자열 — 공개된 책이 제목 없이 나간다", JSON.stringify({ title: "" })],
+    ["대문자 상태", JSON.stringify({ status: "PUBLISHED" })],
+    ["처리 중 상태는 서버 몫", JSON.stringify({ status: "processing" })],
+    ["모르는 공개 범위", JSON.stringify({ visibility: "everyone" })],
+    ["설명이 숫자", JSON.stringify({ description: 1 })],
+    ["목록 밖의 새 언어", JSON.stringify({ language: "xx" })],
+  ])("%s → 400, 저장하지 않는다", async (_label, body) => {
+    const res = await PUT(rawRequest(body), params);
+
+    expect(res.status).toBe(400);
+    expect(updates()).toHaveLength(0);
+  });
+
+  it("표지 URL은 받지 않는다 — /cover 업로드로만 바꾼다", async () => {
+    const res = await PUT(
+      request("PUT", { cover_image_url: "https://tracker.example/pixel.png" }),
+      params,
+    );
+
+    expect(res.status).toBe(400);
+    expect(updates()).toHaveLength(0);
+  });
+
+  it("목록 밖 언어라도 지금 값 그대로면 다른 필드를 저장한다", async () => {
+    // 업로드는 언어를 자유롭게 받았고, 설정 폼은 현재 언어를 함께 보냅니다.
+    respondWith(() => ({ data: { id: BOOK }, error: null }), { language: "fr" });
+
+    const res = await PUT(request("PUT", { title: "새 제목", language: "fr" }), params);
+
+    expect(res.status).toBe(200);
+    expect(updates()[0].args.update).toEqual({ title: "새 제목", language: "fr" });
+  });
+
+  it("제목은 앞뒤 공백을 걷고, 빈 설명은 null로", async () => {
+    respondWith(() => ({ data: { id: BOOK }, error: null }));
+
+    await PUT(request("PUT", { title: "  제목 ", description: "  " }), params);
+
+    expect(updates()[0].args.update).toEqual({ title: "제목", description: null });
+  });
+
+  it("DB 에러 원문을 싣지 않는다", async () => {
+    respondWith((query) =>
+      query.ops.includes("update")
+        ? { data: null, error: { message: "new row violates check constraint" } }
+        : OK_EMPTY,
+    );
+
+    const res = await PUT(request("PUT", { title: "제목" }), params);
+
+    expect(res.status).toBe(500);
+    expect(JSON.stringify(await res.json())).not.toMatch(/violates/);
   });
 });

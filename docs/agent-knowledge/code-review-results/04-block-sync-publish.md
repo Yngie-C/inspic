@@ -91,9 +91,9 @@
 
 ### 에디터 노드 (`src/components/editor/extensions/templates`, `src/lib/template-node-id.ts`)
 
-- **P1-1. 일부러 비운 문구가 기본 문구로 다시 채워짐 (재현됨).** `ReflectionNode.ts:9`, `ScaleNode.ts`, `CalloutNode.ts`의 `parseHTML`이 `getAttribute(...) || default`라서 `data-prompt=""`가 기본 질문으로 돌아와요. 리더와 `extractWorkbookBlocks`는 빈 값을 그대로 읽어 크리에이터와 독자가 서로 다른 것을 봐요. → 속성이 없을 때만 기본값(`??`).
-- **P1-2. `data-items`가 없으면 가짜 항목을 지어냄.** `ChecklistNode.ts:19`가 `DEFAULT_ITEMS`(field_key `item-1`)를 채워요. 다음 저장 때 저자가 쓴 적 없는 "항목 1"이 실제 문항으로 sync되고 검수는 통과해요. "파싱 중에 키를 만들지 않는다"와 어긋나요. → 비어 있으면 빈 목록으로 두고 검수가 잡게.
-- **P1-3. id 없는 항목이나 깨진 JSON을 조용히 버리고 다음 편집에서 덮어씀.** `ChecklistNodeView.tsx:9` `parseChecklistItems`. `[{"text":"운동하기"}]`는 "항목 0개"로 보이고, "항목 추가"를 누르면 원래 텍스트가 HTML에서 영구히 지워져요. → 버린 항목을 알리거나 속성에 보존.
+- **P1-1. 일부러 비운 문구가 기본 문구로 다시 채워짐 (재현됨).** `ReflectionNode.ts:9`, `ScaleNode.ts`, `CalloutNode.ts`의 `parseHTML`이 `getAttribute(...) || default`라서 `data-prompt=""`가 기본 질문으로 돌아와요. 리더와 `extractWorkbookBlocks`는 빈 값을 그대로 읽어 크리에이터와 독자가 서로 다른 것을 봐요. → 속성이 없을 때만 기본값(`??`). 2026-10-02 WP6: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP6).
+- **P1-2. `data-items`가 없으면 가짜 항목을 지어냄.** `ChecklistNode.ts:19`가 `DEFAULT_ITEMS`(field_key `item-1`)를 채워요. 다음 저장 때 저자가 쓴 적 없는 "항목 1"이 실제 문항으로 sync되고 검수는 통과해요. "파싱 중에 키를 만들지 않는다"와 어긋나요. → 비어 있으면 빈 목록으로 두고 검수가 잡게. 2026-10-02 WP6: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP6).
+- **P1-3. id 없는 항목이나 깨진 JSON을 조용히 버리고 다음 편집에서 덮어씀.** `ChecklistNodeView.tsx:9` `parseChecklistItems`. `[{"text":"운동하기"}]`는 "항목 0개"로 보이고, "항목 추가"를 누르면 원래 텍스트가 HTML에서 영구히 지워져요. → 버린 항목을 알리거나 속성에 보존. 2026-10-02 WP6: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP6).
 - **P1-4. 항목 키(field_key) 중복을 가르는 곳이 없음.** `template-node-id.ts:20` `generateFieldKey`는 "블록 안에서만 고유하면 된다"고 적었지만 검사가 없어요. 업로드·수동 편집으로 같은 id가 두 번 들어오면 RPC의 `DISTINCT ON`이 하나만 남기고, 리더에서는 두 체크박스가 같은 field_key와 DOM id를 공유해 함께 토글돼요. → 블록 ID처럼 항목 키도 중복을 가름(3단계 P1-13과 함께). 2026-10-02 WP4: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP4).
 - **P1-5. 처음 불러올 때는 ID가 부여되지 않음.** `BaseTemplateNode.ts:65`. `appendTransaction`에서만 부여해, ID 없는 블록이 있는 챕터를 편집 없이 열면 그대로예요. `setContent(..., {emitUpdate:false})` 중 붙은 ID는 저장되지 않고, 열 때마다 다른 UUID가 생겨요. 검수는 "응답을 받을 수 없는 블록"으로 막는데 에디터는 아무 문제도 보이지 않아요. → onCreate/setContent 경로에서 부여하고 문서를 dirty로 표시해 저장되게. 2026-10-02 WP4: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP4).
 - **P1-6. `crypto.randomUUID()`에 대체 경로가 없음.** `template-node-id.ts:11`. 보안 컨텍스트(HTTPS·localhost)와 Safari 15.4+에만 있어요. LAN 주소(`http://192.168.x.x:3000`)로 모바일에서 확인하거나 HTTP 스테이징·구형 Safari에서 블록을 넣으면 `appendTransaction`이 던져 삽입과 이후 편집이 막혀요. 서버(Node)는 영향 없음. → `crypto.getRandomValues`로 UUID v4를 조립하는 대체 경로. 2026-10-02 WP4: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP4).
@@ -102,16 +102,16 @@
 
 ### 챕터 API (`src/app/api/chapters`)
 
-- **P1-9. 새 챕터가 기본으로 `published`이고 `published_at`은 비어 있음.** `chapters/route.ts:99`. 출간된 유료 책에서 "장 추가"를 누르면 빈 "새 장"이 검수 없이 구매자 목차와 리더에 나타나요. PUT은 status를 다시 `published`로 보낼 때만 `published_at`을 찍어 이 챕터는 출간일이 영원히 없어요. 이 장이 맨 앞 published 챕터가 되면 무료 미리보기가 빈 장이 돼요. → 기본값 `draft`.
+- **P1-9. 새 챕터가 기본으로 `published`이고 `published_at`은 비어 있음.** `chapters/route.ts:99`. 출간된 유료 책에서 "장 추가"를 누르면 빈 "새 장"이 검수 없이 구매자 목차와 리더에 나타나요. PUT은 status를 다시 `published`로 보낼 때만 `published_at`을 찍어 이 챕터는 출간일이 영원히 없어요. 이 장이 맨 앞 published 챕터가 되면 무료 미리보기가 빈 장이 돼요. → 기본값 `draft`. 2026-10-02 WP6: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP6).
 - **P1-10. `books.total_words` / `total_chapters` 집계가 어긋남.**
   - `[chapterId]/route.ts:151` DELETE가 `total_chapters`만 줄이고 `word_count`는 빼지 않아요. 읽기 시간·"약 N분"·explore 정렬이 영구히 부풀어요.
   - `[chapterId]/route.ts:120`, `route.ts:125`, DELETE(153): 요청 시작 때 읽은 값에 diff를 더해 덮는 read-modify-write라 동시 요청에서 갱신이 유실돼요(1000에 +200, +300 → 1300 또는 1200).
   - `route.ts:128`: draft 챕터도 더해 상세 페이지의 장 수가 구매 후 실제와 달라요. PUT으로 status를 바꿀 때도 조정하지 않아요.
-  - → 저장할 때마다 `chapters`에서 published 기준 SUM/COUNT로 다시 계산(트리거나 RPC).
-- **P1-11. PUT이 입력을 검증하지 않음.** `[chapterId]/route.ts:78`. `{"title":"   "}`는 빈 제목으로, `{"title":null}`은 문자열 `'null'`로 저장돼요. `{"order_index":"abc"}`는 DB 원문 500, `{"content_html":123}`은 DOMPurify에 숫자가 넘어가요. 본문이 JSON `null`이면 PUT·POST 모두 TypeError로 처리되지 않은 500.
+  - → 저장할 때마다 `chapters`에서 published 기준 SUM/COUNT로 다시 계산(트리거나 RPC). 2026-10-02 WP6: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP6).
+- **P1-11. PUT이 입력을 검증하지 않음.** `[chapterId]/route.ts:78`. `{"title":"   "}`는 빈 제목으로, `{"title":null}`은 문자열 `'null'`로 저장돼요. `{"order_index":"abc"}`는 DB 원문 500, `{"content_html":123}`은 DOMPurify에 숫자가 넘어가요. 본문이 JSON `null`이면 PUT·POST 모두 TypeError로 처리되지 않은 500. 2026-10-02 WP6: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP6).
 - **P1-12. 출간된 책의 published 챕터는 PUT 한 번으로 검수 없이 반영됨.** `[chapterId]/route.ts:102`. ID 없는 블록을 붙이거나 sync가 실패해도 200과 `workbook_sync.ok=false`만 돌려줘요. 구매자 리더에 저장되지 않는 블록이 그대로 보여요. → 출간 후 편집에도 blocker를 적용할지(저장은 하되 공개 반영을 막는 draft/공개 분리 등) 결정.
-- **P1-13. 본문 UPDATE와 블록 sync가 다른 트랜잭션.** `[chapterId]/route.ts:113`. 같은 챕터 저장 A·B가 겹쳐 UPDATE는 A→B, sync는 B→A로 끝나면 본문은 B, 정의는 A. B에서 추가한 문항의 답은 `rejected`, A에만 있던 문항은 유령 정의로 남아요. → 저장된 행의 `content_html`을 다시 읽어 sync하거나 한 트랜잭션으로.
-- **P1-14. 챕터 정렬에 동순위 기준이 없음.** `chapters/route.ts:36`. 클라이언트가 삭제 뒤에도 `order_index = chapters.length`를 넣어 같은 값이 생기고(0,1,2 중 1 삭제 → 추가하면 2가 둘), 요청마다 순서가 흔들려요. `book_preview_chapter_id()`(order_index, created_at, id)와도 순서가 달라질 수 있어요. → 서버가 order_index를 정하고, 정렬에 `created_at, id`를 덧붙임.
+- **P1-13. 본문 UPDATE와 블록 sync가 다른 트랜잭션.** `[chapterId]/route.ts:113`. 같은 챕터 저장 A·B가 겹쳐 UPDATE는 A→B, sync는 B→A로 끝나면 본문은 B, 정의는 A. B에서 추가한 문항의 답은 `rejected`, A에만 있던 문항은 유령 정의로 남아요. → 저장된 행의 `content_html`을 다시 읽어 sync하거나 한 트랜잭션으로. 2026-10-02 WP6: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP6).
+- **P1-14. 챕터 정렬에 동순위 기준이 없음.** `chapters/route.ts:36`. 클라이언트가 삭제 뒤에도 `order_index = chapters.length`를 넣어 같은 값이 생기고(0,1,2 중 1 삭제 → 추가하면 2가 둘), 요청마다 순서가 흔들려요. `book_preview_chapter_id()`(order_index, created_at, id)와도 순서가 달라질 수 있어요. → 서버가 order_index를 정하고, 정렬에 `created_at, id`를 덧붙임. 2026-10-02 WP6: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP6).
 
 ### 책 API (`src/app/api/books/[bookId]/route.ts`)
 
@@ -121,8 +121,8 @@
   - 121행: "공개는 status와 visibility를 함께 바꾼다"를 서버가 강제하지 않아요. `{status:'published'}`만 보내면 아무도 못 보는 책에 `published_at`이 찍히고, 이후 visibility 전환은 위 경로로 검수를 건너뛰어요.
   - 106행: status 조회·검수·UPDATE가 따로 왕복해, 검수와 UPDATE 사이에 자동 저장이 sync에 실패하면 이전 스냅샷 기준 통과로 공개돼요(TOCTOU).
   - → 결과적으로 "공개 상태가 된다"(published + public/unlisted)로 바뀌는 모든 전환에서 검수. status 단독 출간은 거절하거나 visibility를 함께 설정.
-- **P1-17. PUT 본문을 런타임에 검증하지 않음.** 93행. 본문이 `null`이면 `'title' in null`이 TypeError로 500. `{title:null}`·`{status:'PUBLISHED'}`는 DB 원문 500. `{status:'processing'}`이나 임의 `language`는 그대로 저장. 출간된 책에 `{title:''}`을 보내면 검수의 "제목이 비어 있어요"를 건너뛰어 제목 없는 공개 책이 돼요.
-- **P1-18. `cover_image_url`에 아무 문자열이나 받음.** 89행. `/cover` 업로드의 검증과 이전 파일 정리를 거치지 않아요. 외부 추적 픽셀 URL이 OG 메타·공개 카드에 노출되고 기존 커버는 고아로 남아요. `.../covers/<남의 bookId>/a.png`를 넣고 `DELETE /cover`를 부르면 cover 라우트가 그 경로로 `storage.remove()`를 불러요 — 실제로 지워지는지는 `covers` 버킷 정책(마이그레이션에 없음, 대시보드 관리로 보임)에 달려 있어요. 5단계(`/cover`)와 함께.
+- **P1-17. PUT 본문을 런타임에 검증하지 않음.** 93행. 본문이 `null`이면 `'title' in null`이 TypeError로 500. `{title:null}`·`{status:'PUBLISHED'}`는 DB 원문 500. `{status:'processing'}`이나 임의 `language`는 그대로 저장. 출간된 책에 `{title:''}`을 보내면 검수의 "제목이 비어 있어요"를 건너뛰어 제목 없는 공개 책이 돼요. 2026-10-02 WP6: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP6).
+- **P1-18. `cover_image_url`에 아무 문자열이나 받음.** 89행. `/cover` 업로드의 검증과 이전 파일 정리를 거치지 않아요. 외부 추적 픽셀 URL이 OG 메타·공개 카드에 노출되고 기존 커버는 고아로 남아요. `.../covers/<남의 bookId>/a.png`를 넣고 `DELETE /cover`를 부르면 cover 라우트가 그 경로로 `storage.remove()`를 불러요 — 실제로 지워지는지는 `covers` 버킷 정책(마이그레이션에 없음, 대시보드 관리로 보임)에 달려 있어요. 5단계(`/cover`)와 함께. 2026-10-02 WP6: **수정됨** ([수정 계획](../code-review-fix-plan.md) WP6).
 - **P1-19. DELETE의 선행 `chapters` 삭제가 결과를 보지 않고 트랜잭션도 아님.** 155행. chapters 삭제 성공 뒤 books 삭제가 실패하면 500인데 본문과(CASCADE로) 독자 답은 이미 사라져요. FK CASCADE와 겹쳐 필요하지도 않아요. → books 삭제 하나로(P0-5의 정책 결정 뒤). → **수정됨 (WP3)**
 
 ### 공개 전 검수 (`src/lib/publish-checks.ts`, `src/lib/publish-checks-loader.ts`)

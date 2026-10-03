@@ -36,7 +36,9 @@ export async function loadPublishChecks(
       .from("chapters")
       .select("id, title, content_html, status, order_index")
       .eq("book_id", bookId)
-      .order("order_index", { ascending: true }),
+      .order("order_index", { ascending: true })
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true }),
     supabase
       .from("workbook_blocks")
       .select("id, chapter_id")
