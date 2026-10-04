@@ -1,5 +1,7 @@
+import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
 import {
+  parseUpload,
   extractTitleFromHtml,
   parseMdToChapters,
   parseTxtToChapters,
@@ -33,6 +35,11 @@ describe("resolveExtension", () => {
     expect(resolveExtension("application/octet-stream", "원고.DOCX")).toBe(
       "docx",
     );
+  });
+
+  it("파일명의 확장자가 MIME보다 먼저다 — .md를 text/plain으로 보내는 환경 (5-P2-6)", () => {
+    expect(resolveExtension("text/plain", "원고.md")).toBe("md");
+    expect(resolveExtension("text/markdown", "원고")).toBe("md");
   });
 
   it("둘 다 모르면 null이다", () => {
@@ -125,7 +132,109 @@ describe("splitHtmlIntoChapters", () => {
   });
 });
 
+describe("splitHtmlIntoChapters — 경계는 한 종류만 (5-P1-1~3)", () => {
+  it("헤딩 안의 장 표기가 경계로 한 번 더 걸리지 않는다", async () => {
+    const chapters = await parseMdToChapters(
+      "# 제1장 시작\n\n가\n\n# 제2장 심화\n\n나",
+    );
+
+    expect(chapters.map((chapter) => chapter.title)).toEqual([
+      "제1장 시작",
+      "제2장 심화",
+    ]);
+  });
+
+  it("문장 중간의 장 표기는 문단을 자르지 않는다", () => {
+    const chapters = parseTxtToChapters(
+      "제 1 장 시작\n\n앞의 제2장에서 본 것처럼 Chapter 3 이야기도 있어요.",
+    );
+
+    expect(chapters).toHaveLength(1);
+    expect(chapters[0].title).toBe("제 1 장 시작");
+    expect(chapters[0].content_html).toContain("앞의 제2장에서 본 것처럼");
+  });
+
+  it("h1이 있으면 h2 절마다 장을 만들지 않는다", async () => {
+    const chapters = await parseMdToChapters(
+      "# 1장\n\n## 절 A\n\n가\n\n## 절 B\n\n나\n\n# 2장\n\n다",
+    );
+
+    expect(chapters.map((chapter) => chapter.title)).toEqual(["1장", "2장"]);
+    expect(chapters[0].content_html).toContain("절 B");
+  });
+
+  it("h1이 없으면 h2로 나눈다", async () => {
+    const chapters = await parseMdToChapters("## 하나\n\n가\n\n## 둘\n\n나");
+
+    expect(chapters.map((chapter) => chapter.title)).toEqual(["하나", "둘"]);
+  });
+
+  it("머리말 조각은 본문 속 소제목을 제목으로 집지 않는다", async () => {
+    const chapters = await parseMdToChapters(
+      "머리말\n\n### 이 책을 읽는 법\n\n# 1장\n\n본문",
+    );
+
+    expect(chapters.map((chapter) => chapter.title)).toEqual(["Chapter 1", "1장"]);
+  });
+
+  it("강조로 감싼 장 표기도 문단 맨 앞이면 경계다 (docx)", () => {
+    const chapters = splitHtmlIntoChapters(
+      "<p><strong>제1장</strong> 시작</p><p>가</p><p><strong>제2장</strong> 끝</p><p>나</p>",
+      "",
+    );
+
+    expect(chapters).toHaveLength(2);
+  });
+
+  it("제목의 HTML 엔티티를 푼다 (5-P1-11)", async () => {
+    const chapters = await parseMdToChapters(
+      "# Q&A\n\n가\n\n# Don't & 1 < 2\n\n나",
+    );
+
+    expect(chapters.map((chapter) => chapter.title)).toEqual([
+      "Q&A",
+      "Don't & 1 < 2",
+    ]);
+  });
+
+  it("장이 하나여도 원문 텍스트를 남긴다 (5-P2-5)", () => {
+    const chapters = splitHtmlIntoChapters("<p>가 &amp; 나</p>", "");
+
+    expect(chapters[0].content_raw).toBe("가 & 나");
+  });
+});
+
 describe("parseTxtToChapters", () => {
+  it("CRLF 줄바꿈도 문단으로 나눈다 (5-P1-12)", () => {
+    const chapters = parseTxtToChapters(
+      "제 1 장 시작\r\n\r\n첫 줄\r\n둘째 줄\r\n\r\n제 2 장 끝\r\n\r\n마지막",
+    );
+
+    expect(chapters.map((chapter) => chapter.title)).toEqual([
+      "제 1 장 시작",
+      "제 2 장 끝",
+    ]);
+    expect(chapters[0].content_html).toContain("<p>첫 줄<br>둘째 줄</p>");
+    expect(chapters[0].content_html).not.toContain("\r");
+  });
+
+  it("본문의 꺾쇠는 글자로 남기고 장을 자르지 않는다 (5-P1-13)", () => {
+    const chapters = parseTxtToChapters(
+      "<중요> a < b\n\n<h1>가짜 제목</h1>\n\n<script>alert(1)</script>",
+    );
+
+    expect(chapters).toHaveLength(1);
+    expect(chapters[0].content_html).toContain("&lt;중요&gt; a &lt; b");
+    expect(chapters[0].content_html).toContain("&lt;h1&gt;가짜 제목&lt;/h1&gt;");
+    expect(chapters[0].content_html).not.toContain("<script>");
+  });
+
+  it("장 표기 제목의 이스케이프도 풀어 저장한다", () => {
+    const chapters = parseTxtToChapters("머리말\n\n제 1 장 A & B\n\n본문");
+
+    expect(chapters[1].title).toBe("제 1 장 A & B");
+  });
+
   it("빈 줄로 문단을 나누고 줄바꿈은 <br>로 만든다", () => {
     const chapters = parseTxtToChapters("첫 줄\n둘째 줄\n\n다음 문단");
 
@@ -174,5 +283,89 @@ describe("parseMdToChapters", () => {
     const chapters = await parseMdToChapters(source);
 
     expect(chapters[0].content_raw).toBe(source);
+  });
+});
+
+/**
+ * 최소한의 .docx — 문단마다 스타일(Heading1 등)을 붙일 수 있습니다.
+ * mammoth가 실제로 읽는 경로를 지나가게 하려고 손으로 만든 파일입니다.
+ */
+async function makeDocx(paragraphs: Array<{ text: string; style?: string }>) {
+  const escape = (text: string) =>
+    text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const body = paragraphs
+    .map(
+      ({ text, style }) =>
+        `<w:p>${style ? `<w:pPr><w:pStyle w:val="${style}"/></w:pPr>` : ""}` +
+        `<w:r><w:t xml:space="preserve">${escape(text)}</w:t></w:r></w:p>`,
+    )
+    .join("");
+  const zip = new JSZip();
+  zip.file(
+    "[Content_Types].xml",
+    '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+      '<Default Extension="xml" ContentType="application/xml"/>' +
+      '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
+      "</Types>",
+  );
+  zip.file(
+    "_rels/.rels",
+    '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>' +
+      "</Relationships>",
+  );
+  zip.file(
+    "word/document.xml",
+    '<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+      `<w:body>${body}</w:body></w:document>`,
+  );
+  const buffer = await zip.generateAsync({ type: "uint8array" });
+  return new Blob([buffer as BlobPart]);
+}
+
+describe("parseUpload — 실제 파일 경로", () => {
+  it("docx의 Heading 1마다 장을 나누고 제목 엔티티를 푼다", async () => {
+    const file = await makeDocx([
+      { text: "Q&A로 시작하기", style: "Heading1" },
+      { text: "앞의 제2장에서 다룬 내용" },
+      { text: "절", style: "Heading2" },
+      { text: "끝", style: "Heading1" },
+      { text: "마지막 문단" },
+    ]);
+
+    const chapters = await parseUpload(file, "docx");
+
+    expect(chapters.map((chapter) => chapter.title)).toEqual(["Q&A로 시작하기", "끝"]);
+    expect(chapters[0].content_html).toContain("<h2>절</h2>");
+  });
+
+  it("헤딩 없는 docx는 문단 맨 앞의 장 표기로 나눈다", async () => {
+    const file = await makeDocx([
+      { text: "제1장 시작" },
+      { text: "본문 A" },
+      { text: "제2장 끝" },
+      { text: "본문 B" },
+    ]);
+
+    const chapters = await parseUpload(file, "docx");
+
+    expect(chapters.map((chapter) => chapter.title)).toEqual(["제1장 시작", "제2장 끝"]);
+  });
+
+  it("장 구분 없는 docx도 원문 텍스트를 남긴다", async () => {
+    const chapters = await parseUpload(await makeDocx([{ text: "그냥 원고" }]), "docx");
+
+    expect(chapters).toHaveLength(1);
+    expect(chapters[0].content_raw).toBe("그냥 원고");
+  });
+
+  it("CRLF 마크다운 파일", async () => {
+    const file = new Blob(["# 하나\r\n\r\n가\r\n\r\n# 둘\r\n\r\n나\r\n"]);
+
+    const chapters = await parseUpload(file, "md");
+
+    expect(chapters.map((chapter) => chapter.title)).toEqual(["하나", "둘"]);
+    expect(chapters[0].content_raw).not.toContain("\r");
   });
 });
