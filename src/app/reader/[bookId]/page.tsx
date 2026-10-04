@@ -53,8 +53,12 @@ export default function ReaderPage() {
     data: book,
     isLoading: bookLoading,
     error,
+    refetch: refetchBook,
   } = useQuery<ReaderBook>({
-    queryKey: ["reader-book", bookId],
+    // 장 목록은 보는 사람의 권한으로 걸러지므로 키에 넣습니다. 없으면
+    // 로그인하고 돌아온 구매자에게 미리보기 1장이, 로그아웃한 뒤에는
+    // 구매자가 받은 장 전체가 캐시에서 그대로 보입니다.
+    queryKey: ["reader-book", bookId, user?.id ?? null],
     queryFn: () => fetchReaderBook(bookId),
     enabled: isInitialized,
     retry: false,
@@ -83,16 +87,23 @@ export default function ReaderPage() {
   }
 
   if (error) {
-    const status = error instanceof ReaderLoadError ? error.status : 500;
+    const status = error instanceof ReaderLoadError ? error.status : null;
+    if (status === 404) {
+      return (
+        <ReaderNotice
+          title="책을 찾을 수 없어요"
+          description="삭제됐거나 주소가 잘못됐어요."
+          action={{ href: "/explore", label: "둘러보기" }}
+        />
+      );
+    }
+    // 서버 오류·네트워크 오류를 "권한 없음"으로 그리면 산 독자가 구매가
+    // 반영되지 않은 줄 압니다. 접근 판정 실패와 같게 다시 시도할 길을 둡니다.
     return (
       <ReaderNotice
-        title={status === 404 ? "책을 찾을 수 없어요" : "지금은 읽을 수 없어요"}
-        description={
-          status === 404
-            ? "삭제됐거나 주소가 잘못됐어요."
-            : "이 책을 볼 권한이 없어요."
-        }
-        action={{ href: "/explore", label: "둘러보기" }}
+        title="책을 불러오지 못했어요"
+        description="잠시 뒤 다시 시도해 주세요."
+        action={{ label: "다시 시도", onClick: () => refetchBook() }}
       />
     );
   }

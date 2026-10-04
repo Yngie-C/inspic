@@ -20,7 +20,7 @@ interface AuthState {
   resendConfirmation: (email: string) => Promise<{ error?: AuthFailure }>;
   requestPasswordReset: (email: string) => Promise<{ error?: AuthFailure }>;
   updatePassword: (password: string) => Promise<{ error?: AuthFailure }>;
-  signOut: () => Promise<void>;
+  signOut: () => Promise<{ error?: unknown }>;
   fetchProfile: () => Promise<void>;
 }
 
@@ -71,10 +71,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // auth 상태 변경 리스너
       // 프로필 행은 auth.users INSERT 트리거가 만듭니다. 여기서는 읽기만 합니다.
-      supabase.auth.onAuthStateChange(async (event, session) => {
+      //
+      // 콜백 안에서 Supabase 호출을 await하지 않습니다. supabase-js가 auth 잠금을
+      // 쥔 채 이 콜백을 부르는 경우가 있어(탭 복귀 등), 콜백이 조회를 기다리고
+      // 조회가 잠금을 기다리며 그 클라이언트의 모든 호출이 멈춥니다.
+      supabase.auth.onAuthStateChange((event, session) => {
         if (event === "SIGNED_IN" && session?.user) {
-          set({ user: session.user });
-          await get().fetchProfile();
+          const switched = get().user?.id !== session.user.id;
+          // 계정이 바뀌면 이전 사람의 프로필을 먼저 비웁니다.
+          set(switched ? { user: session.user, profile: null } : { user: session.user });
+          setTimeout(() => void get().fetchProfile(), 0);
         } else if (event === "SIGNED_OUT") {
           set({ user: null, profile: null });
         }
@@ -144,10 +150,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     return run("update", () => supabase.auth.updateUser({ password }));
   },
 
+  /**
+   * 실패하면 세션 쿠키가 남으므로 화면을 로그아웃 상태로 바꾸지 않습니다.
+   * 공용 기기에서 로그아웃된 줄 알고 자리를 뜨면 다음 사람이 그 계정을 씁니다.
+   */
   signOut: async () => {
     const supabase = createClient();
-    await supabase.auth.signOut();
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) return { error };
+    } catch (error) {
+      return { error };
+    }
     set({ user: null, profile: null });
+    return {};
   },
 
   fetchProfile: async () => {
@@ -155,14 +171,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!user) return;
 
     const supabase = createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("user_profiles")
       .select("*")
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (data) {
-      set({ profile: data as UserProfile });
+    // 기다리는 사이 계정이 바뀌었으면 이 결과는 다른 사람의 것입니다.
+    if (get().user?.id !== user.id) return;
+
+    if (error) {
+      // 프로필은 이름 같은 장식 정보라 화면은 그대로 두고 로그만 남깁니다.
+      console.error("[auth] 프로필을 불러오지 못했어요", error);
+      return;
     }
+    set({ profile: (data as UserProfile | null) ?? null });
   },
 }));
