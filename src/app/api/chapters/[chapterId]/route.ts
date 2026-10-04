@@ -7,6 +7,7 @@ import {
   readJsonObject,
 } from "@/lib/api-utils";
 import { sanitizeContent } from "@/lib/sanitize";
+import { removeChapterImages } from "@/lib/storage-cleanup";
 import {
   CHAPTER_TOO_LONG_MESSAGE,
   countWords,
@@ -236,7 +237,7 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
 
   const { data: chapter, error: fetchError } = await supabase
     .from("chapters")
-    .select("id, books(owner_id)")
+    .select("id, book_id, books(owner_id)")
     .eq("id", chapterId)
     .single();
 
@@ -255,6 +256,10 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
     console.error("[chapters] 장을 지우지 못했습니다", { chapterId, error });
     return apiError("장을 지우지 못했어요. 잠시 뒤 다시 시도해 주세요.", "SERVER_ERROR", 500);
   }
+
+  // 공개 버킷이라 남겨 두면 유료 책의 이미지가 URL로 계속 열립니다. 다른 장이
+  // 아직 쓰는 파일은 남깁니다.
+  await removeChapterImages(chapter.book_id, chapterId);
 
   return apiSuccess({ deleted: true });
 }

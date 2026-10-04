@@ -20,6 +20,8 @@ export type RecordedQuery = {
   ops: string[];
   /** 메서드별 첫 인자. 같은 메서드가 여러 번이면 마지막 것. */
   args: Record<string, unknown>;
+  /** 메서드별 인자 전체. `like("content_html", 패턴)`처럼 둘째 인자가 필요할 때. */
+  argLists: Record<string, unknown[]>;
 };
 
 export function createFakeSupabase(
@@ -28,7 +30,7 @@ export function createFakeSupabase(
   const queries: RecordedQuery[] = [];
 
   function from(table: string) {
-    const query: RecordedQuery = { table, ops: [], args: {} };
+    const query: RecordedQuery = { table, ops: [], args: {}, argLists: {} };
     queries.push(query);
 
     const builder: Record<string, unknown> = {};
@@ -40,6 +42,7 @@ export function createFakeSupabase(
       "delete",
       "eq",
       "in",
+      "like",
       "order",
       "limit",
       "range",
@@ -47,6 +50,7 @@ export function createFakeSupabase(
       builder[method] = (...args: unknown[]) => {
         query.ops.push(method);
         query.args[method] = args[0];
+        query.argLists[method] = args;
         return builder;
       };
     }
@@ -64,7 +68,39 @@ export function createFakeSupabase(
     return builder;
   }
 
-  return { client: { from }, queries };
+  /**
+   * Storage는 `table`을 `storage:{버킷}`으로 기록합니다. 호출 순서가
+   * DB 쿼리와 한 목록에 섞여 남아서 "DB를 먼저 바꾸고 파일을 지운다" 같은
+   * 순서를 볼 수 있습니다. `getPublicUrl`만 동기이고 기록하지 않습니다.
+   */
+  const storage = {
+    from(bucket: string) {
+      const call =
+        (method: string) =>
+        (...args: unknown[]) => {
+          const query: RecordedQuery = {
+            table: `storage:${bucket}`,
+            ops: [method],
+            args: { [method]: args[0] },
+            argLists: { [method]: args },
+          };
+          queries.push(query);
+          return Promise.resolve(respond(query));
+        };
+      return {
+        upload: call("upload"),
+        remove: call("remove"),
+        list: call("list"),
+        getPublicUrl: (path: string) => ({
+          data: {
+            publicUrl: `https://project.supabase.co/storage/v1/object/public/${bucket}/${path}`,
+          },
+        }),
+      };
+    },
+  };
+
+  return { client: { from, storage }, queries };
 }
 
 export const OK_EMPTY: QueryResult = { data: null, error: null };

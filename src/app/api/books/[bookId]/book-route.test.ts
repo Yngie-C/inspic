@@ -53,6 +53,9 @@ vi.mock("@/lib/api-utils", async (importOriginal) => ({
   getAuthUser: async () => ({ id: USER }),
 }));
 
+const cleanup = vi.hoisted(() => ({ removeBookFiles: vi.fn(async () => {}) }));
+vi.mock("@/lib/storage-cleanup", () => cleanup);
+
 const { DELETE, PUT } = await import("./route");
 
 const params = { params: Promise.resolve({ bookId: BOOK }) };
@@ -125,16 +128,23 @@ describe("DELETE /api/books/[bookId]", () => {
         : OK_EMPTY,
     );
 
+    cleanup.removeBookFiles.mockClear();
     await DELETE(request("DELETE"), params);
 
     expect(deletes().map((q) => q.table)).toEqual(["books"]);
+    // 판매된 책의 표지·본문 이미지는 산 독자가 계속 봅니다.
+    expect(cleanup.removeBookFiles).not.toHaveBeenCalled();
   });
 
-  it("판매되지 않은 책은 지운다", async () => {
+  it("판매되지 않은 책은 지우고, 그 뒤에 표지·본문 이미지를 정리한다 (5-P2-11)", async () => {
+    cleanup.removeBookFiles.mockClear();
+    respondWith(() => OK_EMPTY, { cover_image_url: "https://x/cover.png" });
+
     const res = await DELETE(request("DELETE"), params);
 
     expect(res.status).toBe(200);
     expect(deletes().map((q) => q.table)).toEqual(["books"]);
+    expect(cleanup.removeBookFiles).toHaveBeenCalledExactlyOnceWith(BOOK, "https://x/cover.png");
   });
 
   it("다른 실패는 500이고 DB 원문을 싣지 않는다", async () => {
