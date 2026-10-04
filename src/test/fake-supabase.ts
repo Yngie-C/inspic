@@ -22,6 +22,8 @@ export type RecordedQuery = {
   args: Record<string, unknown>;
   /** 메서드별 인자 전체. `like("content_html", 패턴)`처럼 둘째 인자가 필요할 때. */
   argLists: Record<string, unknown[]>;
+  /** 빌더 호출 전부를 순서대로. `order`처럼 여러 번 부르는 메서드를 볼 때. */
+  calls?: { method: string; args: unknown[] }[];
 };
 
 export function createFakeSupabase(
@@ -30,7 +32,20 @@ export function createFakeSupabase(
   const queries: RecordedQuery[] = [];
 
   function from(table: string) {
-    const query: RecordedQuery = { table, ops: [], args: {}, argLists: {} };
+    return builderFor({ table, ops: [], args: {}, argLists: {} });
+  }
+
+  /** RPC는 `table`을 `rpc:{함수}`로, 인자를 `args.rpc`로 기록합니다. */
+  function rpc(fn: string, params?: unknown) {
+    return builderFor({
+      table: `rpc:${fn}`,
+      ops: ["rpc"],
+      args: { rpc: params },
+      argLists: { rpc: [params] },
+    });
+  }
+
+  function builderFor(query: RecordedQuery) {
     queries.push(query);
 
     const builder: Record<string, unknown> = {};
@@ -43,6 +58,9 @@ export function createFakeSupabase(
       "eq",
       "in",
       "like",
+      "or",
+      "gt",
+      "lte",
       "order",
       "limit",
       "range",
@@ -51,6 +69,7 @@ export function createFakeSupabase(
         query.ops.push(method);
         query.args[method] = args[0];
         query.argLists[method] = args;
+        (query.calls ??= []).push({ method, args });
         return builder;
       };
     }
@@ -100,7 +119,7 @@ export function createFakeSupabase(
     },
   };
 
-  return { client: { from, storage }, queries };
+  return { client: { from, rpc, storage }, queries };
 }
 
 export const OK_EMPTY: QueryResult = { data: null, error: null };

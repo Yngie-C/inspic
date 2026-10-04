@@ -62,7 +62,7 @@ TTS·오디오북 · 하이라이트/북마크/독서진행률/리더설정 · �
   - `payments/`: 결제 이행 — Toss 상태 매핑(순수), 이행·보상 절차, 서버 포트
 - `src/stores/`: Zustand stores
 - `src/types/`: TypeScript 타입 정의
-- `supabase/migrations/`: Supabase DB 마이그레이션. `00001_initial_schema.sql`(초기 스키마) + `00002_workbook_block_sync.sql`(블록 동기화 RPC, `chapter-images` 버킷) + `00003_payment_integrity.sql`(결제 이행 RPC, 구매 INSERT 봉인, 첫 챕터 미리보기) … `00007_block_id_conflicts.sql`(블록 ID 충돌 보고) · `00008_response_integrity.sql`(응답 쓰기 정책, 공개 전 문항 가림, 장 삭제 시 답 보존) · `00009_chapter_integrity.sql`(책 집계 트리거, 장 출간 시각, 본문 대조 동기화) · `00010_covers_bucket.sql`(covers 버킷과 소유자 정책). 코드 리뷰 WP별 마이그레이션은 `docs/agent-knowledge/code-review-fix-plan.md`를 보세요 + `00004`(집계에서 소유자 응답 제외) + `00005_payment_fixes.sql`(결제 행 INSERT 봉인과 생성 RPC, 구매-결제 연결, 이행·취소 RPC 보강) + `00006_buyer_access.sql`(구매를 공개 상태보다 먼저 보는 접근 판정, `chapter-images` 목록 봉인, 결제·구매 FK RESTRICT)
+- `supabase/migrations/`: Supabase DB 마이그레이션. `00001_initial_schema.sql`(초기 스키마) + `00002_workbook_block_sync.sql`(블록 동기화 RPC, `chapter-images` 버킷) + `00003_payment_integrity.sql`(결제 이행 RPC, 구매 INSERT 봉인, 첫 챕터 미리보기) … `00007_block_id_conflicts.sql`(블록 ID 충돌 보고) · `00008_response_integrity.sql`(응답 쓰기 정책, 공개 전 문항 가림, 장 삭제 시 답 보존) · `00009_chapter_integrity.sql`(책 집계 트리거, 장 출간 시각, 본문 대조 동기화) · `00010_covers_bucket.sql`(covers 버킷과 소유자 정책) · `00011_book_table_of_contents.sql`(사지 않은 독자에게 장 제목만 여는 목차 함수). 코드 리뷰 WP별 마이그레이션은 `docs/agent-knowledge/code-review-fix-plan.md`를 보세요 + `00004`(집계에서 소유자 응답 제외) + `00005_payment_fixes.sql`(결제 행 INSERT 봉인과 생성 RPC, 구매-결제 연결, 이행·취소 RPC 보강) + `00006_buyer_access.sql`(구매를 공개 상태보다 먼저 보는 접근 판정, `chapter-images` 목록 봉인, 결제·구매 FK RESTRICT)
 - `content/`: 전자책 원고 및 콘텐츠 문서
 - `creator-outreach/`: 크리에이터 아웃리치 관련 문서
 - `.claude/`: Claude Code 커스텀 커맨드/프로젝트 메모
@@ -229,6 +229,7 @@ M4(2026-08-05)에서 확정했습니다. 여기서 지키는 규칙은 하나입
 - **`unlisted`(링크 공유)는 새로 고를 수 없습니다.** 열어 주는 경로가 없어 고르면 아무에게도 보이지 않았습니다. 설정 폼에서 뺐고 책 PUT이 새로 고르는 것을 거절합니다. 이미 그 값인 책은 DB에 그대로 둡니다.
 - **`chapter-images`의 SELECT는 소유자에게만 있습니다.** 공개 버킷이라 리더는 공개 URL로 이미지를 받습니다. SELECT를 넓히면 열리는 것은 Storage list API — 유료 책 이미지 파일명 전체입니다.
 - **`covers`도 같은 규칙입니다**(00010). 경로는 버킷 안의 `covers/{bookId}/{파일명}`이라 책 ID가 **두 번째** 폴더이고, 정책은 `cover_object_book_id()`로 꺼냅니다. 파일은 DB를 바꾼 뒤에 지우고(`lib/storage-cleanup.ts`), 장·책을 지우면 본문 이미지도 정리하되 다른 장이 아직 가리키는 파일은 남깁니다.
+- **목차(장 제목)는 사지 않은 독자에게도 보입니다**(00011, 2026-10-04 결정). 상세 화면은 소유자가 아니면 `book_table_of_contents()`로 published 장의 제목·순서만 읽습니다. 본문은 열지 않습니다 — 목차를 넓히려고 `chapters` SELECT 정책을 넓히지 마세요. 그러면 `content_html`까지 열립니다.
 - **미리보기는 맨 앞 published 챕터 하나뿐입니다.** 정책은 `chapters_select_preview`이고 판정은 `book_preview_chapter_id()`가 합니다. 여기를 한 칸이라도 넓히면 유료 콘텐츠가 공짜가 됩니다. 미리보기 챕터의 `workbook_blocks`는 열지 않습니다 — 리더가 블록을 본문 HTML에서 뽑으므로 화면은 그려지고, 응답은 `has_book_access`가 막습니다.
 - **응답 캐시 키에는 보는 사람이 들어갑니다.** 한 기기에서 익명 → 로그인 순으로 같은 책을 여는 것이 정상 경로입니다. 칸을 합치면 익명일 때 쓴 답이 로그인 화면에 뜨는데, 그 값은 서버로 보낼 큐에 없어 저장된 것처럼 보이기만 합니다.
 
@@ -286,6 +287,8 @@ M4(2026-08-05)에서 확정했습니다. 여기서 지키는 규칙은 하나입
 - 사용자 노출 문구는 한국어로 직접 씁니다. 다국어(next-intl)는 M0에서 삭제했습니다.
 - 새 타입은 기존 `src/types/` 구조와 가까운 위치에 두세요. 워크북 관련 타입은 `src/lib/workbook/types.ts`에 있습니다.
 - 중복 로직은 `src/lib/` 또는 커스텀 hook으로 분리하세요.
+- **목록 조회는 1000건에서 잘립니다**(PostgREST `max_rows`). 행 수가 사람 수·답 수·판매 수에 따라 늘어나는 조회는 `readAllRows()`(`lib/supabase/read-all.ts`)로 유일한 키 정렬과 함께 끝까지 읽으세요.
+- **조회 실패를 빈 결과로 넘기지 마세요.** supabase-js는 던지지 않고 `error`를 돌려줍니다. `data ?? []`로 넘기면 0원·"답한 사람 없음"·"장 없음"이 실제 결과처럼 나갑니다. 실패는 로그 + 500, 404는 행이 없을 때(PGRST116, `maybeSingle`의 `null`)만입니다. 저자 이름처럼 없어도 화면이 성립하는 장식 정보만 로그를 남기고 진행합니다.
 
 ## 보안 및 데이터 주의사항
 

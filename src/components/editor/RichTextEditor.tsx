@@ -49,6 +49,11 @@ export function RichTextEditor({
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
         codeBlock: { exitOnTripleEnter: false },
+        // StarterKit 3에도 Link·Underline이 들어 있습니다. 끄지 않으면 아래 설정과
+        // 함께 두 번 등록되고, StarterKit 쪽 Link(openOnClick: true) 때문에 편집 중
+        // 링크를 누르면 새 탭이 열립니다.
+        link: false,
+        underline: false,
       }),
       BlockExitOnEnter,
       SlashCommand.configure({ imageUploadRef }),

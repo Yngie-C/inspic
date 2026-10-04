@@ -49,7 +49,7 @@ export default function CreatorPage() {
     enabled: !!user,
   });
 
-  const { data: salesData } = useQuery<SalesData>({
+  const { data: salesData, isError: salesError } = useQuery<SalesData>({
     queryKey: ["sales-analytics"],
     queryFn: fetchSalesData,
     enabled: !!user,
@@ -72,7 +72,9 @@ export default function CreatorPage() {
   };
 
   const publishedBooks = books.filter((b) => b.status === "published");
-  const totalRevenue = salesData?.totalRevenue ?? 0;
+  // 불러오지 못했을 때 0원으로 그리면 판매가 있는 저자에게 실제 매출처럼
+  // 보입니다(코드 리뷰 7-P1-1). 값이 없으면 "—"입니다.
+  const totalRevenue = salesData?.totalRevenue;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
@@ -121,8 +123,13 @@ export default function CreatorPage() {
             <div>
               <p className="text-sm text-muted">총 판매액</p>
               <p className="text-2xl font-bold text-primary">
-                {totalRevenue.toLocaleString("ko-KR")}원
+                {totalRevenue === undefined
+                  ? "—"
+                  : `${totalRevenue.toLocaleString("ko-KR")}원`}
               </p>
+              {salesError && (
+                <p className="text-caption text-muted">불러오지 못했어요</p>
+              )}
             </div>
           </div>
         </div>

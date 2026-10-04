@@ -46,18 +46,30 @@ export function ReaderView({
   const router = useRouter();
   const chapters = book.chapters;
 
-  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  // 현재 장은 ID로 기억합니다. 순번만 들고 있으면 다시 받은 목록에서 장이
+  // 줄거나 순서가 바뀔 때 빈 화면이 되거나 조용히 다른 장으로 넘어갑니다.
+  // 그 장이 사라졌으면 있던 자리에서 가장 가까운 장을 엽니다.
+  const [position, setPosition] = useState(() => ({
+    id: chapters[initialIndex]?.id ?? null,
+    index: initialIndex,
+  }));
   const [tocOpen, setTocOpen] = useState(false);
 
+  const foundIndex = chapters.findIndex((chapter) => chapter.id === position.id);
+  const currentIndex =
+    foundIndex >= 0
+      ? foundIndex
+      : Math.max(0, Math.min(position.index, chapters.length - 1));
   const currentChapter = chapters[currentIndex];
   const isFirst = currentIndex === 0;
-  const isLast = currentIndex === chapters.length - 1;
+  const isLast = currentIndex >= chapters.length - 1;
   const isPreview = access.reason === "preview";
   const backHref = isLoggedIn ? "/my/library" : "/explore";
   const progress = ((currentIndex + 1) / chapters.length) * 100;
 
   const goTo = (index: number) => {
-    setCurrentIndex(Math.max(0, Math.min(index, chapters.length - 1)));
+    const next = Math.max(0, Math.min(index, chapters.length - 1));
+    setPosition({ id: chapters[next]?.id ?? null, index: next });
     setTocOpen(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -162,7 +174,11 @@ export function ReaderView({
             )}
 
             {isPreview ? (
-              <PreviewEnd bookId={book.id} price={book.price} />
+              <PreviewEnd
+                bookId={book.id}
+                price={book.price}
+                isLoggedIn={isLoggedIn}
+              />
             ) : (
               <nav
                 aria-label="장 이동"
@@ -252,14 +268,24 @@ function UnsavedNotice({
   isPreview: boolean;
   isLoggedIn: boolean;
 }) {
+  // 비로그인 미리보기에는 이미 산 독자도 있습니다(새 기기). 구매 안내만
+  // 띄우면 같은 책을 또 결제하게 되므로 로그인을 먼저 권합니다.
   const { title, description, href, label } = isPreview
-    ? {
-        title: "미리보기로 읽고 있어요",
-        description:
-          "여기에 쓴 답은 이 기기에만 남아요. 구매하면 계정에 저장되고 다른 기기에서 이어서 쓸 수 있어요.",
-        href: `/book/${bookId}`,
-        label: "책 정보 보기",
-      }
+    ? isLoggedIn
+      ? {
+          title: "미리보기로 읽고 있어요",
+          description:
+            "여기에 쓴 답은 이 기기에만 남아요. 구매하면 계정에 저장되고 다른 기기에서 이어서 쓸 수 있어요.",
+          href: `/book/${bookId}`,
+          label: "책 정보 보기",
+        }
+      : {
+          title: "미리보기로 읽고 있어요",
+          description:
+            "여기에 쓴 답은 이 기기에만 남아요. 이미 구매했다면 로그인해 주세요. 나머지 장이 열리고 답이 계정에 저장돼요.",
+          href: loginHref(bookId),
+          label: "로그인",
+        }
     : isLoggedIn
       ? {
           title: "답이 이 기기에만 남아요",
@@ -272,7 +298,7 @@ function UnsavedNotice({
           title: "답이 이 기기에만 남아요",
           description:
             "로그인하면 지금까지 쓴 답이 계정에 저장되고, 다른 기기에서 이어서 쓸 수 있어요.",
-          href: `/auth/login?redirect=/reader/${bookId}`,
+          href: loginHref(bookId),
           label: "로그인",
         };
 
@@ -296,19 +322,43 @@ function UnsavedNotice({
   );
 }
 
-/** 미리보기 챕터의 끝. 다음 챕터 대신 구매로 이어집니다. */
-function PreviewEnd({ bookId, price }: { bookId: string; price: number }) {
+/** 로그인 뒤 이 리더로 돌아오는 주소. */
+function loginHref(bookId: string) {
+  return `/auth/login?redirect=/reader/${bookId}`;
+}
+
+/**
+ * 미리보기 챕터의 끝. 다음 챕터 대신 구매로 이어집니다. 비로그인이면
+ * 이미 산 독자가 또 결제하지 않게 로그인도 함께 둡니다.
+ */
+function PreviewEnd({
+  bookId,
+  price,
+  isLoggedIn,
+}: {
+  bookId: string;
+  price: number;
+  isLoggedIn: boolean;
+}) {
   return (
     <div className="mt-16 flex flex-col items-start gap-2 border-t border-line pt-8">
       <p className="text-subtitle text-primary">미리보기는 여기까지예요</p>
       <p className="text-body-sm text-muted">
         구매하면 나머지 장을 읽고, 쓴 답을 계정에 저장할 수 있어요.
+        {!isLoggedIn && " 이미 구매했다면 로그인해 주세요."}
       </p>
-      <Button asChild className="mt-3">
-        <Link href={`/book/${bookId}`}>
-          {price.toLocaleString("ko-KR")}원 · 책 정보 보기
-        </Link>
-      </Button>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button asChild>
+          <Link href={`/book/${bookId}`}>
+            {price.toLocaleString("ko-KR")}원 · 책 정보 보기
+          </Link>
+        </Button>
+        {!isLoggedIn && (
+          <Button asChild variant="secondary">
+            <Link href={loginHref(bookId)}>로그인</Link>
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

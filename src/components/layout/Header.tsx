@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Menu, X, LogOut, Settings, Search } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,9 +28,19 @@ export function Header() {
   const user = useAuthStore((s) => s.user);
   const profile = useAuthStore((s) => s.profile);
   const signOut = useAuthStore((s) => s.signOut);
+  const { addToast } = useToast();
 
   const handleSignOut = async () => {
-    await signOut();
+    const { error } = await signOut();
+    if (error) {
+      console.error("[auth] 로그아웃하지 못했어요", error);
+      addToast({
+        title: "로그아웃하지 못했어요",
+        description: "아직 로그인된 상태예요. 연결을 확인하고 다시 시도해 주세요.",
+        variant: "error",
+      });
+      return;
+    }
     router.push("/");
   };
 

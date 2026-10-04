@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getAuthUser, apiError, apiSuccess } from "@/lib/api-utils";
+import { readAllRows } from "@/lib/supabase/read-all";
 
 export async function GET() {
   const user = await getAuthUser();
@@ -7,11 +8,17 @@ export async function GET() {
 
   const supabase = await createClient();
 
-  // 내 책 ID 목록
-  const { data: myBooks } = await supabase
+  // 조회 실패를 빈 결과로 넘기면 판매가 있는 저자에게 "0원 / 0건"이
+  // 실제 매출처럼 보입니다(코드 리뷰 7-P1-1). 500이어야 화면이 오류를 띄웁니다.
+  const { data: myBooks, error: booksError } = await supabase
     .from("books")
     .select("id, title, price")
     .eq("owner_id", user.id);
+
+  if (booksError) {
+    console.error("[analytics/sales] 책을 읽지 못했습니다", booksError.message);
+    return apiError("판매 현황을 불러오지 못했어요.", "SERVER_ERROR", 500);
+  }
 
   if (!myBooks || myBooks.length === 0) {
     return apiSuccess({
@@ -23,14 +30,24 @@ export async function GET() {
 
   const bookIds = myBooks.map((b) => b.id);
 
-  // 내 책들의 구매 기록
-  const { data: purchases } = await supabase
-    .from("purchases")
-    .select("book_id, price_paid")
-    .in("book_id", bookIds)
-    .eq("status", "completed");
+  // 내 책들의 구매 기록. 1000건에서 잘리면 매출이 덜 셉니다(7-P1-2).
+  const { data: purchaseList, error: purchasesError } = await readAllRows<{
+    book_id: string;
+    price_paid: number;
+  }>((from, to) =>
+    supabase
+      .from("purchases")
+      .select("book_id, price_paid")
+      .in("book_id", bookIds)
+      .eq("status", "completed")
+      .order("id")
+      .range(from, to),
+  );
 
-  const purchaseList = purchases ?? [];
+  if (purchasesError) {
+    console.error("[analytics/sales] 구매를 읽지 못했습니다", purchasesError.message);
+    return apiError("판매 현황을 불러오지 못했어요.", "SERVER_ERROR", 500);
+  }
 
   // 책별 통계 계산
   const bookStatsMap = new Map<string, { sales: number; revenue: number }>();
