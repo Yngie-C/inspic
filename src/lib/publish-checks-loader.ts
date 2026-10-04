@@ -1,4 +1,5 @@
 import type { createClient } from "./supabase/server";
+import { readAllRows } from "./supabase/read-all";
 import {
   runPublishChecks,
   type PublishCheck,
@@ -28,13 +29,6 @@ export interface PublishChecksOptions {
    */
   assumeChapterStatus?: { id: string; status: PublishCheckChapter["status"] };
 }
-
-/**
- * PostgREST는 한 번에 `max_rows`(기본 1000)까지만 돌려줍니다. 정렬 없이
- * 받으면 임의의 1000개만 와서, 동기화가 끝난 장이 호출마다 다르게
- * "저장되지 않음"으로 막힙니다(4-P1-26). 정렬된 범위로 끝까지 읽습니다.
- */
-const BLOCK_PAGE_SIZE = 1000;
 
 export async function loadPublishChecks(
   supabase: ServerClient,
@@ -88,40 +82,38 @@ export async function loadPublishChecks(
   };
 }
 
-/** 이 책의 저장된 블록 정의와 문항 전부. 읽지 못하면 null. */
+/**
+ * 이 책의 저장된 블록 정의와 문항 전부. 읽지 못하면 null.
+ *
+ * 정렬 없이 받으면 임의의 1000개만 와서, 동기화가 끝난 장이 호출마다 다르게
+ * "저장되지 않음"으로 막혔습니다(4-P1-26). 정렬된 범위로 끝까지 읽습니다.
+ */
 async function loadStoredBlocks(
   supabase: ServerClient,
   bookId: string,
 ): Promise<StoredBlock[] | null> {
-  const blocks: StoredBlock[] = [];
-
-  for (let from = 0; ; from += BLOCK_PAGE_SIZE) {
-    // 문항은 블록 아래에 묻어 옵니다(`max_rows`는 바깥 행에 걸립니다).
-    const { data, error } = await supabase
+  // 문항은 블록 아래에 묻어 옵니다(`max_rows`는 바깥 행에 걸립니다).
+  const { data, error } = await readAllRows<{
+    id: string;
+    chapter_id: string;
+    workbook_block_fields: StoredBlock["fields"] | null;
+  }>((from, to) =>
+    supabase
       .from("workbook_blocks")
       .select("id, chapter_id, workbook_block_fields(field_key, input_type)")
       .eq("book_id", bookId)
       .order("id", { ascending: true })
-      .range(from, from + BLOCK_PAGE_SIZE - 1);
+      .range(from, to),
+  );
 
-    if (error) {
-      console.error("[publish-checks] 블록을 읽지 못했습니다", { bookId, error });
-      return null;
-    }
-
-    const page = (data ?? []) as Array<{
-      id: string;
-      chapter_id: string;
-      workbook_block_fields: StoredBlock["fields"] | null;
-    }>;
-    for (const row of page) {
-      blocks.push({
-        id: row.id,
-        chapter_id: row.chapter_id,
-        fields: row.workbook_block_fields ?? [],
-      });
-    }
-
-    if (page.length < BLOCK_PAGE_SIZE) return blocks;
+  if (error) {
+    console.error("[publish-checks] 블록을 읽지 못했습니다", { bookId, error });
+    return null;
   }
+
+  return data.map((row) => ({
+    id: row.id,
+    chapter_id: row.chapter_id,
+    fields: row.workbook_block_fields ?? [],
+  }));
 }

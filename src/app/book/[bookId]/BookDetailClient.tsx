@@ -23,9 +23,16 @@ async function fetchBookDetail(bookId: string): Promise<BookDetailData> {
   const res = await fetch(`/api/books/${bookId}/detail`, {
     credentials: "include",
   });
-  if (!res.ok) throw new Error("책 정보를 불러오지 못했어요.");
+  if (!res.ok) throw new BookDetailError(res.status);
   const json = await res.json();
   return json.data;
+}
+
+/** 없는 책(404)과 불러오지 못한 것(5xx)은 독자에게 다른 안내입니다. */
+class BookDetailError extends Error {
+  constructor(readonly status: number) {
+    super("책 정보를 불러오지 못했어요.");
+  }
 }
 
 /** 공개는 검수 화면(`/create/preview`)에서 합니다. 여기서는 내리기만. */
@@ -48,7 +55,7 @@ export function BookDetailClient() {
 
   const [accessInfo, setAccessInfo] = useState<DetailAccess | null>(null);
 
-  const { data, isLoading, isError } = useQuery<BookDetailData>({
+  const { data, isLoading, isError, error, refetch } = useQuery<BookDetailData>({
     queryKey: ["book-detail", bookId],
     queryFn: () => fetchBookDetail(bookId),
     enabled: !!bookId,
@@ -98,21 +105,37 @@ export function BookDetailClient() {
   }
 
   if (isError || !data) {
+    // 일시 장애를 "삭제됐거나 권한 없음"으로 안내하면 산 독자가 책을 잃은 줄 압니다.
+    const notFound = error instanceof BookDetailError && error.status === 404;
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-1 px-4 text-center">
         <p className="text-subtitle text-primary">책 정보를 불러올 수 없어요</p>
         <p className="text-body-sm text-muted">
-          삭제됐거나 접근 권한이 없을 수 있어요.
+          {notFound
+            ? "삭제됐거나 접근 권한이 없을 수 있어요."
+            : "잠시 뒤 다시 시도해 주세요."}
         </p>
-        <Button variant="secondary" size="sm" className="mt-3" onClick={() => router.back()}>
-          돌아가기
-        </Button>
+        {notFound ? (
+          <Button variant="secondary" size="sm" className="mt-3" onClick={() => router.back()}>
+            돌아가기
+          </Button>
+        ) : (
+          <Button variant="secondary" size="sm" className="mt-3" onClick={() => refetch()}>
+            다시 시도
+          </Button>
+        )}
       </div>
     );
   }
 
-  const { book, chapters } = data;
-  const isOwner = viewAs === "customer" ? false : user?.id === book.owner_id;
+  const { book } = data;
+  const viewingAsCustomer = viewAs === "customer";
+  const isOwner = viewingAsCustomer ? false : user?.id === book.owner_id;
+  // 서버는 세션으로 소유자를 판정해 draft 장까지 보냅니다. 독자 화면으로
+  // 볼 때는 독자가 받는 것처럼 published 장만 그립니다(코드 리뷰 7-P2-8).
+  const chapters = viewingAsCustomer
+    ? data.chapters.filter((chapter) => chapter.status === "published")
+    : data.chapters;
 
   return (
     <BookDetailView

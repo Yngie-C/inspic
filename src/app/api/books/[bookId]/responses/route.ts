@@ -11,6 +11,7 @@ import {
 import type { LoadedResponse } from "@/lib/workbook/response-client";
 import { scaleRange } from "@/lib/workbook/block-config";
 import { isUuid } from "@/lib/template-node-id";
+import { readAllRows } from "@/lib/supabase/read-all";
 
 /**
  * 독자 응답의 읽기·쓰기 경로.
@@ -27,13 +28,6 @@ import { isUuid } from "@/lib/template-node-id";
 
 type Params = { params: Promise<{ bookId: string }> };
 
-/**
- * 한 번에 읽는 행 수. PostgREST의 기본 `max_rows`(1000)와 같게 둡니다.
- * 범위를 주지 않고 읽으면 그 수에서 조용히 잘려, 긴 워크북을 새 기기에서
- * 열 때 뒤쪽 답이 비어 보였습니다(코드 리뷰 3-P1-3).
- */
-const PAGE_SIZE = 1000;
-
 /** 내가 이 책에 쓴 응답 전체. 리더가 열 때 한 번 부릅니다. */
 export async function GET(_request: NextRequest, { params }: Params) {
   const user = await getAuthUser();
@@ -45,25 +39,21 @@ export async function GET(_request: NextRequest, { params }: Params) {
   }
 
   const supabase = await createClient();
-  const rows: ResponseRowFromDb[] = [];
 
-  // 정렬 키가 있어야 페이지 사이에 행이 빠지거나 겹치지 않습니다.
-  for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await supabase
+  // 범위 없이 읽으면 1000건에서 잘려, 긴 워크북을 새 기기에서 열 때 뒤쪽
+  // 답이 비어 보였습니다(코드 리뷰 3-P1-3).
+  const { data: rows, error } = await readAllRows<ResponseRowFromDb>((from, to) =>
+    supabase
       .from("workbook_responses")
       .select("block_id, field_key, value_text, value_number, value_bool, updated_at, written_at")
       .eq("book_id", bookId)
       .order("id")
-      .range(from, from + PAGE_SIZE - 1);
+      .range(from, to),
+  );
 
-    if (error) {
-      console.error("[responses] load failed", error);
-      return apiError("저장된 답을 불러오지 못했어요.", "SERVER_ERROR", 500);
-    }
-
-    const page = (data ?? []) as ResponseRowFromDb[];
-    rows.push(...page);
-    if (page.length < PAGE_SIZE) break;
+  if (error) {
+    console.error("[responses] load failed", error);
+    return apiError("저장된 답을 불러오지 못했어요.", "SERVER_ERROR", 500);
   }
 
   return apiSuccess(rows.map(toLoadedResponse));

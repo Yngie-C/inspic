@@ -48,6 +48,16 @@ export function isOrderIndex(value: unknown): value is number {
   );
 }
 
+/** 책 가격(원). 0은 무료. `books.price`가 INTEGER라 그 범위의 정수만 받습니다. */
+export function isBookPrice(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value <= 2_147_483_647
+  );
+}
+
 /** 설정 폼이 고를 수 있는 책 언어. */
 export const BOOK_LANGUAGES = ["ko", "en", "ja", "zh"] as const;
 

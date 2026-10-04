@@ -118,7 +118,7 @@
 | 4. 블록 동기화·출간 | 2026-10-02 | 56건 → 중복 정리 후 43건(P0 5 · P1 26 · P2 12, 2·3단계와 5건 겹침) | 0 | 3건만 scratchpad에서 재현, 앱 미확인. [결과](code-review-results/04-block-sync-publish.md) |
 | 5. 보안 입력 | 2026-10-03 | 35건 → 중복 정리 후 28건(P0 3 · P1 13 · P2 12) | 28 (묶음 A~D, PR #8~#11) | P0 3건·sanitize 3건은 코드 대조, 2건은 node 확인. 수정은 묶음 A~D로 끝냄. 앱 화면 확인은 아직 하지 않음. [결과](code-review-results/05-security-inputs.md) |
 | 6. 내보내기 |  |  |  |  |
-| 7. 조회·분석 API |  |  |  |  |
+| 7. 조회·분석 API | 2026-10-04 | 25건 → 중복 정리 후 22건(P0 0 · P1 9 · P2 13) | 21 (묶음 A~D, P2-9 보류) | 위치·RLS 대조함. 브랜치 `Yngie-C/fix-read-api`. `00011` 원격 적용·화면 확인 남음. [결과](code-review-results/07-read-analytics.md) |
 | 8. 나머지 UI |  |  |  |  |
 
 ## 검증

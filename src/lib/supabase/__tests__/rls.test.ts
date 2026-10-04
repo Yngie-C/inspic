@@ -366,6 +366,79 @@ describe("첫 챕터 미리보기", () => {
   });
 });
 
+
+/**
+ * 책 목차 (마이그레이션 00011, 코드 리뷰 7-P1-8).
+ *
+ * 사지 않은 독자도 공개된 장의 **제목**은 봅니다. 본문은 여전히 미리보기
+ * 장 하나뿐이어야 합니다 — 함수가 제목을 여는 사이 chapters 정책이
+ * 넓어지지 않았는지 함께 봅니다.
+ */
+describe("책 목차 (00011)", () => {
+  let tocBook: string;
+  let hiddenBook: string;
+
+  beforeAll(async () => {
+    tocBook = await seedBook(creator, "목차 확인용 유료 책", {
+      price: 9900,
+      status: "published",
+      visibility: "public",
+    });
+    await seedChapter(tocBook, "toc-2", "published", 1);
+    await seedChapter(tocBook, "toc-1", "published", 0);
+    await seedChapter(tocBook, "toc-draft", "draft", 2);
+    await seedChapter(tocBook, "toc-3", "published", 3);
+
+    hiddenBook = await seedBook(creator, "내린 유료 책", {
+      price: 9900,
+      status: "archived",
+      visibility: "private",
+    });
+    await seedChapter(hiddenBook, "hidden-1", "published", 0);
+    await db.query(
+      `INSERT INTO purchases (user_id, book_id, price_paid, status)
+       VALUES ($1, $2, 9900, 'completed')`,
+      [readerA, hiddenBook],
+    );
+  });
+
+  async function toc(bookId: string): Promise<string[]> {
+    const result = await db.query<{ slug: string }>(
+      `SELECT slug FROM public.book_table_of_contents($1)`,
+      [bookId],
+    );
+    return result.rows.map((row) => row.slug);
+  }
+
+  it("비로그인도 공개 유료 책의 published 장 제목을 순서대로 본다", async () => {
+    expect(await asAnon(() => toc(tocBook))).toEqual(["toc-1", "toc-2", "toc-3"]);
+  });
+
+  it("draft 장은 소유자에게도 목차에 나오지 않는다", async () => {
+    expect(await asUser(creator, () => toc(tocBook))).not.toContain("toc-draft");
+  });
+
+  it("본문은 함수로 열리지 않는다 — 장 행은 여전히 미리보기 하나뿐", async () => {
+    await expect(
+      asAnon(() => db.query(`SELECT content_html FROM public.book_table_of_contents($1)`, [tocBook])),
+    ).rejects.toThrow();
+    const found = await asAnon(() =>
+      countRows(`SELECT 1 FROM chapters WHERE book_id = $1`, [tocBook]),
+    );
+    expect(found).toBe(1);
+  });
+
+  it("공개 중이 아닌 책은 사지 않은 사람에게 목차가 없다", async () => {
+    expect(await asAnon(() => toc(hiddenBook))).toEqual([]);
+    expect(await asUser(readerB, () => toc(hiddenBook))).toEqual([]);
+    expect(await asAnon(() => toc(privateBook))).toEqual([]);
+  });
+
+  it("내린 책도 산 독자에게는 목차가 있다", async () => {
+    expect(await asUser(readerA, () => toc(hiddenBook))).toEqual(["hidden-1"]);
+  });
+});
+
 describe("워크북 블록 정의", () => {
   it("비구매자는 유료 책의 문항을 읽지 못한다 — 문항만 훔쳐가는 경로를 막는다", async () => {
     const blocks = await asUser(readerB, () =>

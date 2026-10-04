@@ -31,10 +31,15 @@ async function fetchAuthorMap(
   const map = new Map<string, string | null>();
   if (ownerIds.length === 0) return map;
 
-  const { data: profiles } = await admin
+  const { data: profiles, error } = await admin
     .from("user_profiles")
     .select("user_id, display_name")
     .in("user_id", ownerIds);
+
+  // 저자 이름은 없어도 책 목록은 그려집니다. 막지 않고 남기기만 합니다.
+  if (error) {
+    console.error("[landing/route] 저자 이름을 읽지 못했습니다", error.message);
+  }
 
   for (const p of (profiles ?? [])) {
     map.set(p.user_id as string, p.display_name as string | null);

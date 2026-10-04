@@ -131,9 +131,8 @@ export function BookDetailView({
                   key={chapter.id}
                   className="grid grid-cols-[36px_minmax(0,1fr)_auto] items-baseline gap-2 border-b border-line py-[11px] text-body tabular-nums"
                 >
-                  <span className="text-caption text-muted">
-                    {chapter.order_index + 1}
-                  </span>
+                  {/* order_index는 draft 장 자리까지 세어 독자에게는 번호가 건너뜁니다. */}
+                  <span className="text-caption text-muted">{i + 1}</span>
                   <span className="flex min-w-0 items-baseline gap-2">
                     <span className="truncate">{chapter.title}</span>
                     {isPreviewOnly && i === 0 && (
