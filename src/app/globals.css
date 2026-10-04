@@ -169,6 +169,15 @@
     border-radius: var(--radius-xs);
   }
 
+  /* 형광펜은 strong과 같은 mark 면이고 굵기만 본문 그대로다. 브라우저 기본 노랑을 쓰지 않는다. */
+  .reader-content mark,
+  .prose mark {
+    background: var(--color-mark);
+    color: inherit;
+    padding: 0 0.15em;
+    border-radius: var(--radius-xs);
+  }
+
   /* 2px 세로선은 Callout 전용이다. 인용은 1px로 한 단계 낮추고 들여쓰기를 Callout(16px)에 맞춘다. */
   .reader-content blockquote {
     border-left: 1px solid var(--color-line-strong);
