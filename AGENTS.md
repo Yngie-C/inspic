@@ -62,7 +62,7 @@ TTS·오디오북 · 하이라이트/북마크/독서진행률/리더설정 · �
   - `payments/`: 결제 이행 — Toss 상태 매핑(순수), 이행·보상 절차, 서버 포트
 - `src/stores/`: Zustand stores
 - `src/types/`: TypeScript 타입 정의
-- `supabase/migrations/`: Supabase DB 마이그레이션. `00001_initial_schema.sql`(초기 스키마) + `00002_workbook_block_sync.sql`(블록 동기화 RPC, `chapter-images` 버킷) + `00003_payment_integrity.sql`(결제 이행 RPC, 구매 INSERT 봉인, 첫 챕터 미리보기) … `00007_block_id_conflicts.sql`(블록 ID 충돌 보고) · `00008_response_integrity.sql`(응답 쓰기 정책, 공개 전 문항 가림, 장 삭제 시 답 보존) · `00009_chapter_integrity.sql`(책 집계 트리거, 장 출간 시각, 본문 대조 동기화). 코드 리뷰 WP별 마이그레이션은 `docs/agent-knowledge/code-review-fix-plan.md`를 보세요 + `00004`(집계에서 소유자 응답 제외) + `00005_payment_fixes.sql`(결제 행 INSERT 봉인과 생성 RPC, 구매-결제 연결, 이행·취소 RPC 보강) + `00006_buyer_access.sql`(구매를 공개 상태보다 먼저 보는 접근 판정, `chapter-images` 목록 봉인, 결제·구매 FK RESTRICT)
+- `supabase/migrations/`: Supabase DB 마이그레이션. `00001_initial_schema.sql`(초기 스키마) + `00002_workbook_block_sync.sql`(블록 동기화 RPC, `chapter-images` 버킷) + `00003_payment_integrity.sql`(결제 이행 RPC, 구매 INSERT 봉인, 첫 챕터 미리보기) … `00007_block_id_conflicts.sql`(블록 ID 충돌 보고) · `00008_response_integrity.sql`(응답 쓰기 정책, 공개 전 문항 가림, 장 삭제 시 답 보존) · `00009_chapter_integrity.sql`(책 집계 트리거, 장 출간 시각, 본문 대조 동기화) · `00010_covers_bucket.sql`(covers 버킷과 소유자 정책). 코드 리뷰 WP별 마이그레이션은 `docs/agent-knowledge/code-review-fix-plan.md`를 보세요 + `00004`(집계에서 소유자 응답 제외) + `00005_payment_fixes.sql`(결제 행 INSERT 봉인과 생성 RPC, 구매-결제 연결, 이행·취소 RPC 보강) + `00006_buyer_access.sql`(구매를 공개 상태보다 먼저 보는 접근 판정, `chapter-images` 목록 봉인, 결제·구매 FK RESTRICT)
 - `content/`: 전자책 원고 및 콘텐츠 문서
 - `creator-outreach/`: 크리에이터 아웃리치 관련 문서
 - `.claude/`: Claude Code 커스텀 커맨드/프로젝트 메모
@@ -228,6 +228,7 @@ M4(2026-08-05)에서 확정했습니다. 여기서 지키는 규칙은 하나입
 - **판매된 책은 지우지 않고 내립니다.** `purchases`·`payment_transactions`의 `book_id`는 `ON DELETE RESTRICT`입니다(00006). 결제 행이 하나라도 있으면(결제창만 연 주문 포함) 책 삭제가 FK 위반(23503)으로 거절되고, 라우트는 `HAS_SALES`(409)로 "비공개로 전환해 주세요"를 안내합니다. 앱에서 구매 수를 미리 세지 마세요 — 저자는 남의 결제 행을 볼 수 없고, 세는 사이에 결제가 들어올 수 있습니다.
 - **`unlisted`(링크 공유)는 새로 고를 수 없습니다.** 열어 주는 경로가 없어 고르면 아무에게도 보이지 않았습니다. 설정 폼에서 뺐고 책 PUT이 새로 고르는 것을 거절합니다. 이미 그 값인 책은 DB에 그대로 둡니다.
 - **`chapter-images`의 SELECT는 소유자에게만 있습니다.** 공개 버킷이라 리더는 공개 URL로 이미지를 받습니다. SELECT를 넓히면 열리는 것은 Storage list API — 유료 책 이미지 파일명 전체입니다.
+- **`covers`도 같은 규칙입니다**(00010). 경로는 버킷 안의 `covers/{bookId}/{파일명}`이라 책 ID가 **두 번째** 폴더이고, 정책은 `cover_object_book_id()`로 꺼냅니다. 파일은 DB를 바꾼 뒤에 지우고(`lib/storage-cleanup.ts`), 장·책을 지우면 본문 이미지도 정리하되 다른 장이 아직 가리키는 파일은 남깁니다.
 - **미리보기는 맨 앞 published 챕터 하나뿐입니다.** 정책은 `chapters_select_preview`이고 판정은 `book_preview_chapter_id()`가 합니다. 여기를 한 칸이라도 넓히면 유료 콘텐츠가 공짜가 됩니다. 미리보기 챕터의 `workbook_blocks`는 열지 않습니다 — 리더가 블록을 본문 HTML에서 뽑으므로 화면은 그려지고, 응답은 `has_book_access`가 막습니다.
 - **응답 캐시 키에는 보는 사람이 들어갑니다.** 한 기기에서 익명 → 로그인 순으로 같은 책을 여는 것이 정상 경로입니다. 칸을 합치면 익명일 때 쓴 답이 로그인 화면에 뜨는데, 그 값은 서버로 보낼 큐에 없어 저장된 것처럼 보이기만 합니다.
 

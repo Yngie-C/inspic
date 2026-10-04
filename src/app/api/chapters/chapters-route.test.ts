@@ -61,6 +61,9 @@ vi.mock("@/lib/publish-checks-loader", () => ({
   loadPublishChecks: loader.load,
 }));
 
+const cleanup = vi.hoisted(() => ({ removeChapterImages: vi.fn(async () => {}) }));
+vi.mock("@/lib/storage-cleanup", () => cleanup);
+
 const { POST } = await import("./route");
 const { PUT, DELETE } = await import("./[chapterId]/route");
 
@@ -456,5 +459,25 @@ describe("DELETE /api/chapters/[chapterId]", () => {
 
     expect(res.status).toBe(200);
     expect(mocks.queries.some((q) => q.table === "books")).toBe(false);
+  });
+
+  it("지운 뒤 그 장의 본문 이미지를 정리한다 (5-P2-11)", async () => {
+    cleanup.removeChapterImages.mockClear();
+    await DELETE(jsonRequest(undefined), params);
+    expect(cleanup.removeChapterImages).toHaveBeenCalledExactlyOnceWith(BOOK, CHAPTER);
+  });
+
+  it("장을 지우지 못하면 이미지를 건드리지 않는다", async () => {
+    cleanup.removeChapterImages.mockClear();
+    const respond = mocks.respond;
+    mocks.respond = (query) =>
+      query.ops.includes("delete") ? { data: null, error: { message: "boom" } } : respond(query);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await DELETE(jsonRequest(undefined), params);
+
+    expect(res.status).toBe(500);
+    expect(cleanup.removeChapterImages).not.toHaveBeenCalled();
+    mocks.respond = respond;
   });
 });

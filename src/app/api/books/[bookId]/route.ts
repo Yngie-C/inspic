@@ -15,6 +15,7 @@ import {
   readBookTitle,
 } from "@/lib/authoring-input";
 import { loadPublishChecks } from "@/lib/publish-checks-loader";
+import { removeBookFiles } from "@/lib/storage-cleanup";
 import { blockers } from "@/lib/publish-checks";
 
 type Params = { params: Promise<{ bookId: string }> };
@@ -229,7 +230,7 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
 
   const { data: existing, error: fetchError } = await supabase
     .from("books")
-    .select("owner_id")
+    .select("owner_id, cover_image_url")
     .eq("id", bookId)
     .single();
 
@@ -254,6 +255,10 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
     console.error("[books] 책을 삭제하지 못했습니다", { bookId, error });
     return apiError("책을 삭제하지 못했어요. 잠시 뒤 다시 시도해 주세요.", "SERVER_ERROR", 500);
   }
+
+  // 파일은 책이 지워진 뒤에 지웁니다. 먼저 지우면 삭제가 거절됐을 때(판매된
+  // 책) 산 독자의 표지·본문 이미지가 깨집니다.
+  await removeBookFiles(bookId, existing.cover_image_url);
 
   return apiSuccess({ deleted: true });
 }
