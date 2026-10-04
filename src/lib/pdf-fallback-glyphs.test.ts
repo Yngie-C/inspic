@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { applyTemplateFallback } from "./template-fallback";
+import { MISSING_CHAPTER_NOTE, MISSING_CHAPTER_TITLE } from "./pdf-generator";
 
 // fontkit은 CommonJS라 ESM 기본 임포트로는 undefined가 옵니다.
 const fontkit = createRequire(import.meta.url)("fontkit") as {
@@ -78,6 +79,8 @@ const PDF_LITERALS = [
   "•",
   "저자가 이후 수정한 문항의 답",
   "아래 답을 받던 문항은 저자가 책을 고치면서 사라졌어요. 질문 문구는 남아 있지 않지만 쓰신 내용은 그대로예요.",
+  MISSING_CHAPTER_TITLE,
+  MISSING_CHAPTER_NOTE,
 ].join("");
 
 function charactersUsedByPdf(): string {
@@ -90,7 +93,7 @@ function charactersUsedByPdf(): string {
   // 태그와 엔티티는 PDF에 찍히지 않습니다.
   return (filled + empty + PDF_LITERALS)
     .replace(/<[^>]*>/g, "")
-    .replace(/&[a-z]+;/g, "");
+    .replace(/&[a-z0-9#]+;/gi, "");
 }
 
 describe.each(FONT_FILES)("%s", (file) => {

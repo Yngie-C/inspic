@@ -1,12 +1,13 @@
 import { NextRequest } from "next/server";
-import { renderToBuffer } from "@react-pdf/renderer";
-import { createElement } from "react";
-import type { ReactElement } from "react";
-import type { DocumentProps } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthUser, apiError } from "@/lib/api-utils";
-import { BookPDF } from "@/lib/pdf-generator";
-import { exportFilename, loadExportSource } from "@/lib/export-source";
+import { renderBookPdf } from "@/lib/pdf-generator";
+import {
+  exportContentDisposition,
+  exportFilename,
+  loadExportSource,
+} from "@/lib/export-source";
+import { isUuid } from "@/lib/template-node-id";
 import { splitAnswers, type StoredResponseRow } from "@/lib/workbook/export-answers";
 
 /**
@@ -22,6 +23,10 @@ export async function GET(request: NextRequest) {
 
   if (!bookId) {
     return apiError("bookId query parameter is required", "VALIDATION_ERROR", 400);
+  }
+  // 형식이 틀린 ID를 DB에 넘기면 uuid 형변환 오류(22P02)가 500으로 나갑니다.
+  if (!isUuid(bookId)) {
+    return apiError("책 주소가 올바르지 않아요.", "VALIDATION_ERROR", 400);
   }
 
   const user = await getAuthUser();
@@ -41,18 +46,15 @@ export async function GET(request: NextRequest) {
   }
 
   const { book, chapters, authorName } = loaded.source;
-  const { answers, orphans } = splitAnswers(chapters, await loadResponses(bookId, user?.id));
+  const responses = await loadResponses(bookId, user?.id);
+  if (!responses) {
+    return apiError("저장된 답을 불러오지 못했어요.", "SERVER_ERROR", 500);
+  }
+  const { answers, orphans } = splitAnswers(chapters, responses);
 
   let pdfBuffer: Buffer;
   try {
-    const element = createElement(BookPDF, {
-      book,
-      chapters,
-      authorName,
-      answers,
-      orphans,
-    }) as ReactElement<DocumentProps>;
-    pdfBuffer = await renderToBuffer(element);
+    pdfBuffer = await renderBookPdf({ book, chapters, authorName, answers, orphans });
   } catch (err) {
     const message = err instanceof Error ? err.message : "PDF generation failed";
     return apiError(`PDF generation failed: ${message}`, "SERVER_ERROR", 500);
@@ -69,7 +71,7 @@ export async function GET(request: NextRequest) {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+      "Content-Disposition": exportContentDisposition(filename),
       "Content-Length": pdfBuffer.byteLength.toString(),
       "Cache-Control": "no-store",
     },
@@ -77,25 +79,52 @@ export async function GET(request: NextRequest) {
 }
 
 /**
+ * 한 번에 읽는 행 수. PostgREST의 기본 `max_rows`(1000)와 같게 둡니다.
+ * 범위 없이 읽으면 그 수에서 조용히 잘려 뒤쪽 답이 빈칸으로 나갑니다.
+ */
+const PAGE_SIZE = 1000;
+
+/**
  * 비로그인으로 무료 책을 받는 경우가 있습니다. 그때는 계정에 남은 답이
  * 없으므로 빈 워크시트가 나옵니다.
+ *
+ * 조회가 실패하면 `null`입니다. 빈 목록으로 넘기면 답이 전부 빈칸인
+ * PDF가 정상인 것처럼 나갑니다.
  */
 async function loadResponses(
   bookId: string,
   userId: string | undefined,
-): Promise<StoredResponseRow[]> {
+): Promise<StoredResponseRow[] | null> {
   if (!userId) return [];
 
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("workbook_responses")
-    .select("chapter_id, block_id, field_key, value_text, value_number, value_bool")
-    .eq("book_id", bookId);
+  const rows: StoredResponseRow[] = [];
 
-  return (data ?? []).map((row) => ({
-    ...row,
-    // NUMERIC은 드라이버에 따라 문자열로 옵니다. 그대로 두면 척도 답이
-    // 조용히 미응답으로 보입니다 (리더가 겪은 것과 같은 문제입니다).
-    value_number: row.value_number === null ? null : Number(row.value_number),
-  }));
+  // 정렬 키가 있어야 페이지 사이에 행이 빠지거나 겹치지 않습니다.
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("workbook_responses")
+      .select("chapter_id, block_id, field_key, value_text, value_number, value_bool")
+      .eq("book_id", bookId)
+      .order("id")
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (error) {
+      console.error("[pdf] responses load failed", error);
+      return null;
+    }
+
+    const page = data ?? [];
+    for (const row of page) {
+      rows.push({
+        ...row,
+        // NUMERIC은 드라이버에 따라 문자열로 옵니다. 그대로 두면 척도 답이
+        // 조용히 미응답으로 보입니다 (리더가 겪은 것과 같은 문제입니다).
+        value_number: row.value_number === null ? null : Number(row.value_number),
+      });
+    }
+    if (page.length < PAGE_SIZE) break;
+  }
+
+  return rows;
 }

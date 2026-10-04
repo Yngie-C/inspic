@@ -42,14 +42,24 @@ export function applyTemplateFallback(
 ): string {
   const { answers = {}, emoji = true } = options;
 
-  return html.replace(
-    /<section\s+[^>]*data-template-type="([^"]*)"[^>]*>[\s\S]*?<\/section>/g,
-    (match, type: string) => {
-      const blockId = getAttr(match, "data-node-id");
-      return convertToFallback(type, match, answers[blockId] ?? {}, emoji);
-    },
-  );
+  return html.replace(TEMPLATE_SECTION, (match, attrs: string) => {
+    const type = getAttr(attrs, "data-template-type");
+    if (!type) return match;
+    const blockId = getAttr(attrs, "data-node-id");
+    return convertToFallback(type, attrs, match, answers[blockId] ?? {}, emoji);
+  });
 }
+
+/**
+ * `<section ...>…</section>`. 여는 태그의 속성은 따옴표 단위로 건넙니다.
+ *
+ * `[^>]*`로 훑으면 속성값 안의 `>`에서 태그가 끝난 것으로 봅니다.
+ * sanitize는 속성값의 `>`를 이스케이프하지 않고 에디터는
+ * `data-template-type`을 맨 뒤에 붙이므로, 질문·항목·라벨에 `>`가
+ * 하나만 있어도 블록이 변환되지 않아 문항과 답이 통째로 빠졌습니다.
+ */
+const TEMPLATE_SECTION =
+  /<section((?:\s+[^\s"'>\/=]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]+))?)*)\s*>[\s\S]*?<\/section>/g;
 
 /**
  * HTML 속성값을 읽습니다.
@@ -58,18 +68,28 @@ export function applyTemplateFallback(
  * 속성도 `[^"]*`로 잘라낼 수 있습니다. 대신 꺼낸 뒤에 엔티티를
  * 되돌려야 JSON.parse가 됩니다.
  */
-function getAttr(html: string, attr: string): string {
-  const matched = html.match(new RegExp(`${attr}="([^"]*)"`));
+function getAttr(attrs: string, attr: string): string {
+  const matched = attrs.match(new RegExp(`(?:^|\\s)${attr}="([^"]*)"`));
   return matched ? decodeEntities(matched[1]) : "";
 }
 
+/** `&amp;`는 마지막에 풉니다. 먼저 풀면 `&amp;lt;`가 `<`까지 두 번 풀립니다. */
 function decodeEntities(value: string): string {
   return value
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
+    .replace(/&nbsp;/g, "\u00a0")
+    .replace(/&#(\d+);/g, (entity, code: string) => fromCodePoint(entity, Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (entity, code: string) =>
+      fromCodePoint(entity, parseInt(code, 16)),
+    )
     .replace(/&amp;/g, "&");
+}
+
+function fromCodePoint(entity: string, code: number): string {
+  return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : entity;
 }
 
 function escapeHtml(value: string): string {
@@ -78,6 +98,16 @@ function escapeHtml(value: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 }
+
+/**
+ * 답을 쓰지 않은 자리. 인쇄해서 손으로 채우는 경우가 있어 빈 줄을 남깁니다.
+ *
+ * `&nbsp;`가 아니라 `&#160;`인 이유는 EPUB 장 파일이 DTD 없는 XHTML이라
+ * 이름 엔티티가 정의되지 않은 엔티티(XML 오류)이기 때문입니다. 클래스는
+ * PDF가 이 칸을 "빈 문단"과 구분해 쓸 자리로 그리는 표시입니다.
+ */
+export const BLANK_ANSWER_CLASS = "answer-blank";
+const BLANK_ANSWER = `<p class="${BLANK_ANSWER_CLASS}">&#160;</p>`;
 
 /**
  * 자유서술 답을 문단으로 바꿉니다.
@@ -89,7 +119,7 @@ function escapeHtml(value: string): string {
  */
 function answerParagraphs(answer: WorkbookAnswer): string {
   if (typeof answer !== "string" || answer.trim() === "") {
-    return "<p>&nbsp;</p>";
+    return BLANK_ANSWER;
   }
 
   return answer
@@ -102,7 +132,7 @@ function answerParagraphs(answer: WorkbookAnswer): string {
 
 /** 자유서술 답을 표 칸처럼 한 덩어리로. 줄바꿈은 공백으로 접습니다. */
 function answerInline(answer: WorkbookAnswer): string {
-  if (typeof answer !== "string" || answer.trim() === "") return "&nbsp;";
+  if (typeof answer !== "string" || answer.trim() === "") return "&#160;";
   return escapeHtml(answer.replace(/\s+/g, " ").trim());
 }
 
@@ -115,13 +145,14 @@ const CALLOUT_PREFIX: Record<CalloutType, { emoji: string; text: string }> = {
 
 function convertToFallback(
   type: string,
+  attrs: string,
   match: string,
   answers: Record<string, WorkbookAnswer>,
   emoji: boolean,
 ): string {
   switch (type) {
     case "checklist": {
-      const items = parseChecklistItems(getAttr(match, "data-items"));
+      const items = parseChecklistItems(getAttr(attrs, "data-items"));
       if (items.length === 0) return "";
       // ☐/☑(U+2610/2611)이 아니라 □/✓를 쓰는 이유는 앞의 둘이 한글
       // 폰트에 없어서 PDF에서 네모로 찍히기 때문입니다.
@@ -136,14 +167,14 @@ function convertToFallback(
 
     case "callout": {
       // 콜아웃은 크리에이터가 쓴 안내문이라 독자가 채울 칸이 없습니다.
-      const prefix = CALLOUT_PREFIX[calloutTypeOf(getAttr(match, "data-callout-type"))];
+      const prefix = CALLOUT_PREFIX[calloutTypeOf(getAttr(attrs, "data-callout-type"))];
       const marker = emoji ? prefix.emoji : prefix.text;
-      const text = getAttr(match, "data-content");
+      const text = getAttr(attrs, "data-content");
       return `<blockquote>${marker} ${escapeHtml(text)}</blockquote>`;
     }
 
     case "reflection": {
-      const prompt = getAttr(match, "data-prompt");
+      const prompt = getAttr(attrs, "data-prompt");
       return `<p><strong>${escapeHtml(prompt)}</strong></p>\n${answerParagraphs(answers.answer)}`;
     }
 
@@ -157,11 +188,11 @@ function convertToFallback(
 
     case "scale": {
       const { min, max } = scaleRange(
-        getAttr(match, "data-min"),
-        getAttr(match, "data-max"),
+        getAttr(attrs, "data-min"),
+        getAttr(attrs, "data-max"),
       );
-      const labelMin = getAttr(match, "data-label-min");
-      const labelMax = getAttr(match, "data-label-max");
+      const labelMin = getAttr(attrs, "data-label-min");
+      const labelMax = getAttr(attrs, "data-label-max");
       const minPart = labelMin ? `[${escapeHtml(labelMin)}] ` : "";
       const maxPart = labelMax ? ` [${escapeHtml(labelMax)}]` : "";
       const value = answers.value;
@@ -172,8 +203,7 @@ function convertToFallback(
 
     default:
       // 모르는 블록은 data-* 속성만 걷어내고 내용은 그대로 둡니다.
-      return match
-        .replace(/<section\s+[^>]*>/, "<div>")
-        .replace(/<\/section>$/, "</div>");
+      // 여는 태그의 끝은 속성 뒤의 첫 `>`입니다(속성값 안의 `>`를 건너뜁니다).
+      return `<div>${match.slice(match.indexOf(">", "<section".length + attrs.length) + 1, -"</section>".length)}</div>`;
   }
 }

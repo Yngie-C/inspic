@@ -4,7 +4,8 @@ import { createElement } from "react";
 import type { ReactElement } from "react";
 import { renderToBuffer, type DocumentProps } from "@react-pdf/renderer";
 import zlib from "node:zlib";
-import { BookPDF, stripHtmlForPdf } from "./pdf-generator";
+import { BookPDF, placeOrphans, stripHtmlForPdf } from "./pdf-generator";
+import { applyTemplateFallback } from "./template-fallback";
 import type { Book, Chapter } from "@/types";
 
 /**
@@ -141,5 +142,134 @@ describe("stripHtmlForPdf 표", () => {
     expect(blocks).toEqual([
       { type: "tablerow", text: "A 달성 가능한가?", value: "" },
     ]);
+  });
+});
+
+describe("stripHtmlForPdf 블록 경계", () => {
+  it("코드 블록을 다음 문단과 합치지 않는다", () => {
+    expect(stripHtmlForPdf("<pre><code>a\nb</code></pre><p>next</p>")).toEqual([
+      { type: "code", text: "a\nb" },
+      { type: "paragraph", text: "next" },
+    ]);
+  });
+
+  /** `<b`가 `<blockquote>`의 여는 태그까지 먹으면 콜아웃이 일반 문단이 됩니다. */
+  it("뒤에 굵은 글씨가 있어도 인용을 인용으로 둔다", () => {
+    expect(
+      stripHtmlForPdf("<blockquote>[팁] 먼저 읽기</blockquote><p><b>굵게</b> 끝</p>"),
+    ).toEqual([
+      { type: "blockquote", text: "[팁] 먼저 읽기" },
+      { type: "paragraph", text: "굵게 끝" },
+    ]);
+  });
+
+  it("뒤에 밑줄이 있어도 목록을 목록으로 둔다", () => {
+    expect(stripHtmlForPdf("<ul><li><p>항목</p></li></ul><p><u>밑줄</u></p>")).toEqual([
+      { type: "listitem", text: "항목" },
+      { type: "paragraph", text: "밑줄" },
+    ]);
+  });
+
+  it("중첩 목록의 부모와 자식을 한 항목으로 합치지 않는다", () => {
+    expect(
+      stripHtmlForPdf(
+        "<ul><li><p>a</p><ul><li><p>b</p></li><li><p>c</p></li></ul></li><li><p>d</p></li></ul>",
+      ),
+    ).toEqual([
+      { type: "listitem", text: "a" },
+      { type: "listitem", text: "b" },
+      { type: "listitem", text: "c" },
+      { type: "listitem", text: "d" },
+    ]);
+  });
+
+  it("인용 안의 두 문단을 붙여 쓰지 않는다", () => {
+    expect(stripHtmlForPdf("<blockquote><p>첫</p><p>둘</p></blockquote>")).toEqual([
+      { type: "blockquote", text: "첫 둘" },
+    ]);
+  });
+});
+
+describe("stripHtmlForPdf 엔티티", () => {
+  it("독자가 적은 &lt;를 한 번만 푼다", () => {
+    expect(stripHtmlForPdf("<p>&amp;lt;b&amp;gt; 태그</p>")).toEqual([
+      { type: "paragraph", text: "&lt;b&gt; 태그" },
+    ]);
+  });
+
+  it("숫자 엔티티를 푼다", () => {
+    expect(stripHtmlForPdf("<p>A&#160;B &#x2014; C</p>")).toEqual([
+      { type: "paragraph", text: "A B — C" },
+    ]);
+  });
+});
+
+describe("답을 쓰지 않은 칸", () => {
+  /** 인쇄해서 손으로 채우는 경우가 있습니다. 빈 칸이 사라지면 쓸 자리가 없습니다. */
+  it("성찰의 빈 답을 쓸 자리로 남긴다", () => {
+    const blocks = stripHtmlForPdf(
+      applyTemplateFallback(
+        '<section data-template-type="reflection" data-node-id="b" data-prompt="질문"></section>',
+        { emoji: false },
+      ),
+    );
+
+    expect(blocks).toEqual([
+      { type: "paragraph", text: "질문" },
+      { type: "answerblank", text: "" },
+    ]);
+  });
+
+  it("저자가 넣은 빈 문단은 쓸 자리로 만들지 않는다", () => {
+    expect(stripHtmlForPdf("<p>&nbsp;</p><p></p>")).toEqual([]);
+  });
+});
+
+describe("placeOrphans", () => {
+  const chapters = [{ id: "ch-1" }];
+
+  it("실린 장의 답은 그 장에 붙인다", () => {
+    const { byChapter, missingChapter } = placeOrphans(chapters, [
+      { chapter_id: "ch-1", text: "실린 장" },
+    ]);
+
+    expect(byChapter.get("ch-1")).toEqual(["실린 장"]);
+    expect(missingChapter).toEqual([]);
+  });
+
+  /** 저자가 공개를 내린 장은 PDF에 없어서, 장별로 모으면 답이 통째로 빠집니다. */
+  it("공개를 내린 장과 지운 장의 답을 맨 뒤로 모은다", () => {
+    const { byChapter, missingChapter } = placeOrphans(chapters, [
+      { chapter_id: "ch-draft", text: "내린 장" },
+      { chapter_id: null, text: "지운 장" },
+    ]);
+
+    expect(byChapter.size).toBe(0);
+    expect(missingChapter).toEqual(["내린 장", "지운 장"]);
+  });
+});
+
+describe("목차 쪽 번호", () => {
+  /** 예전에는 `i + 3`으로 세서 장이 여러 쪽에 걸치면 둘째 장부터 틀렸습니다. */
+  it("각 장이 실제로 시작하는 쪽을 알려 준다", async () => {
+    const long = Array.from({ length: 120 }, (_, i) => `<p>${i}번째 문단입니다.</p>`).join("");
+    const pages = new Map<string, number>();
+
+    await render(
+      createElement(BookPDF, {
+        book: BOOK,
+        chapters: [
+          { ...chapter(long), id: "ch-1" },
+          { ...chapter("<p>짧은 장</p>"), id: "ch-2", title: "2장" },
+        ],
+        authorName: "김작가",
+        onChapterPage: (id: string, page: number) => {
+          if (!pages.has(id)) pages.set(id, page);
+        },
+      }) as ReactElement<DocumentProps>,
+    );
+
+    expect(pages.get("ch-1")).toBe(3);
+    expect(pages.get("ch-2")).toBeGreaterThan(4);
   });
 });
