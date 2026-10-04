@@ -78,7 +78,7 @@
 
 | 묶음 | 지적 | 비고 |
 |---|---|---|
-| A. 인증 경로 | P0-1, P0-3, P1-8, P2-12 | **수정함 (2026-10-03, 브랜치 `Yngie-C/fix-auth-redirect`).** `safeInternalPath`가 `new URL()`로 해석해 origin을 비교하고 해석한 경로를 돌려줌, 미들웨어는 경로 단위 비교(`matchesRoute`)·리디렉트에 세션 쿠키 옮겨 담기·돌아갈 주소에 쿼리 포함. 테스트 `safe-redirect.test.ts`, `supabase/middleware.test.ts` |
-| B. 업로드 | P0-2, P1-1~3, P1-6, P1-11~13, P2-2~6 | 라우트·파서·업로드 화면이 얽혀 한 단위로. 실제 원고 샘플(md·txt CRLF·docx)로 테스트 |
-| C. sanitize 서식 | P1-4, P1-5, P1-10, P2-1 | `lib/template-fallback.ts`·PDF 렌더에서 `u`/`s`/`mark`·정렬이 어떻게 찍히는지 함께 확인 |
-| D. Storage 라우트 | P1-7, P1-9, P2-7~11 | cover·images. `covers` 버킷 정책 확인 포함 |
+| A. 인증 경로 | P0-1, P0-3, P1-8, P2-12 | **수정함 (2026-10-03, PR #8).** `safeInternalPath`가 `new URL()`로 해석해 origin을 비교하고 해석한 경로를 돌려줌, 미들웨어는 경로 단위 비교(`matchesRoute`)·리디렉트에 세션 쿠키 옮겨 담기·돌아갈 주소에 쿼리 포함. 테스트 `safe-redirect.test.ts`, `supabase/middleware.test.ts` |
+| B. 업로드 | P0-2, P1-1~3, P1-6, P1-11~13, P2-2~6 (+ P1-9의 업로드 부분) | **수정함 (2026-10-03, PR #9).** 화면이 `data.book.id`를 읽음. 장 경계는 문서에 있는 가장 높은 헤딩 한 단계, 헤딩이 없을 때만 문단 맨 앞의 "제N장"·"Chapter N". txt는 CRLF를 맞추고 이스케이프. 장 길이를 미리 재서 한국어 400(`CONTENT_TOO_LONG`). 테스트 `upload-parser.test.ts`(실제 .docx 4건 포함) |
+| C. sanitize 서식 | P1-4, P1-5, P1-10, P2-1 | **수정함 (2026-10-04, PR #10).** `u`·`s`·`mark` 허용. `style`은 `text-align`만, `target`은 링크의 `_blank`만 남기고 `rel="noopener noreferrer"` 강제. 훅은 sanitize를 부를 때만 걸었다 뗌. PDF는 인라인 서식·정렬을 평문으로 찍고(굵게와 같음), EPUB은 그대로 넘김. 리더·에디터의 `mark`는 `--color-mark` 면. 테스트 `sanitize.test.ts`, `editor-sanitize.test.ts`(에디터 왕복) |
+| D. Storage 라우트 | P1-7, P1-9, P2-7~11 | **수정함 (2026-10-04, PR #11).** 표지는 새 파일 → 책 갱신 → 옛 파일 삭제 순, 이 책 폴더 안의 파일만 지움. 매직 바이트 판정·`Content-Length` 413(`lib/image-upload.ts`). 조회 오류 500 / 없음 404. 장·책 삭제 뒤 본문 이미지 정리, 다른 장이 아직 가리키는 파일은 남김(`lib/storage-cleanup.ts`, admin). `covers` 정책이 대시보드에 하나도 없어 마이그레이션 00010 추가, 2026-10-04 원격 적용. 테스트 `image-upload`·`storage-cleanup`·`cover-route`·`images-route`, `rls.test.ts` covers 케이스 |
