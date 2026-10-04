@@ -1006,6 +1006,90 @@ describe("chapter-images 파일 목록", () => {
 });
 
 /**
+ * 표지 버킷 (마이그레이션 00010, 코드 리뷰 5단계 묶음 D).
+ *
+ * 정책이 하나도 없어 표지 업로드가 막혀 있었습니다. 경로는 covers 버킷 안의
+ * covers/{bookId}/{파일명}이라, 책 ID가 두 번째 폴더입니다.
+ */
+describe("covers 버킷", () => {
+  const coverCount = (name: string) =>
+    countRows(`SELECT 1 FROM storage.objects WHERE bucket_id = 'covers' AND name = $1`, [name]);
+
+  it("소유자는 자기 책 폴더에 표지를 올리고 지운다", async () => {
+    const name = `covers/${paidBook}/owner.png`;
+    await asUser(creator, () =>
+      db.query(`INSERT INTO storage.objects (bucket_id, name) VALUES ('covers', $1)`, [name]),
+    );
+    expect(await coverCount(name)).toBe(1);
+
+    const affected = await asUser(creator, async () => {
+      const result = await db.query(
+        `DELETE FROM storage.objects WHERE bucket_id = 'covers' AND name = $1`,
+        [name],
+      );
+      return result.affectedRows;
+    });
+    expect(affected).toBe(1);
+  });
+
+  it("남의 책 폴더에는 올리지 못한다", async () => {
+    await expect(
+      asUser(readerB, () =>
+        db.query(`INSERT INTO storage.objects (bucket_id, name) VALUES ('covers', $1)`, [
+          `covers/${paidBook}/intruder.png`,
+        ]),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("경로 규약(covers/{bookId}/…)을 벗어나면 소유자도 올리지 못한다", async () => {
+    for (const name of [`${paidBook}/cover.png`, `covers/${paidBook}.png`, `other/${paidBook}/a.png`]) {
+      await expect(
+        asUser(creator, () =>
+          db.query(`INSERT INTO storage.objects (bucket_id, name) VALUES ('covers', $1)`, [name]),
+        ),
+      ).rejects.toThrow();
+    }
+  });
+
+  it("남의 표지는 지우지도, 목록으로 보지도 못한다", async () => {
+    const name = `covers/${paidBook}/kept.png`;
+    await db.query(`INSERT INTO storage.objects (bucket_id, name) VALUES ('covers', $1)`, [name]);
+
+    const affected = await asUser(readerB, async () => {
+      const result = await db.query(
+        `DELETE FROM storage.objects WHERE bucket_id = 'covers' AND name = $1`,
+        [name],
+      );
+      return result.affectedRows;
+    });
+    expect(affected).toBe(0);
+    expect(await coverCount(name)).toBe(1);
+
+    expect(
+      await asUser(readerB, () =>
+        countRows(`SELECT 1 FROM storage.objects WHERE bucket_id = 'covers'`),
+      ),
+    ).toBe(0);
+    expect(
+      await asAnon(() => countRows(`SELECT 1 FROM storage.objects WHERE bucket_id = 'covers'`)),
+    ).toBe(0);
+
+    const ownerSees = await asUser(creator, () =>
+      countRows(`SELECT 1 FROM storage.objects WHERE bucket_id = 'covers' AND name = $1`, [name]),
+    );
+    expect(ownerSees).toBe(1);
+  });
+
+  it("모양이 어긋난 표지 파일이 있어도 조회가 깨지지 않는다", async () => {
+    // 'covers/not-a-uuid/cover.png'는 위 chapter-images 블록이 심어 둡니다.
+    await expect(
+      asUser(creator, () => db.query(`SELECT name FROM storage.objects`)),
+    ).resolves.toBeDefined();
+  });
+});
+
+/**
  * 00008: 응답 행은 지금의 정의를 가리켜야 하고, 공개 전 장의 문항은
  * 소유자만 봅니다. 라우트(PUT /responses)가 먼저 같은 판정을 하지만,
  * PostgREST로 직접 쓰면 라우트를 건너뛰므로 정책이 마지막 방어선입니다.
