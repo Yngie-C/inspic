@@ -95,3 +95,22 @@ export function exportFilename(title: string, extension: string): string {
 
   return `${safe || "book"}.${extension}`;
 }
+
+/**
+ * 내려받기 `Content-Disposition` 헤더.
+ *
+ * 헤더 값에는 코드 255를 넘는 문자가 들어갈 수 없어서, 한글 이름을
+ * `filename="..."`에 그대로 넣으면 `new Response()`가 던지고 한글 제목
+ * 책은 전부 500이 됐습니다. 한글 이름은 `filename*`(RFC 5987)로 싣고,
+ * 따옴표 쪽에는 그것을 읽지 못하는 클라이언트를 위한 ASCII 이름만 둡니다.
+ */
+export function exportContentDisposition(filename: string): string {
+  const dot = filename.lastIndexOf(".");
+  const extension = dot >= 0 ? filename.slice(dot + 1) : "";
+  const asciiBase = (dot >= 0 ? filename.slice(0, dot) : filename)
+    .replace(/[^a-zA-Z0-9\-_]/g, "")
+    .replace(/^[_-]+|[_-]+$/g, "");
+  const ascii = `${asciiBase || "book"}${extension ? `.${extension}` : ""}`;
+
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+}

@@ -59,7 +59,7 @@ describe("답이 없을 때", () => {
     const html = applyTemplateFallback(REFLECTION);
 
     expect(html).toContain("<strong>이번 주에 무엇을 배웠나요?</strong>");
-    expect(html).toContain("<p>&nbsp;</p>");
+    expect(html).toContain('<p class="answer-blank">&#160;</p>');
   });
 
   it("척도는 눈금만 낸다", () => {
@@ -133,7 +133,7 @@ describe("답이 있을 때", () => {
     });
 
     expect(html).toContain("<td>매일 30분 글쓰기</td>");
-    expect(html).toContain("<td>&nbsp;</td>");
+    expect(html).toContain("<td>&#160;</td>");
   });
 });
 
@@ -212,5 +212,72 @@ describe("답에 든 HTML", () => {
 
     expect(html).not.toContain("<script>");
     expect(html).toContain("&lt;script&gt;");
+  });
+});
+
+describe("XHTML에 그대로 들어간다", () => {
+  /**
+   * EPUB 장 파일은 DTD 없는 XHTML이라 `&nbsp;` 같은 이름 엔티티가 정의되지
+   * 않은 엔티티(XML 오류)입니다. 답을 넘기지 않는 EPUB에서는 성찰·SMART
+   * 블록이 늘 빈 칸을 내므로, 여기서 이름 엔티티를 내면 그 장이 열리지 않습니다.
+   */
+  it("빈 칸에 이름 엔티티를 쓰지 않는다", () => {
+    const html = applyTemplateFallback(`${REFLECTION}${SMART_GOAL}`);
+
+    expect(html).not.toMatch(/&(?!(?:amp|lt|gt|quot|apos|#\d+);)/);
+  });
+
+  it("문구의 &nbsp;를 글자로 풀고 엔티티 글자로 다시 감싸지 않는다", () => {
+    const html = applyTemplateFallback(
+      section({
+        "data-template-type": "callout",
+        "data-node-id": "block-안내",
+        "data-callout-type": "tip",
+        "data-content": "먼저&nbsp;읽기",
+      }),
+    );
+
+    expect(html).toContain("먼저\u00a0읽기");
+    expect(html).not.toContain("&amp;nbsp;");
+  });
+
+  it("&amp;lt;는 한 번만 푼다", () => {
+    const html = applyTemplateFallback(
+      section({
+        "data-template-type": "reflection",
+        "data-node-id": "block-생각",
+        "data-prompt": "&amp;lt;b&amp;gt;는 태그예요",
+      }),
+    );
+
+    expect(html).toContain("&amp;lt;b&amp;gt;는 태그예요");
+  });
+});
+
+describe("속성값에 든 >", () => {
+  /**
+   * sanitize는 속성값 안의 `>`를 이스케이프하지 않고, 에디터는
+   * `data-template-type`을 맨 뒤에 붙입니다. 여는 태그를 `[^>]*`로 훑으면
+   * 질문에 `>` 하나만 있어도 블록이 변환되지 않아 문항과 답이 빠졌습니다.
+   */
+  it("질문에 >가 있어도 블록을 변환한다", () => {
+    const html = applyTemplateFallback(
+      '<section data-node-id="block-생각" data-prompt="A > B 일까요?" data-template-type="reflection"></section>',
+      { answers: { "block-생각": { answer: "그렇다" } } },
+    );
+
+    expect(html).not.toContain("<section");
+    expect(html).toContain("<strong>A &gt; B 일까요?</strong>");
+    expect(html).toContain("<p>그렇다</p>");
+  });
+
+  it("체크리스트 항목에 >가 있어도 블록을 변환한다", () => {
+    const items = JSON.stringify([{ id: "item-a", text: "1 > 0 확인" }]).replace(/"/g, "&quot;");
+    const html = applyTemplateFallback(
+      `<section data-node-id="block-체크" data-items="${items}" data-template-type="checklist"></section>`,
+      { answers: { "block-체크": { "item-a": true } } },
+    );
+
+    expect(html).toBe("<ul>\n<li>✓ 1 &gt; 0 확인</li>\n</ul>");
   });
 });

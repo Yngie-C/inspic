@@ -5,9 +5,14 @@ import {
   Text,
   View,
   StyleSheet,
+  renderToBuffer,
 } from "@react-pdf/renderer";
 import type { Book, Chapter } from "@/types";
-import { applyTemplateFallback, type FallbackAnswers } from "./template-fallback";
+import {
+  applyTemplateFallback,
+  BLANK_ANSWER_CLASS,
+  type FallbackAnswers,
+} from "./template-fallback";
 import { PDF_FONT_FAMILY, registerPdfFonts } from "./pdf-fonts";
 
 // 한글 글리프가 있는 폰트를 등록합니다. 내장 Helvetica로는 렌더가
@@ -236,6 +241,12 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 1.6,
   },
+  answerBlank: {
+    height: 56,
+    borderBottomWidth: 1,
+    borderBottomColor: PDF_COLORS.lineStrong,
+    marginBottom: 12,
+  },
   orphanSection: {
     marginTop: 28,
     borderTopWidth: 1,
@@ -298,7 +309,9 @@ export interface TextBlock {
     | "blockquote"
     | "code"
     | "listitem"
-    | "tablerow";
+    | "tablerow"
+    /** 답을 쓰지 않은 자유서술 칸. 인쇄해서 손으로 채울 빈 줄로 그립니다. */
+    | "answerblank";
   text: string;
   /**
    * `tablerow`의 오른쪽 칸. SMART 목표가 라벨과 답을 두 칸으로 냅니다.
@@ -314,17 +327,23 @@ export function stripHtmlForPdf(html: string): TextBlock[] {
 
   const blocks: TextBlock[] = [];
 
-  // Decode HTML entities
+  /**
+   * `&amp;`는 마지막에 풉니다. 먼저 풀면 독자가 적은 `&lt;`(저장된 형태
+   * `&amp;lt;`)가 `<`까지 두 번 풀립니다.
+   */
   const decodeEntities = (str: string): string =>
     str
-      .replace(/&amp;/g, "&")
       .replace(/&lt;/g, "<")
       .replace(/&gt;/g, ">")
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'")
+      .replace(/&apos;/g, "'")
       .replace(/&nbsp;/g, " ")
-      .replace(/&#x27;/g, "'")
-      .replace(/&#x2F;/g, "/");
+      .replace(/&#(\d+);/g, (entity, code: string) => fromCodePoint(entity, Number(code)))
+      .replace(/&#x([0-9a-f]+);/gi, (entity, code: string) =>
+        fromCodePoint(entity, parseInt(code, 16)),
+      )
+      .replace(/&amp;/g, "&");
 
   /**
    * 태그 제거 → 엔티티 복원 → 공백 접기 순입니다.
@@ -332,38 +351,48 @@ export function stripHtmlForPdf(html: string): TextBlock[] {
    * 엔티티를 나중에 풀면 `&nbsp;`만 든 빈 칸이 공백 한 칸으로 남아
    * "비어 있음"과 구분되지 않습니다. 태그 제거를 먼저 하는 이유는
    * 반대로 `&lt;`가 복원된 뒤 태그로 오인되지 않게 하기 위해서입니다.
+   * 남은 태그는 블록 경계라 공백으로 바꿉니다 — 인용 안의 두 문단이
+   * 붙어 한 낱말이 되지 않게.
    */
   const innerText = (s: string): string =>
-    decodeEntities(s.replace(/<[^>]*>/g, ""))
+    decodeEntities(s.replace(/<[^>]*>/g, " "))
       .replace(/\s+/g, " ")
       .trim();
 
   const processedHtml = html
     // Normalize line breaks inside tags
     .replace(/<br\s*\/?>/gi, "\n")
-    // Remove inline tags keeping their content
-    .replace(/<(?:strong|b|em|i|u|s|span|a)[^>]*>([\s\S]*?)<\/(?:strong|b|em|i|u|s|span|a)>/gi, "$1");
+    // 인라인 태그는 내용만 남깁니다. 이름 뒤에 경계를 두지 않으면 `<b`가
+    // `<blockquote>`, `<u`가 `<ul>`, `<s`가 `<section>`까지 먹습니다.
+    .replace(/<\/?(?:strong|b|em|i|u|s|mark|span|a)(?:\s[^>]*)?>/gi, "");
 
-  // Split by block-level tags
+  /**
+   * 블록 단위로 자릅니다. 태그 이름 뒤에는 경계(`(?:\s[^>]*)?>`)를 둡니다 —
+   * `<p[^>]*>`는 `<pre>`에도 걸려 코드 블록이 다음 문단과 합쳐졌습니다.
+   *
+   * 목록 항목은 닫는 태그가 아니라 다음 항목·목록 경계까지입니다. 중첩
+   * 목록에서 `<li>…</li>`로 자르면 부모 항목이 첫 자식의 `</li>`까지
+   * 먹어 두 항목이 한 줄로 합쳐집니다.
+   */
   const segments = processedHtml.split(
-    /(<h[1-6][^>]*>[\s\S]*?<\/h[1-6]>|<p[^>]*>[\s\S]*?<\/p>|<blockquote[^>]*>[\s\S]*?<\/blockquote>|<pre[^>]*>[\s\S]*?<\/pre>|<li[^>]*>[\s\S]*?<\/li>|<tr[^>]*>[\s\S]*?<\/tr>)/gi
+    /(<h[1-6](?:\s[^>]*)?>[\s\S]*?<\/h[1-6]>|<p(?:\s[^>]*)?>[\s\S]*?<\/p>|<blockquote(?:\s[^>]*)?>[\s\S]*?<\/blockquote>|<pre(?:\s[^>]*)?>[\s\S]*?<\/pre>|<li(?:\s[^>]*)?>[\s\S]*?(?=<li[\s>]|<\/li>|<\/?[ou]l[\s>])|<tr(?:\s[^>]*)?>[\s\S]*?<\/tr>)/gi
   );
 
   for (const seg of segments) {
     if (!seg.trim()) continue;
 
-    const h1Match = seg.match(/^<h1[^>]*>([\s\S]*?)<\/h1>$/i);
-    const h2Match = seg.match(/^<h2[^>]*>([\s\S]*?)<\/h2>$/i);
-    const h3Match = seg.match(/^<h3[^>]*>([\s\S]*?)<\/h3>$/i);
-    const h456Match = seg.match(/^<h[456][^>]*>([\s\S]*?)<\/h[456]>$/i);
-    const pMatch = seg.match(/^<p[^>]*>([\s\S]*?)<\/p>$/i);
-    const bqMatch = seg.match(/^<blockquote[^>]*>([\s\S]*?)<\/blockquote>$/i);
-    const preMatch = seg.match(/^<pre[^>]*>([\s\S]*?)<\/pre>$/i);
-    const liMatch = seg.match(/^<li[^>]*>([\s\S]*?)<\/li>$/i);
-    const trMatch = seg.match(/^<tr[^>]*>([\s\S]*?)<\/tr>$/i);
+    const h1Match = seg.match(/^<h1(?:\s[^>]*)?>([\s\S]*?)<\/h1>$/i);
+    const h2Match = seg.match(/^<h2(?:\s[^>]*)?>([\s\S]*?)<\/h2>$/i);
+    const h3Match = seg.match(/^<h3(?:\s[^>]*)?>([\s\S]*?)<\/h3>$/i);
+    const h456Match = seg.match(/^<h[456](?:\s[^>]*)?>([\s\S]*?)<\/h[456]>$/i);
+    const pMatch = seg.match(/^<p(\s[^>]*)?>([\s\S]*?)<\/p>$/i);
+    const bqMatch = seg.match(/^<blockquote(?:\s[^>]*)?>([\s\S]*?)<\/blockquote>$/i);
+    const preMatch = seg.match(/^<pre(?:\s[^>]*)?>([\s\S]*?)<\/pre>$/i);
+    const liMatch = seg.match(/^<li(?:\s[^>]*)?>([\s\S]*)$/i);
+    const trMatch = seg.match(/^<tr(?:\s[^>]*)?>([\s\S]*?)<\/tr>$/i);
 
     if (trMatch) {
-      const cells = [...trMatch[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)]
+      const cells = [...trMatch[1].matchAll(/<t[dh](?:\s[^>]*)?>([\s\S]*?)<\/t[dh]>/gi)]
         .map((cell) => innerText(cell[1]));
       const text = cells[0] ?? "";
       const value = cells.slice(1).filter(Boolean).join(" ");
@@ -383,8 +412,13 @@ export function stripHtmlForPdf(html: string): TextBlock[] {
       const text = innerText((h3Match || h456Match)![1]);
       if (text) blocks.push({ type: "heading3", text });
     } else if (pMatch) {
-      const text = innerText(pMatch[1]);
+      const text = innerText(pMatch[2]);
       if (text) blocks.push({ type: "paragraph", text });
+      // 답을 쓰지 않은 칸. 공백뿐이라 위에서 버려지면 인쇄본에 쓸 자리가
+      // 없습니다. 저자가 넣은 빈 문단과는 클래스로 구분합니다.
+      else if (hasClass(pMatch[1] ?? "", BLANK_ANSWER_CLASS)) {
+        blocks.push({ type: "answerblank", text: "" });
+      }
     } else if (bqMatch) {
       const text = innerText(bqMatch[1]);
       if (text) blocks.push({ type: "blockquote", text });
@@ -404,6 +438,15 @@ export function stripHtmlForPdf(html: string): TextBlock[] {
   }
 
   return blocks;
+}
+
+function fromCodePoint(entity: string, code: number): string {
+  return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : entity;
+}
+
+function hasClass(attrs: string, className: string): boolean {
+  const value = attrs.match(/(?:^|\s)class="([^"]*)"/)?.[1] ?? "";
+  return value.split(/\s+/).includes(className);
 }
 
 // Cover page component
@@ -426,23 +469,40 @@ function CoverPage({ book, authorName }: { book: Book; authorName: string }) {
   );
 }
 
-// Table of contents page
-function TOCPage({ book, chapters }: { book: Book; chapters: Chapter[] }) {
+/**
+ * 목차. 쪽 번호는 실제로 렌더해 본 결과(`chapterPages`)에서 옵니다.
+ *
+ * 예전에는 `i + 3`으로 셌는데, 장이 두 쪽만 넘어가도 둘째 장부터 번호가
+ * 전부 틀렸습니다. 번호를 모르면(첫 번째 렌더) 빈칸으로 둡니다 — 칸
+ * 너비가 고정이라 번호가 채워져도 목차의 쪽 수는 바뀌지 않습니다.
+ */
+function TOCPage({
+  book,
+  chapters,
+  chapterPages,
+}: {
+  book: Book;
+  chapters: Chapter[];
+  chapterPages?: ReadonlyMap<string, number>;
+}) {
   return (
     <Page size="A4" style={styles.tocPage}>
       <Text style={styles.tocTitle}>목차 (Table of Contents)</Text>
-      {chapters.map((ch, i) => (
-        <View key={ch.id} style={styles.tocItem}>
+      {chapters.map((ch) => (
+        <View key={ch.id} style={styles.tocItem} wrap={false}>
           <Text style={styles.tocItemTitle}>
             {ch.title}
           </Text>
           <View style={styles.tocItemDots} />
-          <Text style={styles.tocItemPage}>{i + 3}</Text>
+          <Text style={styles.tocItemPage}>{chapterPages?.get(ch.id) ?? ""}</Text>
         </View>
       ))}
-      <View style={styles.footer}>
+      <View style={styles.footer} fixed>
         <Text style={styles.footerTitle}>{book.title}</Text>
-        <Text style={styles.footerPage}>2</Text>
+        <Text
+          style={styles.footerPage}
+          render={({ pageNumber: pn }) => `${pn}`}
+        />
       </View>
     </Page>
   );
@@ -453,10 +513,12 @@ function ChapterPage({
   chapter,
   answers,
   orphans,
+  onStartPage,
 }: {
   chapter: Chapter;
   answers: FallbackAnswers;
   orphans: readonly string[];
+  onStartPage?: (pageNumber: number) => void;
 }) {
   const blocks = stripHtmlForPdf(
     applyTemplateFallback(chapter.content_html || chapter.content_raw || "", {
@@ -468,6 +530,15 @@ function ChapterPage({
 
   return (
     <Page size="A4" style={styles.chapterPage}>
+      {onStartPage && (
+        // 크기 없는 표시. 렌더러가 이것을 배치한 쪽 번호로 부릅니다.
+        <View
+          render={({ pageNumber }) => {
+            onStartPage(pageNumber);
+            return null;
+          }}
+        />
+      )}
       <Text style={styles.chapterTitle}>{chapter.title}</Text>
 
       {blocks.map((block, i) => {
@@ -509,6 +580,8 @@ function ChapterPage({
                 <Text style={styles.listContent}>{block.text}</Text>
               </View>
             );
+          case "answerblank":
+            return <View key={i} style={styles.answerBlank} />;
           case "tablerow":
             return (
               <View key={i} style={styles.tableRow}>
@@ -573,10 +646,12 @@ export interface OrphanedTextAnswer {
 }
 
 /**
- * 저자가 지운 장에 남긴 답. 어느 장에도 붙일 수 없어 맨 뒤에 모읍니다.
- * 질문 문구는 장과 함께 사라졌지만 쓴 글은 그 자체로 읽힙니다.
+ * 이 PDF에 실리지 않은 장에 남긴 답. 어느 장에도 붙일 수 없어 맨 뒤에
+ * 모읍니다. 저자가 장을 지웠거나(`chapter_id`가 null) 공개를 내린 경우
+ * (draft 장은 PDF에 실리지 않습니다)입니다. 질문 문구는 볼 수 없지만
+ * 쓴 글은 그 자체로 읽힙니다.
  */
-function DeletedChapterAnswersPage({
+function MissingChapterAnswersPage({
   bookTitle,
   orphans,
 }: {
@@ -586,11 +661,8 @@ function DeletedChapterAnswersPage({
   return (
     <Page size="A4" style={styles.chapterPage}>
       <View style={styles.orphanSection}>
-        <Text style={styles.orphanTitle}>저자가 지운 장에 남긴 답</Text>
-        <Text style={styles.orphanNote}>
-          아래 답을 받던 장은 저자가 책을 고치면서 사라졌어요. 질문 문구는
-          남아 있지 않지만 쓰신 내용은 그대로예요.
-        </Text>
+        <Text style={styles.orphanTitle}>{MISSING_CHAPTER_TITLE}</Text>
+        <Text style={styles.orphanNote}>{MISSING_CHAPTER_NOTE}</Text>
         {orphans.map((text, i) => (
           <Text key={i} style={styles.orphanAnswer}>
             {text}
@@ -609,6 +681,36 @@ function DeletedChapterAnswersPage({
   );
 }
 
+export const MISSING_CHAPTER_TITLE = "지금 책에 없는 장에 남긴 답";
+export const MISSING_CHAPTER_NOTE =
+  "아래 답을 받던 장은 저자가 지웠거나 공개를 내렸어요. 질문 문구는 볼 수 없지만 쓰신 내용은 그대로예요.";
+
+/**
+ * 고아 답을 실을 자리로 나눕니다. 이 PDF에 실린 장의 답은 그 장 끝에,
+ * 나머지는 맨 뒤 한곳에.
+ *
+ * 실리지 않은 장의 답을 장별로 모으면 그릴 자리가 없어 PDF에서 통째로
+ * 빠집니다. 저자가 공개를 내린 장(draft는 내보내지 않습니다)이 그렇습니다.
+ */
+export function placeOrphans(
+  chapters: readonly { id: string }[],
+  orphans: readonly OrphanedTextAnswer[],
+): { byChapter: Map<string, string[]>; missingChapter: string[] } {
+  const exported = new Set(chapters.map((ch) => ch.id));
+  const byChapter = new Map<string, string[]>();
+  const missingChapter: string[] = [];
+  for (const orphan of orphans) {
+    if (orphan.chapter_id === null || !exported.has(orphan.chapter_id)) {
+      missingChapter.push(orphan.text);
+      continue;
+    }
+    const list = byChapter.get(orphan.chapter_id);
+    if (list) list.push(orphan.text);
+    else byChapter.set(orphan.chapter_id, [orphan.text]);
+  }
+  return { byChapter, missingChapter };
+}
+
 // Main PDF Document
 export interface BookPDFProps {
   book: Book;
@@ -617,6 +719,10 @@ export interface BookPDFProps {
   /** block_id → (field_key → 값). 비우면 빈 워크시트가 나옵니다. */
   answers?: FallbackAnswers;
   orphans?: readonly OrphanedTextAnswer[];
+  /** 장 ID → 그 장이 시작하는 쪽. 목차의 쪽 번호입니다(`renderBookPdf`). */
+  chapterPages?: ReadonlyMap<string, number>;
+  /** 렌더러가 각 장의 시작 쪽을 알려 줍니다. */
+  onChapterPage?: (chapterId: string, pageNumber: number) => void;
 }
 
 export function BookPDF({
@@ -625,18 +731,11 @@ export function BookPDF({
   authorName,
   answers = {},
   orphans = [],
+  chapterPages,
+  onChapterPage,
 }: BookPDFProps) {
-  const orphansByChapter = new Map<string, string[]>();
-  const deletedChapterOrphans: string[] = [];
-  for (const orphan of orphans) {
-    if (orphan.chapter_id === null) {
-      deletedChapterOrphans.push(orphan.text);
-      continue;
-    }
-    const list = orphansByChapter.get(orphan.chapter_id);
-    if (list) list.push(orphan.text);
-    else orphansByChapter.set(orphan.chapter_id, [orphan.text]);
-  }
+  const { byChapter: orphansByChapter, missingChapter: missingChapterOrphans } =
+    placeOrphans(chapters, orphans);
 
   return (
     <Document
@@ -647,21 +746,54 @@ export function BookPDF({
       producer="inspic PDF Generator"
     >
       <CoverPage book={book} authorName={authorName} />
-      {chapters.length > 1 && <TOCPage book={book} chapters={chapters} />}
+      {chapters.length > 1 && (
+        <TOCPage book={book} chapters={chapters} chapterPages={chapterPages} />
+      )}
       {chapters.map((ch) => (
         <ChapterPage
           key={ch.id}
           chapter={ch}
           answers={answers}
           orphans={orphansByChapter.get(ch.id) ?? []}
+          onStartPage={
+            onChapterPage && ((pageNumber) => onChapterPage(ch.id, pageNumber))
+          }
         />
       ))}
-      {deletedChapterOrphans.length > 0 && (
-        <DeletedChapterAnswersPage
+      {missingChapterOrphans.length > 0 && (
+        <MissingChapterAnswersPage
           bookTitle={book.title}
-          orphans={deletedChapterOrphans}
+          orphans={missingChapterOrphans}
         />
       )}
     </Document>
   );
+}
+
+/**
+ * 책 PDF를 만듭니다. 목차가 있으면 두 번 렌더합니다 — 첫 번째로 각 장이
+ * 시작하는 쪽을 알아내고, 두 번째에 그 번호로 목차를 채웁니다. 장이 몇
+ * 쪽에 걸칠지는 배치해 보기 전에는 알 수 없습니다.
+ */
+export async function renderBookPdf(
+  props: Omit<BookPDFProps, "chapterPages" | "onChapterPage">,
+): Promise<Buffer> {
+  if (props.chapters.length <= 1) {
+    return renderToBuffer(<BookPDF {...props} />);
+  }
+
+  const chapterPages = new Map<string, number>();
+  await renderToBuffer(
+    <BookPDF
+      {...props}
+      onChapterPage={(chapterId, pageNumber) => {
+        // 같은 장의 표시가 여러 번 불려도 처음 놓인 쪽이 시작 쪽입니다.
+        const known = chapterPages.get(chapterId);
+        if (known === undefined || pageNumber < known) {
+          chapterPages.set(chapterId, pageNumber);
+        }
+      }}
+    />,
+  );
+  return renderToBuffer(<BookPDF {...props} chapterPages={chapterPages} />);
 }
