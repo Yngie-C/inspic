@@ -21,8 +21,8 @@
 - [x] **운영 DB에 `00005`~`00011` 적용 확인** — 지문 쿼리 19줄 전부 `true` (2026-10-05). 처음엔 `00008 written_at 컬럼`만 `false`였습니다(00008의 마지막 문장 `ADD COLUMN written_at`만 빠짐). 그 한 줄을 따로 실행했고, 00008의 여섯 부분(장 FK SET NULL·repoint·draft 가림·쓰기 정책·공백 답 정리·`written_at`)을 하나씩 보는 쿼리 7줄도 전부 `true`입니다. `written_at`이 없으면 응답 저장 라우트·리더·`/my/workbook`이 깨집니다
 - [x] **PR #12(내보내기 21건) 병합** (2026-10-05, `58c6c13`). 병합 전 main과 합친 결과로 typecheck·테스트 853개·lint 확인. 이전에는 한글 제목 책의 PDF·EPUB 다운로드가 전부 500이었습니다
 - [x] PR #12 병합 뒤 `pdf` 라우트의 1000건 반복문을 `readAllRows()`로 교체 (2026-10-05) (7단계 리뷰에서 충돌을 피하려고 미룬 것)
-- [ ] Vercel env 교체 — `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`. `NEXT_PUBLIC_*`은 빌드 때 번들에 박히므로 **재배포해야 반영됩니다**
-- [ ] 로컬 `.env.local` 교체
+- [ ] Vercel env 교체 (2026-10-05: 운영 번들이 아직 옛 호스트 `vyktxmpplnehispfsehp`를 가리키고 `/api/explore`·`/api/landing` 500) — `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`. `NEXT_PUBLIC_*`은 빌드 때 번들에 박히므로 **재배포해야 반영됩니다**
+- [x] 로컬 `.env.local` 교체 — Supabase 3개가 새 프로젝트를 가리키고 키 둘 다 새 프로젝트 조회 200 (2026-10-05 확인). `SUPABASE_SERVICE_ROLE_KEY`는 `SUPABASE_SECRET_KEY`가 없을 때만 쓰는 대체 변수라 비워 둠. 토스 변수 3개는 3번에서
 - [ ] 운영 번들이 새 호스트를 가리키고 `/api/explore`가 200인지 확인
 - [x] 새 프로젝트에 마이그레이션 `00001`~`00004` 적용 — 아래 "이후 마일스톤"의 지문 쿼리 7개 전부 `true` (2026-09-22)
 - [x] Auth → URL Configuration: Site URL `https://publedge.vercel.app`, Redirect URLs에 `https://publedge.vercel.app/auth/callback` (2026-09-22)
