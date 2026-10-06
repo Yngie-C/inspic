@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { readAllRows } from "@/lib/supabase/read-all";
 import { getAuthUser, apiError } from "@/lib/api-utils";
 import { renderBookPdf } from "@/lib/pdf-generator";
 import {
@@ -79,17 +80,12 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * 한 번에 읽는 행 수. PostgREST의 기본 `max_rows`(1000)와 같게 둡니다.
- * 범위 없이 읽으면 그 수에서 조용히 잘려 뒤쪽 답이 빈칸으로 나갑니다.
- */
-const PAGE_SIZE = 1000;
-
-/**
  * 비로그인으로 무료 책을 받는 경우가 있습니다. 그때는 계정에 남은 답이
  * 없으므로 빈 워크시트가 나옵니다.
  *
  * 조회가 실패하면 `null`입니다. 빈 목록으로 넘기면 답이 전부 빈칸인
- * PDF가 정상인 것처럼 나갑니다.
+ * PDF가 정상인 것처럼 나갑니다. 범위 없이 읽으면 1000건에서 조용히 잘려
+ * 뒤쪽 답이 빈칸으로 나가므로 끝까지 읽습니다.
  */
 async function loadResponses(
   bookId: string,
@@ -98,33 +94,24 @@ async function loadResponses(
   if (!userId) return [];
 
   const supabase = await createClient();
-  const rows: StoredResponseRow[] = [];
-
-  // 정렬 키가 있어야 페이지 사이에 행이 빠지거나 겹치지 않습니다.
-  for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await supabase
+  const { data, error } = await readAllRows<StoredResponseRow>((from, to) =>
+    supabase
       .from("workbook_responses")
       .select("chapter_id, block_id, field_key, value_text, value_number, value_bool")
       .eq("book_id", bookId)
       .order("id")
-      .range(from, from + PAGE_SIZE - 1);
+      .range(from, to),
+  );
 
-    if (error) {
-      console.error("[pdf] responses load failed", error);
-      return null;
-    }
-
-    const page = data ?? [];
-    for (const row of page) {
-      rows.push({
-        ...row,
-        // NUMERIC은 드라이버에 따라 문자열로 옵니다. 그대로 두면 척도 답이
-        // 조용히 미응답으로 보입니다 (리더가 겪은 것과 같은 문제입니다).
-        value_number: row.value_number === null ? null : Number(row.value_number),
-      });
-    }
-    if (page.length < PAGE_SIZE) break;
+  if (error) {
+    console.error("[pdf] responses load failed", error);
+    return null;
   }
 
-  return rows;
+  return data.map((row) => ({
+    ...row,
+    // NUMERIC은 드라이버에 따라 문자열로 옵니다. 그대로 두면 척도 답이
+    // 조용히 미응답으로 보입니다 (리더가 겪은 것과 같은 문제입니다).
+    value_number: row.value_number === null ? null : Number(row.value_number),
+  }));
 }

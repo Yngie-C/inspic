@@ -10,74 +10,89 @@
 
 토스 **라이브 계약**(사업자등록 → 통신판매업 신고 → 심사)은 시간이 걸리므로 별도 트랙으로 돌립니다. 라이브가 막는 것은 M6 게이트 중 "독자 유료 구매 1건"뿐입니다. 테스트 키로 할 수 있는 것과 결제가 필요 없는 것을 먼저 합니다. 도메인이 정해지기 전까지는 `publedge.vercel.app`을 씁니다.
 
+2026-10-05 중요도 순으로 다시 묶었습니다. 위 묶음이 아래 묶음을 막습니다. 다만 **4(저자 영입)는 리드타임이 가장 길어 1부터 병행**하고, **도메인은 SMTP를 막으므로 라이브 트랙에서 1로 올렸습니다.**
+
 ### 0. 운영 복구 — 가장 먼저
 
 2026-09-22 확인: 운영 Supabase 호스트가 DNS에서 사라졌고(NXDOMAIN) 운영 `/api/explore`가 `fetch failed`로 500을 냅니다. 09-01 이후 활동이 없어 무료 플랜 자동 일시정지에 걸린 것으로 보입니다. keep-alive 워크플로는 없는 시크릿 이름(`SUPABASE_URL`)을 읽고 있어서 **6월부터 한 번도 성공하지 못했습니다.**
 
 옛 프로젝트(`vyktxmpplnehispfsehp`)를 복원하지 않고 **새 프로젝트 `gzodwsbpnruaaapynyry`로 옮겼습니다.** 실사용 데이터가 없었으므로 잃은 것은 테스트 계정·책뿐입니다. 계정은 새로 가입해야 합니다.
 
+- [x] **운영 DB에 `00005`~`00011` 적용 확인** — 지문 쿼리 19줄 전부 `true` (2026-10-05). 처음엔 `00008 written_at 컬럼`만 `false`였습니다(00008의 마지막 문장 `ADD COLUMN written_at`만 빠짐). 그 한 줄을 따로 실행했고, 00008의 여섯 부분(장 FK SET NULL·repoint·draft 가림·쓰기 정책·공백 답 정리·`written_at`)을 하나씩 보는 쿼리 7줄도 전부 `true`입니다. `written_at`이 없으면 응답 저장 라우트·리더·`/my/workbook`이 깨집니다
+- [x] **PR #12(내보내기 21건) 병합** (2026-10-05, `58c6c13`). 병합 전 main과 합친 결과로 typecheck·테스트 853개·lint 확인. 이전에는 한글 제목 책의 PDF·EPUB 다운로드가 전부 500이었습니다
+- [x] PR #12 병합 뒤 `pdf` 라우트의 1000건 반복문을 `readAllRows()`로 교체 (2026-10-05) (7단계 리뷰에서 충돌을 피하려고 미룬 것)
+- [ ] Vercel env 교체 (2026-10-05: 운영 번들이 아직 옛 호스트 `vyktxmpplnehispfsehp`를 가리키고 `/api/explore`·`/api/landing` 500) — `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`. `NEXT_PUBLIC_*`은 빌드 때 번들에 박히므로 **재배포해야 반영됩니다**
+- [x] 로컬 `.env.local` 교체 — Supabase 3개가 새 프로젝트를 가리키고 키 둘 다 새 프로젝트 조회 200 (2026-10-05 확인). `SUPABASE_SERVICE_ROLE_KEY`는 `SUPABASE_SECRET_KEY`가 없을 때만 쓰는 대체 변수라 비워 둠. 토스 변수 3개는 3번에서
+- [ ] 운영 번들이 새 호스트를 가리키고 `/api/explore`가 200인지 확인
 - [x] 새 프로젝트에 마이그레이션 `00001`~`00004` 적용 — 아래 "이후 마일스톤"의 지문 쿼리 7개 전부 `true` (2026-09-22)
 - [x] Auth → URL Configuration: Site URL `https://publedge.vercel.app`, Redirect URLs에 `https://publedge.vercel.app/auth/callback` (2026-09-22)
-- [ ] Auth → 이메일 발송: 새 프로젝트는 기본 SMTP입니다. 기본 SMTP는 조직 팀원 주소로만 보내고 시간당 발송량도 작습니다. **OAuth를 걷어내 이메일이 유일한 가입 경로이므로**, 1번의 두 번째 계정부터 여기에 걸립니다. 그 주소를 조직 팀원으로 넣거나 커스텀 SMTP를 붙이세요. 외부 사용자가 들어오는 M6 전에는 커스텀 SMTP가 필수입니다. 기존 Resend 무료 팀에 도메인을 추가하기로 했습니다 — 절차는 `docs/agent-knowledge/supabase-smtp-setup.md`
-- [ ] Vercel env 교체 — `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`. `NEXT_PUBLIC_*`은 빌드 때 번들에 박히므로 **재배포해야 반영됩니다**
-- [ ] 로컬 `.env.local` 교체
 - [x] GitHub 시크릿 `NEXT_PUBLIC_SUPABASE_URL`·`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` 교체 (keep-alive가 읽음) (2026-09-23)
 - [x] keep-alive가 등록된 시크릿(`NEXT_PUBLIC_SUPABASE_*`)을 읽고, 루트가 아니라 `books` 테이블을 조회하도록 수정
 - [x] main에 반영 후 `gh workflow run supabase-keepalive.yml`로 수동 실행해 `HTTP status: 200` 확인 (2026-09-23)
 - [x] keep-alive 주기를 5일 → 매일로, curl 실패 시 종료 코드와 원인을 로그에 남기도록
-- [ ] 운영 번들이 새 호스트를 가리키고 `/api/explore`가 200인지 확인
 - [x] `/api/landing`이 쿼리 에러를 삼켜 "책 0권"으로 응답하던 것 — 이번 장애가 첫 화면에서 안 보였던 이유
 
-### 1. 운영에서 무료 책으로 핵심 루프 한 바퀴
+### 1. 메일 발송 — 두 번째 계정부터 막힘
+
+**OAuth를 걷어내 이메일이 유일한 가입 경로입니다.** 새 프로젝트는 기본 SMTP라 조직 팀원 주소로만, 시간당 2통만 보냅니다. 2번의 두 번째 계정부터 여기에 걸립니다.
+
+- [ ] 도메인 확정·연결 (라이브 트랙에서 올림). 커스텀 SMTP는 DNS 인증이 필요해 `publedge.vercel.app`으로는 못 합니다. 토스 심사·webhook 재등록도 이 도메인을 씁니다
+- [ ] 커스텀 SMTP(Resend) 연결 — 기존 Resend 무료 팀에 도메인을 추가하기로 했습니다. 절차는 `docs/agent-knowledge/supabase-smtp-setup.md`. 외부 사용자가 들어오는 M6 전에는 필수입니다
+- [ ] (도메인 전 임시) 두 번째 계정 주소를 Supabase 조직 팀원으로 넣어 2번을 먼저 진행
+
+### 2. 운영에서 무료 책으로 핵심 루프 한 바퀴
 
 외부 사람을 부르기 전에 내가 먼저 끝까지 통과합니다. 계정 두 개, 기기 두 대.
 
 - [ ] A: 원고 업로드 → 워크북 블록 5종 → 검수 → 무료 공개
 - [ ] B: 비로그인 열람 → 로그인 후 복귀 → 작성 → 다른 기기에서 이어 쓰기 → `/my/workbook`
-- [ ] 배포본에서 PDF를 한 번 받아 보기. 폰트가 서버리스 번들에 들어가는지는 `next.config.ts`의 `outputFileTracingIncludes`에 달려 있고, 빌드 트레이스로는 확인했지만 실제 배포에서 확인한 것은 아닙니다
 - [ ] A: 참여 지표에 B의 응답이 보이고 본인 응답은 빠지는지
+- [ ] 배포본에서 PDF를 한 번 받아 보기 (0번 PR #12 병합 뒤). 폰트가 서버리스 번들에 들어가는지는 `next.config.ts`의 `outputFileTracingIncludes`에 달려 있고, 빌드 트레이스로는 확인했지만 실제 배포에서 확인한 것은 아닙니다
 - [ ] 가입 확인 메일의 링크를 누르면 `/auth/callback`을 거쳐 로그인된 상태가 되는지 (2026-10-01부터 `signUp`·재발송은 `emailRedirectTo`로 콜백에 돌아옵니다)
 - [ ] Supabase Redirect URLs가 `.../auth/callback?next=/auth/reset-password`(쿼리 포함)를 허용하는지. 막히면 `https://publedge.vercel.app/auth/callback**`를 추가
 - [ ] 비밀번호 찾기 → 메일 링크 → `/auth/reset-password`에서 변경 → 새 비밀번호로 로그인
-- [ ] Supabase 최소 비밀번호 길이가 화면 문구의 "6자"와 같은지
+- [ ] Supabase 최소 비밀번호 길이가 화면 문구의 "6자"와 같은지 (10-01에 Letters and digits·6자로 맞춰 둠, 눈으로 한 번만 확인)
+- [ ] 본인 책 한 권을 **무료로** 공개 (M6 "워크북 작성 완료 1건" 담당). 위 A와 같은 책으로 해도 됩니다
 
-### 2. 테스트 모드 결제 → M4 게이트
+**무료로 낸 책을 나중에 유료로 바꾸지 마세요.** `has_book_access()`는 `price = 0` 또는 구매 기록만 봅니다. 가격을 올리는 순간 무료로 읽던 독자는 2장부터 잠기고 응답 저장과 PDF도 막힙니다.
+
+### 3. 테스트 모드 결제 → M4 게이트
 
 - [x] `supabase/migrations/00003_payment_integrity.sql`을 Supabase에 적용 (2026-09-01)
 - [x] `supabase/migrations/00004_workbook_stats_exclude_owner.sql`을 Supabase에 적용 (2026-09-01)
 - [ ] 테스트 키를 Vercel env에 (`NEXT_PUBLIC_TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY`)
 - [ ] 개발자센터에 webhook 등록 — `https://publedge.vercel.app/api/payments/webhook`. **창닫음 시나리오가 이 경로에 걸려 있으므로 테스트 결제보다 먼저입니다.** 도메인이 바뀌면 다시 등록
 - [ ] 테스트 결제로 성공·실패·중복·창닫음 4개 시나리오를 직접 밟기. **M4 게이트의 문구가 이것입니다.** DB·보상 로직은 테스트 35개가 덮고 있지만, 이 저장소의 완료 판정은 "코드가 존재한다"가 아니라 "사용자가 끝까지 통과한다"입니다
+- [ ] 다른 한 권은 유료로 워크북화·검수까지 마치고 **비공개로** 대기 → 라이브 날 공개 ("유료 구매 1건" 담당)
 
 **운영이 테스트 키로 도는 동안 유료 책을 공개하지 마세요.** 테스트 승인도 서버에게는 정상 승인이라 `fulfill_payment`가 구매를 만들고, 누구나 테스트 카드로 유료 책을 엽니다. 테스트용 유료 책은 비공개로 둡니다.
 
-### 3. 본인 책 출간
-
-- [ ] 한 권은 **무료로** 지금 공개 (M6 "워크북 작성 완료 1건" 담당)
-- [ ] 다른 한 권은 유료로 워크북화·검수까지 마치고 **비공개로** 대기 → 라이브 날 공개 ("유료 구매 1건" 담당)
-
-**무료로 낸 책을 나중에 유료로 바꾸지 마세요.** `has_book_access()`는 `price = 0` 또는 구매 기록만 봅니다. 가격을 올리는 순간 무료로 읽던 독자는 2장부터 잠기고 응답 저장과 PDF도 막힙니다.
-
 ### 4. 저자 영입 — 준비는 지금부터 병행
 
-리드타임이 가장 깁니다(관찰 1~2주 + 응답 대기 2주 + 미팅). `wikidocs-authors.csv`는 아직 빈 템플릿입니다.
+리드타임이 가장 깁니다(관찰 1~2주 + 응답 대기 2주 + 미팅). `wikidocs-authors.csv`는 아직 빈 템플릿입니다. **롱리스트와 관찰은 0번과 함께 시작하세요.**
 
 - [ ] 플레이북 1~3절대로 롱리스트 채우기, priority 1 관찰 시작
 - [ ] 오퍼 레터 3종의 `publedge` → Inspic
 - [ ] 라이브 전에는 유료 판매가 안 된다는 점을 레터에서 어떻게 말할지
 - [ ] "수수료 5% 평생 고정"의 정산 방식 (초기 수동 정산 여부) — `standard-contract.md`와 함께
-- [ ] 레터 발송은 3번 이후 (실물 책 링크가 있어야 합니다)
+- [ ] 레터 발송은 2번의 무료 책 공개 이후 (실물 책 링크가 있어야 합니다)
 - [ ] 온보딩은 돕지 말고 막히는 지점을 기록 — 게이트가 "도움 없이 출간"입니다
 
-### 병행 — 라이브 계약 트랙
+### 5. 병행 — 라이브 계약 트랙
 
 > 2026-10-02: Toss 대신 같은 사업자의 기존 PortOne(NHN KCP) 계약을 옮겨 쓰는 안을 검토 중입니다(보류, KCP 재심사 여부 문의 필요). → `docs/agent-knowledge/payment-provider-portone.md`
 
 - [ ] 사업자등록 → 통신판매업 신고
-- [ ] 도메인 확정·연결 (심사 전에 필요)
+- [ ] 결제사 결정 — 토스 심사 vs PortOne(KCP) 이전. KCP 재심사 여부 문의부터
 - [ ] `Footer.tsx`의 사업자 정보 자리표시자 채우기
-- [ ] 토스 전자결제 심사 → 라이브 키
+- [ ] 토스 전자결제 심사 → 라이브 키 (도메인은 1번에서)
 - [ ] 전환: Vercel env 라이브 키 · webhook 새 도메인으로 재등록 · Supabase Auth Site URL·Redirect URLs · `NEXT_PUBLIC_SITE_URL` · **테스트 모드에서 생긴 `purchases`/`payment_transactions` 정리**(두면 테스트 구매자가 계속 열람) · 유료 책 공개
+
+### 6. 남은 정리 — 낮음
+
+- [ ] 코드 리뷰 8단계 결과 문서 `docs/agent-knowledge/code-review-results/08-*.md` 쓰기 (수정은 PR #13으로 병합됨)
+- [ ] 탐색 검색을 실제 서버에서 확인 — `C++, Python`, `100%`, `say "hi"` (PostgREST 따옴표 이스케이프)
+- [ ] 미리보기에서 쓴 익명 답을 로그인 후 옮길지 — M5 "아직 안 정한 것". M6 실제 독자 반응을 보고 정합니다
 
 ---
 
@@ -501,11 +516,11 @@ Font.registerHyphenationCallback((word) => [word]);
 
 ## 이후 마일스톤
 
-M6(실사용 검증) — 본인 콘텐츠 1권 + 저자 2~3명. 위의 "지금 열려 있는 것"을 먼저 비우세요. 운영 Supabase는 2026-09-22에 새 프로젝트(`gzodwsbpnruaaapynyry`)로 옮겼고 마이그레이션 `00001`~`00004`가 적용돼 있습니다.
+M6(실사용 검증) — 본인 콘텐츠 1권 + 저자 2~3명. 위의 "지금 열려 있는 것"을 먼저 비우세요. 운영 Supabase는 2026-09-22에 새 프로젝트(`gzodwsbpnruaaapynyry`)로 옮겼고 마이그레이션 `00001`~`00011`의 적용이 확인돼 있습니다(2026-10-05, 아래 지문 쿼리 19줄 전부 `true`).
 
 마이그레이션 적용 여부는 이력 테이블이 아니라 객체 존재로 판정합니다(SQL 에디터로 적용하면 `supabase_migrations.schema_migrations`에 기록이 남지 않습니다). 지문: `00003` → `void_payment`/`is_book_public`/`book_preview_chapter_id` 함수와 `chapters_select_preview` 정책이 있고 `purchases_insert_own` 정책이 **없을 것**. `00004` → `workbook_response_stats` 본문에 `v_owner_id`가 있을 것.
 
-SQL 에디터에서 아래를 돌려 7줄이 전부 `true`면 `00001`~`00004`가 모두 들어간 것입니다. 전체 마이그레이션을 적용한 PGlite에서 전부 `true`, `00003`·`00004`를 되돌리면 해당 4줄이 `false`로 바뀌는 것을 확인했습니다. 마이그레이션을 추가하면 여기에 한 줄씩 더하세요.
+SQL 에디터에서 아래를 돌려 19줄이 전부 `true`면 `00001`~`00011`이 모두 들어간 것입니다. 처음 7줄(`00001`~`00004`)은 09-22에 운영에서 전부 `true`였습니다. `00005`~`00011` 줄은 2026-10-05에 더했고, 전체 마이그레이션을 적용한 PGlite에서 전부 `true`인 것을 확인했습니다. 전체 마이그레이션을 적용한 PGlite에서 전부 `true`, `00003`·`00004`를 되돌리면 해당 4줄이 `false`로 바뀌는 것을 확인했습니다. 마이그레이션을 추가하면 여기에 한 줄씩 더하세요.
 
 ```sql
 SELECT check_name, ok FROM (VALUES
@@ -517,7 +532,19 @@ SELECT check_name, ok FROM (VALUES
                                        AND proname IN ('fulfill_payment', 'void_payment', 'is_book_public', 'book_preview_chapter_id')) = 4),
   ('00003 첫 챕터 미리보기 정책',  EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'chapters' AND policyname = 'chapters_select_preview')),
   ('00003 purchases INSERT 봉인',  NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'purchases' AND policyname = 'purchases_insert_own')),
-  ('00004 소유자 응답 제외',       EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'workbook_response_stats' AND prosrc LIKE '%v_owner_id%'))
+  ('00004 소유자 응답 제외',       EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'workbook_response_stats' AND prosrc LIKE '%v_owner_id%')),
+  ('00005 결제 요청 RPC',          EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'create_payment_request')),
+  ('00005 결제 행 INSERT 봉인',    NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'payment_transactions' AND policyname = 'payment_transactions_insert_own')),
+  ('00005 구매-결제 연결 컬럼',    EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'purchases' AND column_name = 'payment_transaction_id')),
+  ('00006 구매자 책 열람 정책',    EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'books' AND policyname = 'books_select_purchased')),
+  ('00006 구매 FK RESTRICT',       EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'purchases_book_id_fkey' AND confdeltype = 'r')),
+  ('00007 블록 ID 충돌 함수',      EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'workbook_block_ids_in_other_books')),
+  ('00008 응답 검증 함수',         EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'is_valid_workbook_response')),
+  ('00008 written_at 컬럼',        EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'workbook_responses' AND column_name = 'written_at')),
+  ('00009 본문 대조 동기화 RPC',   EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'sync_chapter_workbook_blocks_if_current')),
+  ('00009 책 집계 트리거',         EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'refresh_books_totals')),
+  ('00010 covers 버킷',            EXISTS (SELECT 1 FROM storage.buckets WHERE id = 'covers')),
+  ('00011 목차 함수',              EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'book_table_of_contents'))
 ) AS t(check_name, ok);
 ```
 
