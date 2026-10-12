@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { FaqAccordion } from "./FaqAccordion";
 import type { FaqItem } from "./FaqAccordion";
+import { CONTACT_EMAIL } from "@/lib/brand";
 
 export const metadata: Metadata = {
   title: "자주 묻는 질문",
@@ -10,12 +11,12 @@ const faqItems: FaqItem[] = [
   {
     question: "결제가 안 돼요. 어떻게 하나요?",
     answer:
-      "결제는 토스페이먼츠에서 진행돼요. 카드 정보를 다시 확인해 보시고, 그래도 안 되면 contact@inspic.kr로 알려 주세요.",
+      `결제는 토스페이먼츠에서 진행돼요. 카드 정보를 다시 확인해 보시고, 그래도 안 되면 ${CONTACT_EMAIL}으로 알려 주세요.`,
   },
   {
     question: "환불은 어떻게 하나요?",
     answer:
-      "구매 후 7일 안에, 책을 한 번도 열지 않았다면 전액 환불해 드려요. 디지털 콘텐츠라 책을 연 뒤에는 환불이 제한돼요. 환불은 contact@inspic.kr로 요청해 주세요. 자세한 기준은 이용약관 제3조에 있어요.",
+      `구매 후 7일 안에, 책을 한 번도 열지 않았다면 전액 환불해 드려요. 디지털 콘텐츠라 책을 연 뒤에는 환불이 제한돼요. 환불은 ${CONTACT_EMAIL}으로 요청해 주세요. 자세한 기준은 이용약관 제3조에 있어요.`,
   },
   {
     question: "모바일에서도 볼 수 있나요?",
@@ -44,7 +45,7 @@ export default function FaqPage() {
     <div className="mx-auto max-w-3xl px-4 py-20">
       <h1 className="mb-2 text-4xl font-bold text-primary">자주 묻는 질문</h1>
       <p className="mb-8 text-muted">
-        찾는 답이 없으면 contact@inspic.kr로 물어봐 주세요.
+        찾는 답이 없으면 {CONTACT_EMAIL}으로 물어봐 주세요.
       </p>
       <FaqAccordion items={faqItems} />
     </div>

@@ -27,7 +27,7 @@ vi.mock("@supabase/ssr", () => ({
 
 const { updateSession, matchesRoute } = await import("./middleware");
 
-const request = (path: string) => new NextRequest(new URL(path, "https://inspic.test"));
+const request = (path: string) => new NextRequest(new URL(path, "https://secrettome.test"));
 
 describe("updateSession", () => {
   beforeEach(() => {
@@ -48,7 +48,7 @@ describe("updateSession", () => {
     auth.user = { id: "u1" };
     for (const path of ["/auth", "/auth/login", "/auth/signup?x=1"]) {
       const res = await updateSession(request(path));
-      expect(res.headers.get("location")).toBe("https://inspic.test/creator");
+      expect(res.headers.get("location")).toBe("https://secrettome.test/creator");
     }
   });
 
@@ -77,7 +77,7 @@ describe("updateSession", () => {
     auth.user = { id: "u1" };
     auth.refreshed = [{ name: "sb-auth-token", value: "rotated", options: { path: "/" } }];
     const res = await updateSession(request("/auth/login"));
-    expect(res.headers.get("location")).toBe("https://inspic.test/creator");
+    expect(res.headers.get("location")).toBe("https://secrettome.test/creator");
     expect(res.cookies.get("sb-auth-token")?.value).toBe("rotated");
 
     auth.user = null;

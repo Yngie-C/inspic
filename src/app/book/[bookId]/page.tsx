@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { Spinner } from "@/components/ui/spinner";
 import { BookDetailClient } from "./BookDetailClient";
+import { SERVICE_NAME } from "@/lib/brand";
 
 interface Props {
   params: Promise<{ bookId: string }>;
@@ -24,7 +25,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     }
 
     const title = book.title;
-    const description = book.description || `${book.title} - inspic에서 읽기`;
+    const description = book.description || `${book.title} - ${SERVICE_NAME}에서 읽기`;
 
     return {
       title,
@@ -43,7 +44,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       },
     };
   } catch {
-    return { title: "inspic" };
+    return { title: SERVICE_NAME };
   }
 }
 

@@ -99,13 +99,13 @@ const OTHER_TITLES: Array<[string, number]> = [
 
 /** 탐색 그리드와 "이 저자의 다른 책"용. 표지 톤이 섞이도록 id를 다르게 둔다. */
 export const DEV_BOOKS = [
-  { ...DEV_BOOK, author_name: "inspic" },
+  { ...DEV_BOOK, author_name: "SecretTome" },
   ...OTHER_TITLES.map(([title, price], i) => ({
     ...DEV_BOOK,
     id: `dev-book-${i + 2}`,
     title,
     price,
     is_free: price === 0,
-    author_name: i % 2 === 0 ? "inspic" : "김서연",
+    author_name: i % 2 === 0 ? "SecretTome" : "김서연",
   })),
 ];

@@ -14,6 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { SERVICE_NAME } from "@/lib/brand";
 // [SUN-68] 시리즈 기능 — 추후 활성화
 // import { NotificationBell } from "@/components/notifications/NotificationBell";
 
@@ -63,7 +64,7 @@ export function Header() {
             href="/"
             className="text-[19px] font-extrabold tracking-[-0.03em] text-primary"
           >
-            inspic
+            {SERVICE_NAME}
           </Link>
 
           {/* Desktop Nav */}

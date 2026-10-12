@@ -5,26 +5,27 @@ import "./globals.css";
 import { Providers } from "@/lib/providers";
 import { ToastProvider } from "@/components/ui/toast";
 import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
+import { SERVICE_NAME } from "@/lib/brand";
 
 export const metadata: Metadata = {
   title: {
-    default: "inspic",
-    template: "%s | inspic",
+    default: SERVICE_NAME,
+    template: `%s | ${SERVICE_NAME}`,
   },
   description:
-    "바로 써먹는 지식을 짧게 읽는 워크북. 읽다가 체크리스트와 질문에 답하면 그 답이 계정에 남아요.",
-  keywords: ["워크북", "실용서", "전자책", "체크리스트", "ebook"],
+    "해 본 사람이 쓴 실전 워크북. 현장의 노하우를 읽고, 내 일에 바로 적용해 보세요.",
+  keywords: ["실전", "노하우", "워크북", "실용서", "전자책", "ebook"],
   openGraph: {
-    title: "inspic",
-    description: "바로 써먹는 지식을 짧게 읽는 워크북. 읽다가 체크리스트와 질문에 답하면 그 답이 계정에 남아요.",
+    title: SERVICE_NAME,
+    description: "해 본 사람이 쓴 실전 워크북. 현장의 노하우를 읽고, 내 일에 바로 적용해 보세요.",
     type: "website",
-    siteName: "inspic",
+    siteName: SERVICE_NAME,
     locale: "ko_KR",
   },
   twitter: {
     card: "summary_large_image",
-    title: "inspic",
-    description: "바로 써먹는 지식을 짧게 읽는 워크북. 읽다가 체크리스트와 질문에 답하면 그 답이 계정에 남아요.",
+    title: SERVICE_NAME,
+    description: "해 본 사람이 쓴 실전 워크북. 현장의 노하우를 읽고, 내 일에 바로 적용해 보세요.",
   },
 };
 

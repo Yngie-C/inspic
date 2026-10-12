@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SERVICE_NAME } from "@/lib/brand";
 
 export default function AuthLayout({
   children,
@@ -9,7 +10,7 @@ export default function AuthLayout({
     <div className="flex min-h-screen flex-col items-center justify-center bg-paper px-4 py-12">
       <div className="mb-8">
         <Link href="/" className="text-3xl font-extrabold tracking-tight text-primary">
-          inspic
+          {SERVICE_NAME}
         </Link>
       </div>
       <div className="w-full max-w-md">{children}</div>

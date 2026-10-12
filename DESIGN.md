@@ -1,6 +1,6 @@
 ---
 version: alpha
-name: Inspic
+name: SecretTome
 description: 적용하는 책을 위한 인터랙티브 워크북 리더와 출판 플랫폼. 명료하고, 도구적이고, 가벼운 화면에 코랄 한 점.
 colors:
   primary: "#000000"
@@ -216,14 +216,14 @@ components:
     textColor: "{colors.faint}"
 ---
 
-# Inspic DESIGN.md
+# SecretTome DESIGN.md
 
 > UI 작업 전에 이 문서를 읽는다. 여기 적히지 않은 값은 기본값(회색, 파랑, 보라, Inter)으로 새지 않도록, 가장 가까운 토큰을 고르고 이 문서에 추가한다.
 > 방향을 정한 근거는 `docs/design/brief.md`에 있다(A안 "절제" 선택, 2026-09-30). 목업은 https://claude.ai/artifact/JWt3TnvjEoMmCygwfatuGc 에 있다.
 
 ## Overview
 
-Inspic은 "읽는 책이 아니라 적용하는 책"이다. 화면의 일은 두 가지다. 책이 말하게 두는 것, 그리고 독자가 쓸 자리를 분명히 내주는 것이다.
+SecretTome은 해 본 사람이 쓴 실전 워크북, "읽는 책이 아니라 적용하는 책"이다. 화면의 일은 두 가지다. 책이 말하게 두는 것, 그리고 독자가 쓸 자리를 분명히 내주는 것이다.
 
 - **명료한**: 위계는 크기, 굵기, 간격, 1px 선만으로 만든다. 본문과 입력은 한눈에 구분된다.
 - **도구적인**: 상태(작성 전, 저장됨, n개 중 m개, 읽는 중)가 항상 텍스트로 보인다.
@@ -336,7 +336,7 @@ Inspic은 "읽는 책이 아니라 적용하는 책"이다. 화면의 일은 두
 - **척도**: 10칸 격자다. 모바일에서 7칸을 넘으면 두 줄(5×2)로 접어 칸 높이 44px를 지킨다. 칸은 field 면에 field-line 테두리, radius sm이다. 선택된 칸은 accent 면에 on-accent 굵은 숫자다. 양 끝 라벨은 칸 아래에 caption muted로 둔다.
 - **체크리스트**: 네이티브 checkbox에 `accent-color: accent`를 준다. 체크된 항목은 muted 색에 1px 취소선이다.
 - **코드 블록**: 잉크 면에 on-primary 텍스트, radius md다. 인라인 코드는 surface 면에 `line` 테두리, radius sm, 0.86em이다.
-- **책 표지 플레이스홀더** (`BookCover` 하나로 통일한다): 옅은 단색 면 2종(Stone, 흰색. 둘 다 잉크 글자) 중 하나를 책 id 해시로 고른다. paper와 대비가 낮으므로 항상 1px 테두리(`line` 또는 잉크 10%)와 함께 쓴다. 제목은 표지 위에 700으로, 하단에 `INSPIC`를 label로 둔다. 그라디언트는 쓰지 않는다.
+- **책 표지 플레이스홀더** (`BookCover` 하나로 통일한다): 옅은 단색 면 2종(Stone, 흰색. 둘 다 잉크 글자) 중 하나를 책 id 해시로 고른다. paper와 대비가 낮으므로 항상 1px 테두리(`line` 또는 잉크 10%)와 함께 쓴다. 제목은 표지 위에 700으로, 하단에 `SECRETTOME`을 label로 둔다. 그라디언트는 쓰지 않는다.
 - **탐색 카드**: 표지, 제목(subtitle), 메타(caption muted) 순이다. 카드 테두리와 면은 없다. hover 시 제목에 밑줄만 생긴다.
 - **목차 항목**: 현재 장은 mark 면에 600 굵기이고, 번호는 잉크다. 다른 장의 번호는 muted다. 현재 장 번호에 accent를 쓰지 않는다 — 상단 바의 진행 선과 겹친다(2026-10-01 결정).
 - **토스트**: 잉크 면에 on-primary 텍스트, radius md다. 떠 있는 레이어 그림자를 쓴다. 문구는 결과를 말한다("저장했어요", "링크를 복사했어요").

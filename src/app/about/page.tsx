@@ -12,7 +12,7 @@ import {
 export const metadata: Metadata = {
   title: "소개",
   description:
-    "inspic은 바로 써먹는 지식을 짧게 읽는 워크북을 펴내는 곳이에요. 독자는 읽다가 체크리스트와 질문에 답하고, 그 답은 계정에 남아요.",
+    "SecretTome은 현장에서 직접 해 본 사람의 노하우를 담은 실전 워크북을 펴내는 곳이에요. 읽다가 내 상황에 맞춰 바로 적용해 볼 수 있어요.",
 };
 
 const readerFeatures = [
@@ -84,11 +84,12 @@ export default function AboutPage() {
       {/* Hero */}
       <section className="mb-20 text-center">
         <h1 className="mb-4 text-4xl font-bold tracking-tight text-primary sm:text-5xl">
-          바로 써먹는 지식을, 짧게
+          해 본 사람의 노하우를, 내 일에 바로
         </h1>
         <p className="mx-auto max-w-2xl text-lg leading-relaxed text-muted">
-          inspic의 책은 짧은 장과 질문으로 이뤄진 워크북이에요. 독자는 읽다가
-          체크리스트와 질문에 답하고, 그 답은 독자의 계정에 남아요.
+          SecretTome의 책은 현장에서 직접 부딪혀 본 사람이 쓴 실전 워크북이에요.
+          읽다가 체크리스트와 질문으로 내 상황에 바로 적용해 보고, 그 기록은 내
+          계정에 남아요.
         </p>
       </section>
 
@@ -147,7 +148,7 @@ export default function AboutPage() {
       <section className="relative overflow-hidden rounded-lg border border-line bg-paper px-6 py-14 text-center">
         <div className="relative">
           <h2 className="mb-3 text-2xl font-bold text-primary sm:text-3xl">
-            내 노하우를 워크북으로 내 보세요
+            현장에서 쌓은 노하우를 책으로 내 보세요
           </h2>
           <p className="mb-8 text-muted">
             원고 파일이 있으면 올려서 바로 시작할 수 있어요.

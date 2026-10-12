@@ -11,7 +11,7 @@ export default function PrivacyPage() {
       <p className="text-sm text-muted mb-10">최종 수정일: 2026년 9월 30일</p>
 
       <p className="mb-8 text-primary leading-relaxed">
-        inspic(이하 &quot;회사&quot;)는 이용자의 개인정보를 중요하게 생각하며, 「개인정보 보호법」 및
+        주식회사 선베이글(이하 &quot;회사&quot;)는 이용자의 개인정보를 중요하게 생각하며, 「개인정보 보호법」 및
         관련 법령을 준수합니다. 본 방침은 회사가 제공하는 서비스 이용 과정에서 수집되는
         개인정보의 처리 방법을 안내합니다.
       </p>
@@ -146,8 +146,8 @@ export default function PrivacyPage() {
         <div className="text-primary leading-relaxed space-y-1">
           <p>개인정보 처리에 관한 문의, 불만 처리, 피해 구제 등은 아래 담당자에게 연락하시기 바랍니다.</p>
           <div className="mt-3 p-4 bg-mark rounded-lg space-y-1">
-            <p><span className="font-medium">성명:</span> [이름]</p>
-            <p><span className="font-medium">이메일:</span> [이메일]</p>
+            <p><span className="font-medium">성명:</span> 이기창</p>
+            <p><span className="font-medium">이메일:</span> info@sunbagel.com</p>
           </div>
           <p className="mt-3 text-sm text-muted">
             개인정보 침해에 관한 신고나 상담은 개인정보보호위원회(privacy.go.kr, 국번 없이 182) 또는
