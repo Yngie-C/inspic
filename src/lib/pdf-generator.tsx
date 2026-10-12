@@ -14,6 +14,7 @@ import {
   type FallbackAnswers,
 } from "./template-fallback";
 import { PDF_FONT_FAMILY, registerPdfFonts } from "./pdf-fonts";
+import { SERVICE_NAME } from "@/lib/brand";
 
 // 한글 글리프가 있는 폰트를 등록합니다. 내장 Helvetica로는 렌더가
 // 성공한 채 한글만 깨지므로, 이 호출이 빠지면 조용히 망가집니다.
@@ -742,8 +743,8 @@ export function BookPDF({
       title={book.title}
       author={authorName}
       subject={book.description ?? ""}
-      creator="inspic"
-      producer="inspic PDF Generator"
+      creator={SERVICE_NAME}
+      producer={`${SERVICE_NAME} PDF Generator`}
     >
       <CoverPage book={book} authorName={authorName} />
       {chapters.length > 1 && (

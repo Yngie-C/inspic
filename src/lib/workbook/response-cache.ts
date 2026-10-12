@@ -26,6 +26,8 @@ import type { WorkbookAnswer } from "./types";
  * 저장되지 않은 상태이고, 이 화면에서 가장 나쁜 실패입니다.
  */
 
+// 서비스명이 바뀌어도(2026-10-12 inspic → SecretTome) 키는 그대로 둡니다.
+// 바꾸면 기기에 남은 미전송 답을 새 키에서 찾지 못해 잃습니다.
 const PREFIX = "inspic_workbook";
 
 /** 한 블록의 응답. 키는 field_key. */

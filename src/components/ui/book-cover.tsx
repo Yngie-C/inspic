@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { SERVICE_NAME } from "@/lib/brand";
 
 // DESIGN.md Components > 책 표지 플레이스홀더. Stone·흰 면 2종 중 하나를 책 id 해시로 고른다.
 // paper와 대비가 낮아 부모 박스가 1px 테두리를 둘러야 한다.
@@ -74,7 +75,7 @@ export function BookCover({
         {title}
       </span>
       <span className="text-label" aria-hidden>
-        INSPIC
+        {SERVICE_NAME.toUpperCase()}
       </span>
     </div>
   );

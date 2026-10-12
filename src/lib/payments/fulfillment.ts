@@ -1,6 +1,7 @@
 import type { TossPayment } from "@/lib/toss-payments";
 import type { PaymentTransactionStatus } from "@/types";
 import { paymentPhase, transactionStatus } from "./status";
+import { CONTACT_EMAIL } from "@/lib/brand";
 
 /**
  * 승인된 결제를 구매로 바꾸는 절차.
@@ -91,8 +92,7 @@ export interface FulfillmentPorts {
 const DUPLICATE_REASON = "이미 가지고 있는 책이라 이번 결제는 자동으로 취소했어요.";
 const VOIDED_REASON =
   "이미 취소됐거나 끝난 결제라 책을 열지 않았어요. 결제한 금액은 자동으로 취소돼요.";
-const STRANDED_REASON =
-  "결제는 됐지만 처리를 끝내지 못했어요. contact@inspic.kr로 알려 주시면 바로 확인할게요.";
+const STRANDED_REASON = `결제는 됐지만 처리를 끝내지 못했어요. ${CONTACT_EMAIL}으로 알려 주시면 바로 확인할게요.`;
 
 const ROW_OUTCOMES = new Set([
   "granted",

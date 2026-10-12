@@ -105,7 +105,7 @@ export function ComponentGallery() {
       <Section title="입력">
         <div className="grid gap-4 sm:grid-cols-2">
           <Input id="dev-name" label="이름" placeholder="이름을 적어 주세요" />
-          <Input id="dev-filled" label="채운 값" defaultValue="Inspic 워크북" />
+          <Input id="dev-filled" label="채운 값" defaultValue="SecretTome 워크북" />
           <Input
             id="dev-error"
             label="이메일"

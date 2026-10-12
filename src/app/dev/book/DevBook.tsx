@@ -6,7 +6,7 @@ import { DEV_BOOK, DEV_BOOKS, DEV_CHAPTERS } from "../_mock/book";
 export function DevBook({ as }: { as: string }) {
   return (
     <BookDetailView
-      book={{ ...DEV_BOOK, author_name: "inspic" }}
+      book={{ ...DEV_BOOK, author_name: "SecretTome" }}
       chapters={DEV_CHAPTERS}
       isOwner={as === "owner"}
       access={
@@ -14,7 +14,7 @@ export function DevBook({ as }: { as: string }) {
           ? { hasAccess: false, reason: "preview" }
           : { hasAccess: true, reason: "purchased" }
       }
-      otherBooks={DEV_BOOKS.filter((b) => b.author_name === "inspic").slice(1, 5)}
+      otherBooks={DEV_BOOKS.filter((b) => b.author_name === "SecretTome").slice(1, 5)}
       publishing={false}
       onUnpublish={() => {}}
     />

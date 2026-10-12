@@ -13,8 +13,8 @@ export default function TermsPage() {
       </p>
 
       <p className="mb-10 text-sm leading-relaxed text-muted">
-        본 이용약관은 inspic(이하 &quot;회사&quot;)이 운영하는 디지털 콘텐츠
-        플랫폼 <strong>inspic</strong>(이하 &quot;서비스&quot;)의 이용 조건을
+        본 이용약관은 주식회사 선베이글(이하 &quot;회사&quot;)가 운영하는 디지털 콘텐츠
+        플랫폼 <strong>SecretTome</strong>(이하 &quot;서비스&quot;)의 이용 조건을
         규정합니다. 서비스를 이용하시기 전에 본 약관을 주의 깊게 읽어 주시기
         바랍니다. 본 약관은 법률 전문가의 검토를 거친 최종본이 아닌 템플릿이며,
         실제 서비스 운영 전 법률 전문가의 검토를 권장합니다.
@@ -64,7 +64,7 @@ export default function TermsPage() {
         </h2>
         <div className="space-y-3 text-sm leading-relaxed text-primary">
           <p>
-            1. 크리에이터가 inspic 플랫폼에 업로드한 모든 콘텐츠(전자책, 워크북,
+            1. 크리에이터가 SecretTome 플랫폼에 업로드한 모든 콘텐츠(전자책, 워크북,
             이미지, 텍스트 등)의 저작권은 해당 콘텐츠를 창작한 크리에이터에게
             귀속됩니다.
           </p>

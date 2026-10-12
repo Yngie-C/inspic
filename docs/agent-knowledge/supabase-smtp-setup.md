@@ -1,4 +1,4 @@
-# inspic 인증 메일 SMTP 설정 가이드 (Resend)
+# SecretTome 인증 메일 SMTP 설정 가이드 (Resend)
 
 2026-10-01 작성 · 원본(공동 편집 문서): https://claude.ai/code/artifact/c7e740aa-5cd8-4838-b789-501d14f7889b
 
@@ -15,37 +15,37 @@ Custom SMTP를 연결하면 두 제약이 모두 풀려요.
 
 ## 결정 사항
 
-다른 프로젝트에서 쓰는 Resend 무료 팀에 inspic 도메인을 추가해요. 2026-08-25부터 Resend 무료 팀은 도메인을 3개까지 인증할 수 있어요([Resend changelog](https://resend.com/changelog/three-domains-on-the-free-tier)).
+다른 프로젝트에서 쓰는 Resend 무료 팀에 secrettome.co.kr 도메인을 추가해요. 2026-08-25부터 Resend 무료 팀은 도메인을 3개까지 인증할 수 있어요([Resend changelog](https://resend.com/changelog/three-domains-on-the-free-tier)).
 
 | 항목 | 내용 |
 | --- | --- |
 | 비용 | 무료 |
 | 한도 | 하루 100통, 월 3,000통. 다른 프로젝트와 함께 써요 |
 | 한도를 넘으면 | 발송이 멈추고, 자동 과금되지 않아요 |
-| 보내는 주소 | `noreply@<inspic 도메인>` |
+| 보내는 주소 | `noreply@secrettome.co.kr` |
 
 주의할 점이 두 가지 있어요.
 
-- **한도를 나눠 써요.** 팀의 한도는 모든 도메인이 함께 써요. inspic 테스트로 하루 100통을 채우면 그날은 다른 프로젝트 메일도 멈춰요.
+- **한도를 나눠 써요.** 팀의 한도는 모든 도메인이 함께 써요. SecretTome 테스트로 하루 100통을 채우면 그날은 다른 프로젝트 메일도 멈춰요.
 - **계정 제재는 둘 다에 걸려요.** 반송이나 스팸 신고가 많아지면 두 프로젝트 발송이 함께 막혀요. 테스트는 `+test1`처럼 실제 받은편지함으로 가는 주소로만 해요.
 
 ## 사전 준비: 자체 도메인
 
-SMTP를 연결하기 전에 inspic용 도메인을 먼저 사야 해요. 메일을 보내려면 보내는 도메인에 SPF·DKIM·DMARC 레코드를 등록해 인증해야 하기 때문이에요.
+SMTP를 연결하기 전에 SecretTome용 도메인을 먼저 사야 해요. 메일을 보내려면 보내는 도메인에 SPF·DKIM·DMARC 레코드를 등록해 인증해야 하기 때문이에요.
 
 - 지금 주소인 `publedge.vercel.app`은 Vercel 소유라 DNS 레코드를 추가할 수 없어요.
 - Gmail 주소를 보내는 사람으로 쓰면 스팸함으로 가기 쉽아요.
-- Supabase는 인증 메일 전용 도메인을 따로 두는 것도 권해요. 예를 들어 `mail.<inspic 도메인>` 같은 서브도메인이에요.
+- Supabase는 인증 메일 전용 도메인을 따로 두는 것도 권해요. 예를 들어 `mail.secrettome.co.kr` 같은 서브도메인이에요.
 
 ## 설정 절차
 
 1. **Resend에 도메인 추가**
-   - 기존 팀의 Domains 화면에서 inspic 도메인(또는 메일용 서브도메인)을 추가해요.
+   - 기존 팀의 Domains 화면에서 secrettome.co.kr 도메인(또는 메일용 서브도메인)을 추가해요.
    - Resend가 알려 주는 DNS 레코드를 도메인을 산 곳(레지스트리 또는 DNS 서비스)에 그대로 등록해요.
    - Resend 화면에서 상태가 Verified로 바뀔 때까지 기다려요.
-2. **inspic 전용 API 키 만들기**
-   - API Keys 화면에서 새 키를 만들고, 이름을 `inspic-supabase-smtp`처럼 붙여요.
-   - 권한은 Sending access로 하고, 가능하면 inspic 도메인으로만 보내게 제한해요.
+2. **SecretTome 전용 API 키 만들기**
+   - API Keys 화면에서 새 키를 만들고, 이름을 `secrettome-supabase-smtp`처럼 붙여요.
+   - 권한은 Sending access로 하고, 가능하면 secrettome.co.kr 도메인으로만 보내게 제한해요.
    - 다른 프로젝트의 키를 같이 쓰지 않아요. 따로 두어야 한쪽만 끊거나 바꾸기 쉽아요.
 3. **Supabase에 SMTP 입력**
    - Authentication → Emails → SMTP Settings에서 Custom SMTP를 켜요.
@@ -61,8 +61,8 @@ SMTP를 연결하기 전에 inspic용 도메인을 먼저 사야 해요. 메일�
 
 | Supabase 항목 | 값 |
 | --- | --- |
-| Sender email | `noreply@<inspic 도메인>` |
-| Sender name | `inspic` |
+| Sender email | `noreply@secrettome.co.kr` |
+| Sender name | `SecretTome` |
 | Host | `smtp.resend.com` |
 | Port | `465` |
 | Username | `resend` |
@@ -75,7 +75,7 @@ Resend의 SMTP 값은 기억에 기대 적었어요. 입력 전에 Resend 대시
 테스트 계정은 `example+test1@gmail.com`처럼 `@` 앞에 `+텍스트`를 붙여 만들어요. 모두 같은 Gmail 받은편지함으로 와요.
 
 - [ ] 새 주소로 가입 → 인증 메일이 받은편지함(스팸함 아님)에 오는지
-- [ ] 보낸 사람이 `noreply@<inspic 도메인>`으로 보이는지
+- [ ] 보낸 사람이 `noreply@secrettome.co.kr`으로 보이는지
 - [ ] 메일의 링크를 누르면 `/auth/callback`을 거쳐 로그인된 상태가 되는지
 - [ ] 인증 전 계정으로 로그인 → "인증 메일 다시 보내기"로 메일이 다시 오는지
 - [ ] 비밀번호 찾기 → 메일 링크 → `/auth/reset-password`에서 변경 → 새 비밀번호로 로그인
