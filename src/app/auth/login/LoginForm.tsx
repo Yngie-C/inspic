@@ -33,7 +33,7 @@ export default function LoginForm({
   const redirectTarget = () =>
     safeInternalPath(
       new URLSearchParams(window.location.search).get("redirect"),
-      "/creator",
+      "/",
     );
 
   const handleSubmit = async (e: React.FormEvent) => {
