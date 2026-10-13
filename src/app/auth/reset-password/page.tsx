@@ -78,7 +78,7 @@ export default function ResetPasswordPage() {
         </CardHeader>
         <CardFooter className="justify-center">
           <Button asChild>
-            <Link href="/creator">계속하기</Link>
+            <Link href="/">계속하기</Link>
           </Button>
         </CardFooter>
       </Card>

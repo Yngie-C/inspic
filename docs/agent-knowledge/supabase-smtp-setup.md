@@ -2,7 +2,7 @@
 
 2026-10-01 작성 · 원본(공동 편집 문서): https://claude.ai/code/artifact/c7e740aa-5cd8-4838-b789-501d14f7889b
 
-> 상태: **아직 적용 전.** 도메인 구매 → 이 절차 → `TODO.md`의 인증 메일 확인 항목 순서로 진행합니다. 보내는 주소를 루트 도메인으로 할지 메일용 서브도메인으로 할지는 아직 정하지 않았습니다.
+> 상태: **적용 완료 (2026-10-13).** DKIM·SPF·DMARC DNS 조회와 가입 인증 메일 수신까지 확인했습니다. Supabase Site URL은 `https://www.secrettome.com`(Vercel 정식 주소가 `www`)입니다. 도메인 `secrettome.com`은 가비아에서 샀습니다(`secrettome.co.kr`은 등록하지 않았습니다). 보내는 주소는 인증 메일 전용 서브도메인 `auth.secrettome.com`으로 정했습니다 — Supabase 권장대로, 나중에 다른 메일을 보내도 인증 메일 평판이 섞이지 않게.
 
 ## 왜 필요한가
 
@@ -15,14 +15,14 @@ Custom SMTP를 연결하면 두 제약이 모두 풀려요.
 
 ## 결정 사항
 
-다른 프로젝트에서 쓰는 Resend 무료 팀에 secrettome.co.kr 도메인을 추가해요. 2026-08-25부터 Resend 무료 팀은 도메인을 3개까지 인증할 수 있어요([Resend changelog](https://resend.com/changelog/three-domains-on-the-free-tier)).
+다른 프로젝트에서 쓰는 Resend 무료 팀에 `auth.secrettome.com` 도메인을 추가해요. 2026-08-25부터 Resend 무료 팀은 도메인을 3개까지 인증할 수 있어요([Resend changelog](https://resend.com/changelog/three-domains-on-the-free-tier)).
 
 | 항목 | 내용 |
 | --- | --- |
 | 비용 | 무료 |
 | 한도 | 하루 100통, 월 3,000통. 다른 프로젝트와 함께 써요 |
 | 한도를 넘으면 | 발송이 멈추고, 자동 과금되지 않아요 |
-| 보내는 주소 | `noreply@secrettome.co.kr` |
+| 보내는 주소 | `noreply@auth.secrettome.com` |
 
 주의할 점이 두 가지 있어요.
 
@@ -35,17 +35,21 @@ SMTP를 연결하기 전에 SecretTome용 도메인을 먼저 사야 해요. 메
 
 - 지금 주소인 `publedge.vercel.app`은 Vercel 소유라 DNS 레코드를 추가할 수 없어요.
 - Gmail 주소를 보내는 사람으로 쓰면 스팸함으로 가기 쉽아요.
-- Supabase는 인증 메일 전용 도메인을 따로 두는 것도 권해요. 예를 들어 `mail.secrettome.co.kr` 같은 서브도메인이에요.
+- Supabase는 인증 메일 전용 도메인을 따로 두는 것도 권해요. 그래서 `auth.secrettome.com`을 써요.
 
 ## 설정 절차
 
 1. **Resend에 도메인 추가**
-   - 기존 팀의 Domains 화면에서 secrettome.co.kr 도메인(또는 메일용 서브도메인)을 추가해요.
-   - Resend가 알려 주는 DNS 레코드를 도메인을 산 곳(레지스트리 또는 DNS 서비스)에 그대로 등록해요.
+   - 기존 팀의 Domains 화면에서 `auth.secrettome.com`을 추가해요. 리전은 Tokyo(ap-northeast-1)예요.
+   - Resend가 알려 주는 DNS 레코드를 가비아 DNS 설정에 그대로 등록해요. 2026-10 기준 Resend는 DKIM TXT 1개(`resend._domainkey.auth`)와 SPF용 CNAME 2개(`rsend.auth`, `send.auth`)를 줘요. 예전처럼 `send`에 MX·TXT를 넣는 방식이 아니에요.
+   - 가비아 호스트 칸에는 도메인 앞부분만 넣어요(`rsend.auth`). 뒤에 `.secrettome.com`이 자동으로 붙어요.
+   - 가비아에서 CNAME이 저장되지 않으면 값 끝에 점을 붙여 보세요(`send.forge.rmta.net.`). 같은 호스트에 다른 레코드(예전 방식의 MX·TXT)가 있어도 CNAME은 들어가지 않아요.
+   - DMARC도 하나 넣어요: TXT `_dmarc` = `v=DMARC1; p=none;`. Gmail 수신율에 영향이 있어요.
+   - 도메인 설정에서 Click tracking·Open tracking은 꺼요. 클릭 추적은 인증 링크를 Resend 주소로 바꿔요.
    - Resend 화면에서 상태가 Verified로 바뀔 때까지 기다려요.
 2. **SecretTome 전용 API 키 만들기**
    - API Keys 화면에서 새 키를 만들고, 이름을 `secrettome-supabase-smtp`처럼 붙여요.
-   - 권한은 Sending access로 하고, 가능하면 secrettome.co.kr 도메인으로만 보내게 제한해요.
+   - 권한은 Sending access로 하고, 가능하면 `auth.secrettome.com` 도메인으로만 보내게 제한해요.
    - 다른 프로젝트의 키를 같이 쓰지 않아요. 따로 두어야 한쪽만 끊거나 바꾸기 쉽아요.
 3. **Supabase에 SMTP 입력**
    - Authentication → Emails → SMTP Settings에서 Custom SMTP를 켜요.
@@ -54,28 +58,39 @@ SMTP를 연결하기 전에 SecretTome용 도메인을 먼저 사야 해요. 메
    - Custom SMTP를 연결하면 Supabase가 처음에 시간당 30통으로 막아 둬요.
    - Authentication → Rate Limits에서 필요한 만큼 올려요. Resend 무료 한도가 하루 100통이라 그보다 높게 올려도 의미가 없어요.
 5. **Redirect URLs 확인**
-   - Authentication → URL Configuration의 Redirect URLs에 `http://localhost:3000/**`를 추가해요.
-   - 운영 주소(`publedge.vercel.app`)는 Site URL과 같아서 따로 넣지 않아도 돼요. 도메인을 새로 연결하면 Site URL도 새 주소로 바꿔요.
+   - Vercel에 `secrettome.com`을 연결한 뒤, Authentication → URL Configuration의 Site URL을 `https://secrettome.com`으로 바꿔요.
+   - Redirect URLs에는 `https://secrettome.com/**`, `https://publedge.vercel.app/**`(옮기는 동안), `http://localhost:3000/**`를 넣어요. `/**`라서 `?next=/auth/reset-password` 같은 쿼리도 통과해요.
+   - 코드는 고칠 것이 없어요. 메일 링크는 `window.location.origin`으로 만들어요(`stores/auth-store.ts`).
 
 **3단계에서 입력할 값**
 
 | Supabase 항목 | 값 |
 | --- | --- |
-| Sender email | `noreply@secrettome.co.kr` |
+| Sender email | `noreply@auth.secrettome.com` |
 | Sender name | `SecretTome` |
 | Host | `smtp.resend.com` |
 | Port | `465` |
 | Username | `resend` |
 | Password | 2단계에서 만든 API 키 |
 
-Resend의 SMTP 값은 기억에 기대 적었어요. 입력 전에 Resend 대시보드의 SMTP 안내와 맞는지 확인해 주세요.
+SMTP 값은 2026-10-12에 [Resend의 Supabase 안내](https://resend.com/docs/send-with-supabase-smtp)와 대조했어요.
 
 ## 설정 후 확인
+
+DNS는 터미널에서 먼저 확인해요.
+
+```bash
+dig +short TXT resend._domainkey.auth.secrettome.com @8.8.8.8   # DKIM 공개키
+dig +short CNAME rsend.auth.secrettome.com @8.8.8.8             # rsend-apne1.forge.rmta.net.
+dig +short CNAME send.auth.secrettome.com @8.8.8.8              # send.forge.rmta.net.
+dig +short TXT _dmarc.secrettome.com @8.8.8.8                   # v=DMARC1; p=none;
+```
 
 테스트 계정은 `example+test1@gmail.com`처럼 `@` 앞에 `+텍스트`를 붙여 만들어요. 모두 같은 Gmail 받은편지함으로 와요.
 
 - [ ] 새 주소로 가입 → 인증 메일이 받은편지함(스팸함 아님)에 오는지
-- [ ] 보낸 사람이 `noreply@secrettome.co.kr`으로 보이는지
+- [ ] 보낸 사람이 `SecretTome <noreply@auth.secrettome.com>`으로 보이는지
+- [ ] Gmail ⋮ → 원본 보기에서 SPF·DKIM·DMARC가 모두 PASS인지 — 연결을 판정하는 가장 확실한 기준이에요
 - [ ] 메일의 링크를 누르면 `/auth/callback`을 거쳐 로그인된 상태가 되는지
 - [ ] 인증 전 계정으로 로그인 → "인증 메일 다시 보내기"로 메일이 다시 오는지
 - [ ] 비밀번호 찾기 → 메일 링크 → `/auth/reset-password`에서 변경 → 새 비밀번호로 로그인

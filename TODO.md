@@ -8,7 +8,7 @@
 
 **M0~M5 코드 완료. 다음은 M6 (실사용 검증).**
 
-토스 **라이브 계약**(사업자등록 → 통신판매업 신고 → 심사)은 시간이 걸리므로 별도 트랙으로 돌립니다. 라이브가 막는 것은 M6 게이트 중 "독자 유료 구매 1건"뿐입니다. 테스트 키로 할 수 있는 것과 결제가 필요 없는 것을 먼저 합니다. 서비스명은 2026-10-12 **SecretTome**으로 바꿨고 도메인은 `secrettome.co.kr`로 정했습니다. 연결 전까지는 `publedge.vercel.app`을 씁니다.
+토스 **라이브 계약**(사업자등록 → 통신판매업 신고 → 심사)은 시간이 걸리므로 별도 트랙으로 돌립니다. 라이브가 막는 것은 M6 게이트 중 "독자 유료 구매 1건"뿐입니다. 테스트 키로 할 수 있는 것과 결제가 필요 없는 것을 먼저 합니다. 서비스명은 2026-10-12 **SecretTome**으로 바꿨고 도메인은 `secrettome.com`로 정했습니다. 연결 전까지는 `publedge.vercel.app`을 씁니다.
 
 2026-10-05 중요도 순으로 다시 묶었습니다. 위 묶음이 아래 묶음을 막습니다. 다만 **4(저자 영입)는 리드타임이 가장 길어 1부터 병행**하고, **도메인은 SMTP를 막으므로 라이브 트랙에서 1로 올렸습니다.**
 
@@ -32,14 +32,14 @@
 - [x] keep-alive 주기를 5일 → 매일로, curl 실패 시 종료 코드와 원인을 로그에 남기도록
 - [x] `/api/landing`이 쿼리 에러를 삼켜 "책 0권"으로 응답하던 것 — 이번 장애가 첫 화면에서 안 보였던 이유
 
-### 1. 메일 발송 — 두 번째 계정부터 막힘
+### 1. 메일 발송 ✅ (상표 출원만 남음)
 
-**OAuth를 걷어내 이메일이 유일한 가입 경로입니다.** 새 프로젝트는 기본 SMTP라 조직 팀원 주소로만, 시간당 2통만 보냅니다. 2번의 두 번째 계정부터 여기에 걸립니다.
+**OAuth를 걷어내 이메일이 유일한 가입 경로입니다.** 2026-10-13 커스텀 SMTP(Resend)를 연결해 이 제약은 풀렸습니다. Supabase가 시간당 30통으로 시작하고, Resend 무료 한도(하루 100통)는 다른 프로젝트와 나눠 씁니다.
 
-- [ ] `secrettome.co.kr` 연결(2026-10-12 구매 완료) (문의 메일은 `info@sunbagel.com`을 씁니다) (라이브 트랙에서 올림). 커스텀 SMTP는 DNS 인증이 필요해 `publedge.vercel.app`으로는 못 합니다. 토스 심사·webhook 재등록도 이 도메인을 씁니다
+- [x] `secrettome.com` 연결 (2026-10-13). 가비아에서 샀고 `.co.kr`은 사지 않았습니다. Vercel 정식 주소는 `www.secrettome.com`(루트는 308로 넘어감). Supabase Site URL은 `https://www.secrettome.com`, Redirect URLs는 `www`·루트·`publedge.vercel.app`·`localhost:3000`의 `/**`. 문의 메일은 `info@sunbagel.com`. 토스 심사·webhook 재등록도 이 도메인을 씁니다
 - [ ] `SECRETTOME` / `시크릿톰` 상표 출원 (9·16·41·42류). KIPRIS 검색은 아직 안 함(Fieldfolio 때 한 확인은 이 이름에 해당하지 않음) — 선출원주의라 도메인과 함께 빨리
-- [ ] 커스텀 SMTP(Resend) 연결 — 기존 Resend 무료 팀에 도메인을 추가하기로 했습니다. 절차는 `docs/agent-knowledge/supabase-smtp-setup.md`. 외부 사용자가 들어오는 M6 전에는 필수입니다
-- [ ] (도메인 전 임시) 두 번째 계정 주소를 Supabase 조직 팀원으로 넣어 2번을 먼저 진행
+- [x] 커스텀 SMTP(Resend) 연결 (2026-10-13). 보내는 주소 `noreply@auth.secrettome.com`, DKIM·SPF(CNAME)·DMARC(`p=none`) DNS 조회 확인, 가입 인증 메일 수신 확인. 절차는 `docs/agent-knowledge/supabase-smtp-setup.md`
+- [x] ~~(도메인 전 임시) 두 번째 계정 주소를 Supabase 조직 팀원으로 넣어 2번을 먼저 진행~~ — SMTP 연결로 필요 없어짐
 
 ### 2. 운영에서 무료 책으로 핵심 루프 한 바퀴
 
