@@ -111,6 +111,17 @@
   }
 }
 
+/* ── Editor placeholder ── */
+/* Tiptap Placeholder는 빈 줄에 data-placeholder만 답니다. 이 규칙이 없으면 문구가
+   화면에 보이지 않습니다. placeholder는 muted(DESIGN.md). */
+.ProseMirror p.is-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--color-muted);
+}
+
 /* ── Reader theme variables ── */
 :root {
   --reader-bg: var(--color-paper);

@@ -19,6 +19,8 @@ import {
 } from "./extensions/templates";
 import { cn } from "@/lib/utils";
 
+const EMPTY_LINE_PLACEHOLDER = "/를 입력하면 워크북 블록을 넣을 수 있어요";
+
 interface RichTextEditorProps {
   content: string;
   onUpdate: (html: string) => void;
@@ -68,7 +70,14 @@ export function RichTextEditor({
         },
       }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
-      Placeholder.configure({ placeholder }),
+      // 커서가 있는 빈 줄에만 뜹니다. 원고를 올린 장처럼 본문이 이미 차 있어도
+      // 새 줄을 만들 때마다 `/`로 블록을 넣을 수 있다는 것이 보이게 합니다.
+      Placeholder.configure({
+        placeholder: ({ editor: ed, node }) => {
+          if (ed.isEmpty) return placeholder;
+          return node.type.name === "paragraph" ? EMPTY_LINE_PLACEHOLDER : "";
+        },
+      }),
       ChecklistNode,
       CalloutNode,
       ReflectionNode,

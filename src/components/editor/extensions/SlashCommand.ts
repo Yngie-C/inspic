@@ -11,23 +11,23 @@ import {
   ListOrdered,
   Minus,
   Image as ImageIcon,
-  CheckSquare,
-  MessageSquare,
-  HelpCircle,
-  ChevronDown,
-  Columns,
-  Target,
-  ArrowLeftRight,
-  BarChart3,
-  LayoutGrid,
-  Flag,
-  Calendar,
-  Star,
 } from "lucide-react";
 import { SlashCommandMenu, type SlashMenuItem, type SlashCommandMenuHandle } from "../SlashCommandMenu";
 import type React from "react";
+import { WORKBOOK_BLOCKS, insertWorkbookBlock } from "../workbook-blocks";
 
-const SLASH_ITEMS: SlashMenuItem[] = [
+// 워크북 블록을 먼저 둡니다. `/`만 쳐도 첫 화면에 보여야 처음 쓰는 저자가
+// 블록이 있다는 것을 압니다.
+const WORKBOOK_ITEMS: SlashMenuItem[] = WORKBOOK_BLOCKS.map((block) => ({
+  title: block.title,
+  description: block.description,
+  aliases: block.aliases,
+  icon: block.icon,
+  category: "워크북 블록",
+  command: ({ editor, range }) => insertWorkbookBlock(editor, block.type, range),
+}));
+
+const BASIC_ITEMS: SlashMenuItem[] = [
   {
     title: "제목 1",
     aliases: ["h1", "heading1", "제목"],
@@ -106,52 +106,11 @@ const SLASH_ITEMS: SlashMenuItem[] = [
       ref?.current?.();
     },
   },
-  // — 인터랙티브 템플릿 —
-  {
-    title: "체크리스트",
-    aliases: ["checklist", "체크", "할일"],
-    icon: CheckSquare,
-    category: "워크북 블록",
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).insertContent({ type: "checklist" }).run();
-    },
-  },
-  {
-    title: "참고·팁",
-    aliases: ["callout", "콜아웃", "참고", "팁", "주의", "알림", "안내"],
-    icon: MessageSquare,
-    category: "워크북 블록",
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).insertContent({ type: "callout" }).run();
-    },
-  },
-  {
-    title: "성찰 질문",
-    aliases: ["reflection", "리플렉션", "질문", "성찰"],
-    icon: HelpCircle,
-    category: "워크북 블록",
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).insertContent({ type: "reflection" }).run();
-    },
-  },
-  {
-    title: "목표 (SMART)",
-    aliases: ["smart", "goal", "목표"],
-    icon: Target,
-    category: "워크북 블록",
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).insertContent({ type: "smartGoal" }).run();
-    },
-  },
-  {
-    title: "척도 (1–10)",
-    aliases: ["scale", "스케일", "척도", "점수"],
-    icon: BarChart3,
-    category: "워크북 블록",
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).insertContent({ type: "scale" }).run();
-    },
-  },
+];
+
+const SLASH_ITEMS: SlashMenuItem[] = [
+  ...WORKBOOK_ITEMS,
+  ...BASIC_ITEMS.map((item) => ({ ...item, category: "기본 블록" })),
 ];
 
 export interface SlashCommandOptions {
@@ -209,7 +168,7 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
                 } else {
                   popup.style.top = `${rect.bottom + 4}px`;
                 }
-                popup.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 280))}px`;
+                popup.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 296))}px`;
               }
             },
             onUpdate: (props: any) => {
@@ -224,7 +183,7 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
                 } else {
                   popup.style.top = `${rect.bottom + 4}px`;
                 }
-                popup.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 280))}px`;
+                popup.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 296))}px`;
               }
             },
             onKeyDown: (props: any) => {

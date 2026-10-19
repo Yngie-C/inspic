@@ -20,9 +20,18 @@ import {
   AlignCenter,
   AlignRight,
   Highlighter,
+  Plus,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, SHORTCUTS } from "./Tooltip";
+import { WORKBOOK_BLOCKS, insertWorkbookBlock } from "./workbook-blocks";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface ToolbarButtonProps {
   onClick: () => void;
@@ -64,6 +73,61 @@ function ToolbarDivider() {
   return <div className="mx-1 h-5 w-px bg-line shrink-0" />;
 }
 
+/**
+ * 워크북 블록 삽입 메뉴. 슬래시 메뉴만 있을 때는 처음 쓰는 저자가 블록이
+ * 있다는 것조차 몰랐습니다(TODO 2-1). 아이콘 줄에서 글자가 있는 유일한
+ * 버튼이라 눈에 띄고, accent는 화면의 주요 행동([공개하기]) 몫이라 쓰지 않습니다.
+ */
+function WorkbookBlockMenu({ editor }: { editor: Editor }) {
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          // 에디터 포커스를 지켜 커서 자리를 잃지 않게 합니다(ToolbarButton과 같은 이유).
+          onMouseDown={(e) => e.preventDefault()}
+          className={cn(
+            "mr-1 flex h-8 shrink-0 items-center gap-1 rounded-md border border-line-strong px-2.5",
+            "text-body-sm font-semibold text-primary transition-colors duration-150 ease-out",
+            "hover:border-primary data-[state=open]:border-primary",
+          )}
+        >
+          <Plus className="h-4 w-4" strokeWidth={1.75} />
+          워크북 블록
+          <ChevronDown className="h-3.5 w-3.5 text-muted" strokeWidth={1.75} />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        className="w-72"
+        // 메뉴가 닫힐 때 포커스를 트리거로 돌리지 않습니다. 고른 블록 쪽으로
+        // insertWorkbookBlock()이 에디터 포커스를 되돌립니다.
+        onCloseAutoFocus={(e) => e.preventDefault()}
+      >
+        {WORKBOOK_BLOCKS.map((block) => {
+          const Icon = block.icon;
+          return (
+            <DropdownMenuItem
+              key={block.type}
+              className="items-start gap-3 px-2.5 py-2"
+              onSelect={() => insertWorkbookBlock(editor, block.type)}
+            >
+              <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted" strokeWidth={1.75} />
+              <div className="min-w-0">
+                <div className="font-semibold">{block.title}</div>
+                <div className="text-caption text-muted">{block.description}</div>
+              </div>
+            </DropdownMenuItem>
+          );
+        })}
+        <p className="border-t border-line px-2.5 pt-2 pb-1.5 mt-1 text-caption text-muted">
+          본문 빈 줄에서 /를 입력해도 넣을 수 있어요
+        </p>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 interface EditorToolbarProps {
   editor: Editor;
   onImageUpload?: () => void;
@@ -83,6 +147,9 @@ export function EditorToolbar({ editor, onImageUpload }: EditorToolbarProps) {
 
   return (
     <div className="flex flex-wrap items-center gap-0.5 border-b border-line bg-paper px-3 py-2 overflow-x-auto">
+      <WorkbookBlockMenu editor={editor} />
+      <ToolbarDivider />
+
       {/* Text formatting */}
       <Tooltip label="굵게" shortcut={SHORTCUTS.bold}>
         <ToolbarButton
