@@ -5,6 +5,8 @@ import type { Book } from "@/types";
 
 export interface BookWithAuthor extends Book {
   author_name?: string | null;
+  /** 저자 현장 이력 한 줄(`user_profiles.bio`). 메인 페이지만 싣습니다. */
+  author_bio?: string | null;
 }
 
 interface BookPreviewCardProps {
@@ -25,6 +27,7 @@ export function BookPreviewCard({
 }: BookPreviewCardProps) {
   const price = book.price > 0 ? `${book.price.toLocaleString("ko-KR")}원` : "무료";
   const meta = [book.author_name, price].filter(Boolean).join(" · ");
+  const bio = size === "md" ? book.author_bio?.trim() : undefined;
 
   return (
     <Link
@@ -54,6 +57,7 @@ export function BookPreviewCard({
           {book.title}
         </h3>
         <p className="truncate text-caption text-muted">{meta}</p>
+        {bio && <p className="truncate text-caption text-muted">{bio}</p>}
       </div>
     </Link>
   );

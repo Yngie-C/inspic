@@ -40,7 +40,6 @@
     "@tosspayments/tosspayments-sdk": "^2.6.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "framer-motion": "^12.34.3",
     "html-react-parser": "^6.0.1",
     "isomorphic-dompurify": "2.26.0",
     "lucide-react": "^0.575.0",
