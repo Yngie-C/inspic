@@ -13,6 +13,7 @@ import {
   Settings,
   X,
   Eye,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -20,6 +21,18 @@ import { Header } from "@/components/layout/Header";
 import { RichTextEditor } from "@/components/editor";
 import { BookMetadataForm } from "@/components/dashboard/BookMetadataForm";
 import { ExportMenu } from "@/components/dashboard/ExportMenu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useToast } from "@/components/ui/toast";
+import {
+  PUBLISH_CONFIRM_MESSAGE,
+  publishBook,
+  unpublishBook,
+} from "@/lib/book-publish";
 import type { PublishCheck } from "@/lib/publish-checks";
 import type { Book, Chapter } from "@/types";
 
@@ -37,6 +50,17 @@ async function fetchPublishBlockers(bookId: string): Promise<PublishCheck[]> {
   return (await res.json()).data?.blockers ?? [];
 }
 
+/** 공개 직후 알림용. 경고는 공개를 막지 않으므로 실패해도 넘어갑니다. */
+async function fetchWarningCount(bookId: string): Promise<number> {
+  try {
+    const res = await fetch(`/api/books/${bookId}/publish-checks`);
+    if (!res.ok) return 0;
+    return (await res.json()).data?.warnings?.length ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
 async function fetchChapters(bookId: string): Promise<Chapter[]> {
   const res = await fetch(`/api/chapters?bookId=${bookId}`);
   if (!res.ok) throw new Error("장 목록을 불러오지 못했어요.");
@@ -47,6 +71,7 @@ export function EditPageContent() {
   const { bookId } = useParams<{ bookId: string }>();
   const router = useRouter();
   const qc = useQueryClient();
+  const { addToast } = useToast();
 
   const { data: book, isLoading: bookLoading } = useQuery<Book>({
     queryKey: ["book", bookId],
@@ -61,12 +86,14 @@ export function EditPageContent() {
   // 출간한 뒤의 편집은 바로 독자 화면입니다(공개본/편집본 분리는 M6
   // 이후). 저장은 막지 않고, 공개 검수의 차단 사유를 배너로 계속 보여
   // 줍니다(4-P1-12 결정). 내린 책도 산 독자는 계속 읽으므로 출간한 적이
-  // 있으면 봅니다.
+  // 있으면 봅니다. [공개하기]가 막혔을 때도 같은 배너로 사유를 보여 주고,
+  // 저장할 때마다 다시 판정해 고친 항목은 사라지게 합니다.
   const everPublished = !!book?.published_at;
+  const [publishBlocked, setPublishBlocked] = useState(false);
   const { data: publishBlockers = [] } = useQuery<PublishCheck[]>({
     queryKey: ["publish-blockers", bookId],
     queryFn: () => fetchPublishBlockers(bookId),
-    enabled: everPublished,
+    enabled: everPublished || publishBlocked,
   });
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -75,6 +102,9 @@ export function EditPageContent() {
   const [saved, setSaved] = useState(true);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+  // 책 공개·내리기 실패(차단 제외 — 차단은 배너가 보여 줍니다).
+  const [publishError, setPublishError] = useState<string | null>(null);
   const [metaOpen, setMetaOpen] = useState(false);
   // 장 추가·삭제·공개 전환 실패. 본문 저장 실패(saveError)와 따로 둡니다 —
   // 그쪽의 "다시 시도"는 본문을 다시 저장합니다.
@@ -221,6 +251,8 @@ export function EditPageContent() {
   };
 
   const bookPublished = book?.status === "published";
+  // 독자에게 보이는 것은 status와 visibility가 함께일 때뿐입니다.
+  const bookPublic = bookPublished && book?.visibility === "public";
 
   /**
    * 장 하나를 독자에게 보이거나 숨깁니다. 공개된 책에서는 바로 독자
@@ -263,25 +295,81 @@ export function EditPageContent() {
   };
 
   /**
-   * 공개는 미리보기 화면에서 합니다.
-   *
-   * 여기서 바로 출간하면 크리에이터는 독자에게 어떻게 보이는지 한 번도
-   * 보지 않은 채로 공개하게 됩니다. 워크북 블록이 응답을 받을 수 없는
-   * 상태인지도 그 화면에서만 드러납니다.
-   *
-   * 저장이 3초 디바운스라 이동 전에 대기 중인 변경을 먼저 밀어 넣습니다.
+   * 미리보기·공개 전에 대기 중인 저장을 먼저 밀어 넣습니다. 저장이 3초
+   * 디바운스라, 그냥 넘어가면 검수는 옛 본문을 보고 크리에이터는 방금 쓴
+   * 글이 반영된 줄 압니다. 저장에 실패하면 false — 진행하지 않습니다.
    */
-  const goToReview = async () => {
+  const flushPendingSave = async (): Promise<boolean> => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    setPublishing(true);
+    if (selectedId && !saved) {
+      return saveChapter(selectedId, editTitle, editContent);
+    }
+    return true;
+  };
+
+  const openPreview = async () => {
+    setPreviewing(true);
     try {
-      if (selectedId && !saved) {
-        // 저장에 실패한 채로 넘어가면 검수는 옛 본문을 보고, 크리에이터는
-        // 방금 쓴 글이 반영된 줄 압니다.
-        const ok = await saveChapter(selectedId, editTitle, editContent);
-        if (!ok) return;
-      }
+      if (!(await flushPendingSave())) return;
       router.push(`/create/preview/${bookId}`);
+    } finally {
+      setPreviewing(false);
+    }
+  };
+
+  /**
+   * 검수 화면을 거치지 않고 바로 공개합니다. 차단 판정은 서버가 하고,
+   * 막히면 그 사유를 아래 배너에 띄웁니다. 경고는 막지 않고 공개 뒤
+   * 알림으로 알려 줍니다.
+   */
+  const handlePublish = async () => {
+    if (!confirm(PUBLISH_CONFIRM_MESSAGE)) return;
+    setPublishing(true);
+    setPublishError(null);
+    try {
+      if (!(await flushPendingSave())) return;
+      const result = await publishBook(bookId);
+      if (!result.ok) {
+        if (result.kind === "blocked") {
+          qc.setQueryData(["publish-blockers", bookId], result.blockers);
+          setPublishBlocked(true);
+        } else {
+          setPublishError(result.message);
+        }
+        return;
+      }
+      setPublishBlocked(false);
+      qc.invalidateQueries({ queryKey: ["book", bookId] });
+      qc.invalidateQueries({ queryKey: ["publish-blockers", bookId] });
+      const warningCount = await fetchWarningCount(bookId);
+      addToast({
+        title: "공개했어요",
+        description:
+          warningCount > 0
+            ? `확인해 볼 것 ${warningCount}개 · 미리보기에서 볼 수 있어요`
+            : undefined,
+      });
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handleUnpublish = async () => {
+    if (
+      !confirm(
+        "이 책을 비공개로 돌릴까요? 새 독자에게는 보이지 않고, 이미 구매한 독자는 계속 읽을 수 있어요.",
+      )
+    ) {
+      return;
+    }
+    setPublishing(true);
+    setPublishError(null);
+    try {
+      await unpublishBook(bookId);
+      qc.invalidateQueries({ queryKey: ["book", bookId] });
+      addToast({ title: "비공개로 돌렸어요" });
+    } catch {
+      setPublishError("비공개로 돌리지 못했어요. 잠시 뒤 다시 시도해 주세요.");
     } finally {
       setPublishing(false);
     }
@@ -376,20 +464,57 @@ export function EditPageContent() {
             <span className="hidden sm:inline">설정</span>
           </button>
 
-          <Button onClick={goToReview} isLoading={publishing}>
-            <Eye className="h-4 w-4 mr-1.5" />
-            검수 후 공개
+          <Button variant="secondary" onClick={openPreview} isLoading={previewing}>
+            <Eye className="h-4 w-4" />
+            미리보기
           </Button>
+
+          {bookPublic ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="secondary" isLoading={publishing}>
+                  <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-success" />
+                  공개 중
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={() => router.push(`/book/${bookId}`)}>
+                  독자 화면 보기
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-danger"
+                  onSelect={() => void handleUnpublish()}
+                >
+                  비공개로 전환
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button onClick={handlePublish} isLoading={publishing}>
+              공개하기
+            </Button>
+          )}
         </div>
       </div>
 
-      {everPublished && publishBlockers.length > 0 && (
+      {publishError && (
+        <p role="alert" className="border-b border-line bg-paper px-4 py-2 text-xs text-danger sm:px-6">
+          {publishError}
+        </p>
+      )}
+
+      {(everPublished || publishBlocked) && publishBlockers.length > 0 && (
         <div role="alert" className="border-b border-line bg-paper px-4 py-3 sm:px-6">
           <p className="text-sm font-semibold text-danger">
-            독자 화면에 고쳐야 할 곳이 있어요
+            {everPublished
+              ? "독자 화면에 고쳐야 할 곳이 있어요"
+              : "공개하려면 고쳐야 할 곳이 있어요"}
           </p>
           <p className="mt-0.5 text-xs text-muted">
-            출간한 책은 저장하는 대로 독자에게 보여요. 아래를 고쳐 주세요.
+            {everPublished
+              ? "출간한 책은 저장하는 대로 독자에게 보여요. 아래를 고쳐 주세요."
+              : "아래를 고친 뒤 다시 [공개하기]를 눌러 주세요."}
           </p>
           <ul className="mt-2 space-y-1">
             {publishBlockers.map((check) => (

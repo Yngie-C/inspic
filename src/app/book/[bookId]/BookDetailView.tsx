@@ -10,6 +10,7 @@ import {
   BookPreviewCard,
   type BookWithAuthor,
 } from "@/components/explore/BookPreviewCard";
+import type { PublishCheck } from "@/lib/publish-checks";
 import type { Book, Chapter } from "@/types";
 
 /**
@@ -32,6 +33,10 @@ interface Props {
   access: DetailAccess | null;
   otherBooks: BookWithAuthor[];
   publishing: boolean;
+  /** [공개하기]가 서버 검수에 막혔을 때의 사유. */
+  publishBlockers: PublishCheck[] | null;
+  publishError: string | null;
+  onPublish: () => void;
   onUnpublish: () => void;
 }
 
@@ -44,6 +49,9 @@ export function BookDetailView({
   access,
   otherBooks,
   publishing,
+  publishBlockers,
+  publishError,
+  onPublish,
   onUnpublish,
 }: Props) {
   const [showAllChapters, setShowAllChapters] = useState(false);
@@ -112,6 +120,9 @@ export function BookDetailView({
               isPublished={isPublished}
               access={access}
               publishing={publishing}
+              publishBlockers={publishBlockers}
+              publishError={publishError}
+              onPublish={onPublish}
               onUnpublish={onUnpublish}
             />
             <ShareButton />
@@ -221,6 +232,9 @@ function Actions({
   isPublished,
   access,
   publishing,
+  publishBlockers,
+  publishError,
+  onPublish,
   onUnpublish,
 }: {
   book: DetailBook;
@@ -228,6 +242,9 @@ function Actions({
   isPublished: boolean;
   access: DetailAccess | null;
   publishing: boolean;
+  publishBlockers: PublishCheck[] | null;
+  publishError: string | null;
+  onPublish: () => void;
   onUnpublish: () => void;
 }) {
   const readHref = `/reader/${book.id}`;
@@ -241,16 +258,41 @@ function Actions({
         <Button variant="secondary" asChild>
           <Link href={`/create/edit/${book.id}`}>편집</Link>
         </Button>
-        {/* 공개는 검수 화면을 거칩니다. 여기서 바로 공개하면 차단 사유를
-            보지 못한 채 422만 받습니다. */}
+        {/* 바로 공개합니다. 서버 검수에 막히면 사유를 버튼 아래에 띄우고
+            편집 화면으로 안내합니다. */}
         {isPublished ? (
           <Button variant="secondary" isLoading={publishing} onClick={onUnpublish}>
             비공개로 전환
           </Button>
         ) : (
-          <Button variant="secondary" asChild>
-            <Link href={`/create/preview/${book.id}`}>검수 후 공개</Link>
+          <Button variant="secondary" isLoading={publishing} onClick={onPublish}>
+            공개하기
           </Button>
+        )}
+        {publishError && (
+          <p role="alert" className="basis-full text-body-sm text-danger">
+            {publishError}
+          </p>
+        )}
+        {publishBlockers && publishBlockers.length > 0 && (
+          <div role="alert" className="basis-full">
+            <p className="text-body-sm font-semibold text-danger">
+              공개하려면 고쳐야 할 곳이 있어요
+            </p>
+            <ul className="mt-1 space-y-1">
+              {publishBlockers.map((check) => (
+                <li key={check.id} className="text-caption leading-relaxed text-danger">
+                  <span className="font-medium">{check.title}</span> — {check.detail}
+                </li>
+              ))}
+            </ul>
+            <Link
+              href={`/create/edit/${book.id}`}
+              className="mt-1.5 inline-block text-body-sm font-medium text-primary underline underline-offset-2"
+            >
+              편집으로 가서 고치기
+            </Link>
+          </div>
         )}
       </>
     );
