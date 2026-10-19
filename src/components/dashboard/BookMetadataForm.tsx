@@ -4,7 +4,7 @@ import { useState, useRef, useCallback } from "react";
 import { Upload, X, Image as ImageIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { Book, BookVisibility } from "@/types";
+import type { Book } from "@/types";
 
 interface BookMetadataFormProps {
   book: Book;
@@ -18,28 +18,24 @@ const LANGUAGE_OPTIONS = [
   { value: "zh", label: "中文" },
 ];
 
-// "링크 공유"(unlisted)는 고를 수 없습니다. 열어 주는 경로가 없어 고르면
-// 아무에게도 보이지 않았습니다. 이미 그 값인 책만 현재 상태로 보여 줍니다.
-const VISIBILITY_OPTIONS: { value: BookVisibility; label: string; description: string }[] = [
-  {
-    value: "private",
-    label: "비공개",
-    description: "새 독자에게는 보이지 않아요. 이미 구매한 독자는 계속 읽을 수 있어요",
-  },
-  { value: "public", label: "공개", description: "누구나 탐색 화면에서 찾고 볼 수 있어요" },
-];
-
-const RETIRED_UNLISTED_OPTION = {
-  value: "unlisted" as const,
-  label: "링크 공유 (더 이상 고를 수 없음)",
-  description: "지금은 나와 구매한 독자만 볼 수 있어요. 공개나 비공개로 바꿔 주세요",
-};
+/** 독자에게 보이는 것은 published + public일 때뿐입니다. */
+function statusLabel(book: Book): string {
+  switch (book.status) {
+    case "published":
+      return book.visibility === "public" ? "공개 중" : "비공개 · 구매한 독자만";
+    case "processing":
+      return "처리 중";
+    case "archived":
+      return "보관됨";
+    default:
+      return "초안";
+  }
+}
 
 export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
   const [title, setTitle] = useState(book.title);
   const [description, setDescription] = useState(book.description ?? "");
   const [language, setLanguage] = useState(book.language);
-  const [visibility, setVisibility] = useState<BookVisibility>(book.visibility);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +55,7 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
     setSaving(true);
     setError(null);
     try {
-      await onSave({ title: title.trim(), description: description.trim() || null, language, visibility });
+      await onSave({ title: title.trim(), description: description.trim() || null, language });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch {
@@ -254,49 +250,14 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
         </select>
       </div>
 
-      {/* Visibility */}
-      <div>
-        <label className="mb-1.5 block text-sm font-medium text-primary">공개 설정</label>
-        <div className="flex flex-col gap-2">
-          {(book.visibility === "unlisted"
-            ? [RETIRED_UNLISTED_OPTION, ...VISIBILITY_OPTIONS]
-            : VISIBILITY_OPTIONS
-          ).map((opt) => (
-            <label
-              key={opt.value}
-              className={cn(
-                "flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors",
-                visibility === opt.value
-                  ? "border-primary bg-mark"
-                  : "border-line hover:border-line-strong",
-              )}
-            >
-              <input
-                type="radio"
-                name="visibility"
-                value={opt.value}
-                checked={visibility === opt.value}
-                onChange={() => setVisibility(opt.value)}
-                className="mt-0.5 h-4 w-4 accent-primary"
-              />
-              <div>
-                <p className="text-sm font-medium text-primary">{opt.label}</p>
-                <p className="text-xs text-muted">{opt.description}</p>
-              </div>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* Status display */}
+      {/* 공개·비공개는 편집 화면 상단 버튼 하나로만 바꿉니다. 여기서
+          visibility만 바꾸면 초안 책은 "공개"를 골라도 보이지 않았습니다. */}
       <div className="rounded-lg bg-mark px-3 py-2">
-        <span className="text-xs text-muted">상태: </span>
-        <span className="text-xs font-medium text-primary">
-          {book.status === "draft" && "초안"}
-          {book.status === "processing" && "처리 중"}
-          {book.status === "published" && "공개 중"}
-          {book.status === "archived" && "보관됨"}
-        </span>
+        <p>
+          <span className="text-xs text-muted">상태: </span>
+          <span className="text-xs font-medium text-primary">{statusLabel(book)}</span>
+        </p>
+        <p className="mt-0.5 text-xs text-muted">공개·비공개는 편집 화면 상단에서 바꿔요.</p>
       </div>
 
       {error && <p className="text-sm text-danger">{error}</p>}

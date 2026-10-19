@@ -7,6 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import type { BookWithAuthor } from "@/components/explore/BookPreviewCard";
 import { useAuthStore } from "@/stores/auth-store";
+import {
+  PUBLISH_CONFIRM_MESSAGE,
+  publishBook,
+  unpublishBook,
+} from "@/lib/book-publish";
+import type { PublishCheck } from "@/lib/publish-checks";
 import type { Chapter } from "@/types";
 import {
   BookDetailView,
@@ -35,16 +41,6 @@ class BookDetailError extends Error {
   }
 }
 
-/** 공개는 검수 화면(`/create/preview`)에서 합니다. 여기서는 내리기만. */
-async function unpublish(bookId: string): Promise<void> {
-  const res = await fetch(`/api/books/${bookId}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status: "draft", visibility: "private" }),
-  });
-  if (!res.ok) throw new Error("상태를 바꾸지 못했어요.");
-}
-
 export function BookDetailClient() {
   const { bookId } = useParams<{ bookId: string }>();
   const router = useRouter();
@@ -54,6 +50,8 @@ export function BookDetailClient() {
   const viewAs = searchParams.get("viewAs");
 
   const [accessInfo, setAccessInfo] = useState<DetailAccess | null>(null);
+  const [publishBlockers, setPublishBlockers] = useState<PublishCheck[] | null>(null);
+  const [publishError, setPublishError] = useState<string | null>(null);
 
   const { data, isLoading, isError, error, refetch } = useQuery<BookDetailData>({
     queryKey: ["book-detail", bookId],
@@ -78,9 +76,33 @@ export function BookDetailClient() {
   });
 
   const publishMutation = useMutation({
-    mutationFn: () => unpublish(bookId),
+    mutationFn: () => publishBook(bookId),
+    onMutate: () => {
+      setPublishBlockers(null);
+      setPublishError(null);
+    },
+    onSuccess: (result) => {
+      if (result.ok) {
+        queryClient.invalidateQueries({ queryKey: ["book-detail", bookId] });
+      } else if (result.kind === "blocked") {
+        setPublishBlockers(result.blockers);
+      } else {
+        setPublishError(result.message);
+      }
+    },
+  });
+
+  const unpublishMutation = useMutation({
+    mutationFn: () => unpublishBook(bookId),
+    onMutate: () => {
+      setPublishBlockers(null);
+      setPublishError(null);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["book-detail", bookId] });
+    },
+    onError: () => {
+      setPublishError("비공개로 돌리지 못했어요. 잠시 뒤 다시 시도해 주세요.");
     },
   });
 
@@ -144,8 +166,13 @@ export function BookDetailClient() {
       isOwner={isOwner}
       access={accessInfo}
       otherBooks={otherBooks}
-      publishing={publishMutation.isPending}
-      onUnpublish={() => publishMutation.mutate()}
+      publishing={publishMutation.isPending || unpublishMutation.isPending}
+      publishBlockers={publishBlockers}
+      publishError={publishError}
+      onPublish={() => {
+        if (confirm(PUBLISH_CONFIRM_MESSAGE)) publishMutation.mutate();
+      }}
+      onUnpublish={() => unpublishMutation.mutate()}
     />
   );
 }

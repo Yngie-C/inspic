@@ -16,6 +16,9 @@ export function DevBook({ as }: { as: string }) {
       }
       otherBooks={DEV_BOOKS.filter((b) => b.author_name === "SecretTome").slice(1, 5)}
       publishing={false}
+      publishBlockers={null}
+      publishError={null}
+      onPublish={() => {}}
       onUnpublish={() => {}}
     />
   );

@@ -6,13 +6,15 @@ import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, CheckCircle2, RefreshCw, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { PUBLISH_CONFIRM_MESSAGE, publishBook } from "@/lib/book-publish";
 import type { PublishCheck } from "@/lib/publish-checks";
 
 /**
- * 공개 전 검수 패널.
+ * 미리보기 옆 검수 패널.
  *
- * 차단 항목이 하나라도 있으면 공개 버튼이 잠깁니다. 서버도 같은 판정을
- * 다시 하므로 이 화면은 이유를 설명하는 역할이고, 강제는 API가 합니다.
+ * 공개는 편집 화면의 [공개하기]로 바로 할 수 있고, 이 패널은 저자가
+ * 미리보기와 함께 확인하고 싶을 때 쓰는 곳입니다. 차단 항목이 하나라도
+ * 있으면 공개 버튼이 잠깁니다. 강제는 API가 합니다.
  */
 
 interface ChecksResponse {
@@ -50,34 +52,24 @@ export function PublishChecklist({ bookId, isPublished }: Props) {
   });
 
   const handlePublish = async () => {
-    if (!confirm("이 책을 공개할까요? 공개한 뒤에도 고칠 수 있어요.")) {
-      return;
-    }
+    if (!confirm(PUBLISH_CONFIRM_MESSAGE)) return;
 
     setPublishing(true);
     setPublishError(null);
     try {
-      const res = await fetch(`/api/books/${bookId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        // visibility를 함께 보내야 실제로 독자에게 보입니다. status만
-        // 바꾸면 published + private이라 아무도 찾을 수 없습니다.
-        body: JSON.stringify({ status: "published", visibility: "public" }),
-      });
-
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
+      const result = await publishBook(bookId);
+      if (result.ok) {
+        router.push(`/book/${bookId}`);
+        return;
+      }
+      if (result.kind === "blocked") {
         // 검수를 통과했다고 봤는데 서버가 막았다면 그 사이 본문이 바뀐
         // 것이므로 최신 결과를 다시 보여 줍니다.
         await refetch();
-        throw new Error(json.error ?? "공개하지 못했어요.");
+        setPublishError("공개하려면 고쳐야 할 곳이 있어요. 위 항목을 확인해 주세요.");
+      } else {
+        setPublishError(result.message);
       }
-
-      router.push(`/book/${bookId}`);
-    } catch (err) {
-      setPublishError(
-        err instanceof Error ? err.message : "공개하지 못했어요.",
-      );
     } finally {
       setPublishing(false);
     }
@@ -86,7 +78,7 @@ export function PublishChecklist({ bookId, isPublished }: Props) {
   return (
     <aside className="flex w-80 shrink-0 flex-col border-l border-line bg-paper">
       <div className="flex items-center justify-between border-b border-line px-5 py-4">
-        <h2 className="text-sm font-semibold text-primary">공개 전 검수</h2>
+        <h2 className="text-sm font-semibold text-primary">확인할 항목</h2>
         <button
           type="button"
           onClick={() => refetch()}
