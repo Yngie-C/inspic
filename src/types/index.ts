@@ -23,6 +23,8 @@ export interface Book {
   owner_id: string;
   title: string;
   description: string | null;
+  /** "이런 분께". 한 줄에 한 사람. */
+  audience: string | null;
   cover_image_url: string | null;
   language: string;
   status: BookStatus;

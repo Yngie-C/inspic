@@ -11,6 +11,7 @@ import {
   BOOK_VISIBILITIES,
   EDITABLE_BOOK_STATUSES,
   INVALID_BODY_MESSAGE,
+  MAX_AUDIENCE_LENGTH,
   isOneOf,
   readBookTitle,
 } from "@/lib/authoring-input";
@@ -104,6 +105,22 @@ export async function PUT(request: NextRequest, { params }: Params) {
     }
     updates.description =
       typeof body.description === "string" ? body.description.trim() || null : null;
+  }
+  // DB CHECK(00012)에 걸리면 같은 요청의 제목·소개까지 저장되지 않습니다.
+  if ("audience" in body) {
+    if (body.audience !== null && typeof body.audience !== "string") {
+      return apiError(INVALID_BODY_MESSAGE, "VALIDATION_ERROR", 400);
+    }
+    const audience =
+      typeof body.audience === "string" ? body.audience.trim() || null : null;
+    if (audience && audience.length > MAX_AUDIENCE_LENGTH) {
+      return apiError(
+        `"이런 분께"는 ${MAX_AUDIENCE_LENGTH.toLocaleString()}자까지 쓸 수 있어요.`,
+        "VALIDATION_ERROR",
+        400,
+      );
+    }
+    updates.audience = audience;
   }
   // 업로드는 언어를 자유롭게 받았으므로, 목록 밖이어도 지금 값 그대로면
   // 받습니다 — 설정 폼은 제목만 고쳐도 현재 언어를 함께 보냅니다.
