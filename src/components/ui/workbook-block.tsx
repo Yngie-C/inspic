@@ -130,6 +130,13 @@ export function BlockQuestion({ children }: { children: ReactNode }) {
 export const blockFieldClass =
   "w-full rounded-md border border-field-line bg-field px-3 py-2.5 text-body text-primary placeholder:text-muted";
 
+/**
+ * 입력을 받지 않는 칸. 흰 면(field)은 "내가 쓰는 영역"이라 걷어내고
+ * Stone 면 + faint 글자로 바꿉니다. 테두리는 그대로 둬 paper 위에서 칸이 보이게 합니다.
+ */
+export const blockFieldLockedClass =
+  "cursor-not-allowed bg-mark text-faint placeholder:text-faint";
+
 /** 척도 칸. 선택 여부에 따라 면이 바뀝니다. */
 export function scaleCellClass(selected: boolean) {
   return cn(

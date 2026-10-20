@@ -7,6 +7,7 @@ import {
   BlockStatusText,
   WorkbookBlock,
   blockFieldClass,
+  blockFieldLockedClass,
 } from "@/components/ui/workbook-block";
 import { MAX_TEXT_LENGTH } from "@/lib/workbook/response-payload";
 import { REFLECTION_FIELD_KEY } from "@/lib/workbook/types";
@@ -48,7 +49,11 @@ function ReflectionReader({ element }: Props) {
           maxLength={MAX_TEXT_LENGTH}
           readOnly={!block.canWrite}
           rows={3}
-          className={cn(blockFieldClass, "min-h-24 resize-none overflow-y-auto")}
+          className={cn(
+            blockFieldClass,
+            "min-h-24 resize-none overflow-y-auto",
+            !block.canWrite && blockFieldLockedClass,
+          )}
         />
         <BlockLockNotice lock={block.lock} />
         {block.save.failure && (

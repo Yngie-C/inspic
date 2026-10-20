@@ -8,6 +8,7 @@ import {
   SmartFieldLabel,
   WorkbookBlock,
   blockFieldClass,
+  blockFieldLockedClass,
 } from "@/components/ui/workbook-block";
 import { MAX_TEXT_LENGTH } from "@/lib/workbook/response-payload";
 import { SMART_GOAL_FIELDS } from "@/lib/workbook/types";
@@ -68,7 +69,11 @@ function AutoResizeTextarea({
   return (
     <textarea
       ref={ref}
-      className={cn(blockFieldClass, "resize-none overflow-y-auto")}
+      className={cn(
+        blockFieldClass,
+        "resize-none overflow-y-auto",
+        readOnly && blockFieldLockedClass,
+      )}
       rows={1}
       value={value}
       maxLength={MAX_TEXT_LENGTH}
