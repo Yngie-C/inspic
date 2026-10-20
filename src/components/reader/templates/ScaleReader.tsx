@@ -5,6 +5,7 @@ import {
   BlockSaveError,
   BlockStatusText,
   WorkbookBlock,
+  blockFieldLockedClass,
   scaleCellClass,
   scaleGridClass,
   scaleGridStyle,
@@ -72,6 +73,7 @@ function ScaleReader({ element }: Props) {
                 scaleCellClass(selected === val),
                 block.canWrite && "cursor-pointer",
                 block.canWrite && selected !== val && "hover:border-line-strong",
+                !block.canWrite && selected !== val && blockFieldLockedClass,
               )}
             >
               {val}

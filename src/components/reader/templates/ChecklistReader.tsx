@@ -54,7 +54,7 @@ function ChecklistReader({ element }: Props) {
                   checked={checked}
                   disabled={!writable}
                   onChange={() => setAnswer(item.id, !checked)}
-                  className="mt-[3px] h-[18px] w-[18px] flex-none cursor-pointer accent-accent disabled:cursor-default"
+                  className="mt-[3px] h-[18px] w-[18px] flex-none cursor-pointer accent-accent disabled:cursor-not-allowed"
                 />
                 <label
                   htmlFor={inputId}
