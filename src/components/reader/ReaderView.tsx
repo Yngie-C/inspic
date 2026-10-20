@@ -9,6 +9,7 @@ import type { Book, Chapter } from "@/types";
 import type { AccessReason } from "@/lib/access-control";
 import { cn } from "@/lib/utils";
 import { HtmlContentRenderer } from "./HtmlContentRenderer";
+import { bookHref, loginHref } from "./reader-links";
 import { SaveStatusBadge } from "./SaveStatusBadge";
 
 /**
@@ -99,7 +100,7 @@ export function ReaderView({
             <span className="max-[600px]:hidden"> · {currentChapter.title}</span>
           )}
         </p>
-        <SaveStatusBadge isPreview={isPreview} />
+        <SaveStatusBadge />
         <button
           type="button"
           onClick={() => setTocOpen(!tocOpen)}
@@ -253,11 +254,10 @@ function ChapterList({
 }
 
 /**
- * 답이 서버에 저장되지 않는 동안 띄우는 안내.
+ * 답을 계정에 저장할 수 없는 동안 띄우는 안내.
  *
- * 워크북 블록은 이 상태에서도 그려지고 입력도 됩니다 (값은 이 기기에
- * 남습니다). 그래서 쓰기 **전에** 말해 줘야 합니다 — 다 쓴 뒤에
- * 알게 되는 것이 최악입니다.
+ * 이 상태에서는 워크북 블록이 문항만 보여 주고 입력을 받지 않습니다
+ * (`WorkbookResponsesProvider`). 잃는 답이 없으므로 경고가 아니라 초대입니다.
  */
 function UnsavedNotice({
   bookId,
@@ -270,61 +270,40 @@ function UnsavedNotice({
 }) {
   // 비로그인 미리보기에는 이미 산 독자도 있습니다(새 기기). 구매 안내만
   // 띄우면 같은 책을 또 결제하게 되므로 로그인을 먼저 권합니다.
-  const { title, description, href, label } = isPreview
-    ? isLoggedIn
+  const { title, description, href, label } = !isLoggedIn
+    ? {
+        title: "로그인하면 워크북에 답을 쓸 수 있어요",
+        description: `쓴 답은 계정에 남아 다른 기기에서 이어 쓰고 PDF로 받을 수 있어요.${
+          isPreview ? " 이미 구매했다면 로그인해 주세요." : ""
+        }`,
+        href: loginHref(bookId),
+        label: "로그인",
+      }
+    : isPreview
       ? {
-          title: "미리보기로 읽고 있어요",
+          title: "구매하면 워크북에 답을 쓸 수 있어요",
           description:
-            "여기에 쓴 답은 이 기기에만 남아요. 구매하면 계정에 저장되고 다른 기기에서 이어서 쓸 수 있어요.",
-          href: `/book/${bookId}`,
+            "쓴 답은 계정에 남아 다른 기기에서 이어 쓰고 PDF로 받을 수 있어요.",
+          href: bookHref(bookId),
           label: "책 정보 보기",
         }
       : {
-          title: "미리보기로 읽고 있어요",
-          description:
-            "여기에 쓴 답은 이 기기에만 남아요. 이미 구매했다면 로그인해 주세요. 나머지 장이 열리고 답이 계정에 저장돼요.",
-          href: loginHref(bookId),
-          label: "로그인",
-        }
-    : isLoggedIn
-      ? {
-          title: "답이 이 기기에만 남아요",
-          description:
-            "이 책에서는 답을 계정에 저장할 수 없어요. 책 정보에서 이용 상태를 확인해 주세요.",
-          href: `/book/${bookId}`,
+          title: "이 책에서는 답을 쓸 수 없어요",
+          description: "책 정보에서 이용 상태를 확인해 주세요.",
+          href: bookHref(bookId),
           label: "책 정보 보기",
-        }
-      : {
-          title: "답이 이 기기에만 남아요",
-          description:
-            "로그인하면 지금까지 쓴 답이 계정에 저장되고, 다른 기기에서 이어서 쓸 수 있어요.",
-          href: loginHref(bookId),
-          label: "로그인",
         };
 
   return (
-    // 미리보기는 예정된 상태라 info, 로컬에만 남는 답은 잃을 수 있어 warning이다.
     // 박스는 입력 블록 전용이라(DESIGN.md) 안내는 message처럼 색 글자와 아래 선만 둔다.
     <div className="mb-10 flex flex-col items-start gap-2 border-b border-line pb-6">
-      <p
-        className={cn(
-          "text-body-sm font-semibold",
-          isPreview ? "text-info" : "text-warning",
-        )}
-      >
-        {title}
-      </p>
+      <p className="text-body-sm font-semibold text-info">{title}</p>
       <p className="text-body-sm text-muted">{description}</p>
       <Button asChild variant="secondary" size="sm" className="mt-1">
         <Link href={href}>{label}</Link>
       </Button>
     </div>
   );
-}
-
-/** 로그인 뒤 이 리더로 돌아오는 주소. */
-function loginHref(bookId: string) {
-  return `/auth/login?redirect=/reader/${bookId}`;
 }
 
 /**
@@ -344,12 +323,12 @@ function PreviewEnd({
     <div className="mt-16 flex flex-col items-start gap-2 border-t border-line pt-8">
       <p className="text-subtitle text-primary">미리보기는 여기까지예요</p>
       <p className="text-body-sm text-muted">
-        구매하면 나머지 장을 읽고, 쓴 답을 계정에 저장할 수 있어요.
+        구매하면 나머지 장을 읽고, 답을 쓰고 계정에 남길 수 있어요.
         {!isLoggedIn && " 이미 구매했다면 로그인해 주세요."}
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         <Button asChild>
-          <Link href={`/book/${bookId}`}>
+          <Link href={bookHref(bookId)}>
             {price.toLocaleString("ko-KR")}원 · 책 정보 보기
           </Link>
         </Button>

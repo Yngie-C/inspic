@@ -5,7 +5,6 @@ import {
   BlockQuestion,
   BlockSaveError,
   BlockStatusText,
-  BlockUnavailable,
   SmartFieldLabel,
   WorkbookBlock,
   blockFieldClass,
@@ -13,6 +12,7 @@ import {
 import { MAX_TEXT_LENGTH } from "@/lib/workbook/response-payload";
 import { SMART_GOAL_FIELDS } from "@/lib/workbook/types";
 import { cn } from "@/lib/utils";
+import { BlockLockNotice } from "./BlockLockNotice";
 import { registerTemplate } from "./TemplateRenderer";
 import { useAutoResize } from "./useAutoResize";
 import { textAnswer, useBlockAnswers, useSaveStatus } from "./useBlockAnswers";
@@ -45,7 +45,7 @@ function SmartGoalReader({ element }: Props) {
             </label>
           ))}
         </div>
-        {!block.canWrite && <BlockUnavailable />}
+        <BlockLockNotice lock={block.lock} />
         {block.save.failure && (
           <BlockSaveError failure={block.save.failure} onRetry={block.retry} />
         )}

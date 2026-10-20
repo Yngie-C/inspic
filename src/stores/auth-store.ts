@@ -15,9 +15,14 @@ interface AuthState {
     email: string;
     password: string;
     displayName?: string;
+    /** 메일 인증 뒤 돌아갈 곳. `safeInternalPath()`를 거친 값. */
+    next?: string;
   }) => Promise<{ error?: AuthFailure }>;
   signIn: (email: string, password: string) => Promise<{ error?: AuthFailure }>;
-  resendConfirmation: (email: string) => Promise<{ error?: AuthFailure }>;
+  resendConfirmation: (
+    email: string,
+    next?: string,
+  ) => Promise<{ error?: AuthFailure }>;
   requestPasswordReset: (email: string) => Promise<{ error?: AuthFailure }>;
   updatePassword: (password: string) => Promise<{ error?: AuthFailure }>;
   signOut: () => Promise<{ error?: unknown }>;
@@ -90,7 +95,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signUp: async ({ email, password, displayName }) => {
+  signUp: async ({ email, password, displayName, next }) => {
     const supabase = createClient();
     let alreadyExists = false;
 
@@ -102,7 +107,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         password,
         options: {
           data: { display_name: displayName },
-          emailRedirectTo: callbackUrl(),
+          emailRedirectTo: callbackUrl(next),
         },
       });
       // 이미 인증을 마친 이메일이면 Supabase는 에러 없이 identities가 빈
@@ -125,13 +130,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     );
   },
 
-  resendConfirmation: async (email) => {
+  resendConfirmation: async (email, next) => {
     const supabase = createClient();
     return run("resend", () =>
       supabase.auth.resend({
         type: "signup",
         email,
-        options: { emailRedirectTo: callbackUrl() },
+        options: { emailRedirectTo: callbackUrl(next) },
       }),
     );
   },

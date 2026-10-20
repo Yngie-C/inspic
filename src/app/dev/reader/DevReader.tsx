@@ -28,7 +28,7 @@ export function DevReader({ mode }: { mode: string }) {
     <WorkbookResponsesProvider
       bookId={DEV_BOOK.id}
       canSave={canSave}
-      viewerId={null}
+      viewerId={mode === "local" ? null : "dev-viewer"}
       client={client}
     >
       <ReaderView

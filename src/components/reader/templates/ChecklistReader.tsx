@@ -5,13 +5,13 @@ import type { Element } from "html-react-parser";
 import {
   BlockSaveError,
   BlockStatusText,
-  BlockUnavailable,
   WorkbookBlock,
 } from "@/components/ui/workbook-block";
 import { describeChecklist, withSaveState } from "@/lib/workbook/block-status";
 import { parseChecklistItems } from "@/lib/workbook/extract-blocks";
 import { isStorableFieldKey } from "@/lib/template-node-id";
 import { cn } from "@/lib/utils";
+import { BlockLockNotice } from "./BlockLockNotice";
 import { registerTemplate } from "./TemplateRenderer";
 import { boolAnswer, useBlockAnswers } from "./useBlockAnswers";
 
@@ -70,7 +70,7 @@ function ChecklistReader({ element }: Props) {
             );
           })}
         </ul>
-        {!block.canWrite && <BlockUnavailable />}
+        <BlockLockNotice lock={block.lock} />
         {block.save.failure && (
           <BlockSaveError failure={block.save.failure} onRetry={block.retry} />
         )}

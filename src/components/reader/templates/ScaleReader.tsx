@@ -4,7 +4,6 @@ import type { Element } from "html-react-parser";
 import {
   BlockSaveError,
   BlockStatusText,
-  BlockUnavailable,
   WorkbookBlock,
   scaleCellClass,
   scaleGridClass,
@@ -14,6 +13,7 @@ import { describeScale, withSaveState } from "@/lib/workbook/block-status";
 import { isInScale, scaleRange, scaleSteps } from "@/lib/workbook/block-config";
 import { SCALE_FIELD_KEY } from "@/lib/workbook/types";
 import { cn } from "@/lib/utils";
+import { BlockLockNotice } from "./BlockLockNotice";
 import { registerTemplate } from "./TemplateRenderer";
 import { numberAnswer, useBlockAnswers } from "./useBlockAnswers";
 
@@ -84,7 +84,7 @@ function ScaleReader({ element }: Props) {
             <span className="text-right">{labelMax}</span>
           </div>
         )}
-        {!block.canWrite && <BlockUnavailable />}
+        <BlockLockNotice lock={block.lock} />
         {block.save.failure && (
           <BlockSaveError failure={block.save.failure} onRetry={block.retry} />
         )}

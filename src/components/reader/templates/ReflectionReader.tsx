@@ -5,13 +5,13 @@ import {
   BlockQuestion,
   BlockSaveError,
   BlockStatusText,
-  BlockUnavailable,
   WorkbookBlock,
   blockFieldClass,
 } from "@/components/ui/workbook-block";
 import { MAX_TEXT_LENGTH } from "@/lib/workbook/response-payload";
 import { REFLECTION_FIELD_KEY } from "@/lib/workbook/types";
 import { cn } from "@/lib/utils";
+import { BlockLockNotice } from "./BlockLockNotice";
 import { registerTemplate } from "./TemplateRenderer";
 import { useAutoResize } from "./useAutoResize";
 import { textAnswer, useBlockAnswers, useSaveStatus } from "./useBlockAnswers";
@@ -50,7 +50,7 @@ function ReflectionReader({ element }: Props) {
           rows={3}
           className={cn(blockFieldClass, "min-h-24 resize-none overflow-y-auto")}
         />
-        {!block.canWrite && <BlockUnavailable />}
+        <BlockLockNotice lock={block.lock} />
         {block.save.failure && (
           <BlockSaveError failure={block.save.failure} onRetry={block.retry} />
         )}

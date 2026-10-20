@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, CloudOff } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { useWorkbookSaveStatus } from "./WorkbookResponsesProvider";
 
 /**
@@ -10,7 +10,7 @@ import { useWorkbookSaveStatus } from "./WorkbookResponsesProvider";
  * 낙관적이라 화면은 바로 바뀌므로, 실제 저장 여부를 따로 말해 주지 않으면
  * 실패했을 때 알 방법이 없습니다.
  */
-export function SaveStatusBadge({ isPreview = false }: { isPreview?: boolean }) {
+export function SaveStatusBadge() {
   const { saveState, saveError, retry } = useWorkbookSaveStatus();
 
   if (saveState === "loading" || saveState === "idle") return null;
@@ -32,29 +32,8 @@ export function SaveStatusBadge({ isPreview = false }: { isPreview?: boolean }) 
     );
   }
 
-  if (saveState === "local-only") {
-    // 미리보기는 예정된 상태라 경고가 아니다. 본문 안내와 같은 info로 말한다.
-    if (isPreview) {
-      return (
-        <span
-          className="flex items-center gap-1.5 whitespace-nowrap text-caption text-info"
-          title="미리보기에서 쓴 답은 이 브라우저에만 남아요."
-        >
-          <CloudOff className="h-4 w-4" strokeWidth={1.75} />
-          미리보기 · 이 기기에만
-        </span>
-      );
-    }
-    return (
-      <span
-        className="flex items-center gap-1.5 whitespace-nowrap text-caption text-warning"
-        title="작성한 내용이 이 브라우저에만 남아요."
-      >
-        <CloudOff className="h-4 w-4" strokeWidth={1.75} />
-        이 기기에만 저장됨
-      </span>
-    );
-  }
+  // 저장할 수 없는 독자에게는 본문 안내와 블록 안내가 이미 말하고 있습니다.
+  if (saveState === "read-only") return null;
 
   return (
     <button
