@@ -8,6 +8,9 @@
 
 export const INVALID_BODY_MESSAGE = "요청 형식이 올바르지 않아요.";
 
+/** `books.audience`("이런 분께") 상한. 00012의 CHECK와 같은 값입니다. */
+export const MAX_AUDIENCE_LENGTH = 1000;
+
 export type InputResult<T> =
   | { ok: true; value: T }
   | { ok: false; message: string };

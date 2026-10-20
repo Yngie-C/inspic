@@ -56,6 +56,8 @@ export const DEV_BOOK: Book = {
   title: "클로드 코드로 만드는 나만의 자소서 파이프라인",
   description:
     "채용 공고를 분석하는 스킬부터 PDF 내보내기까지, 한 번 만들어 두면 수십 개 회사에 일괄 적용할 수 있는 나만의 자소서 파이프라인을 직접 구축해요.",
+  audience:
+    "여러 회사에 지원하느라 자소서를 매번 처음부터 쓰는 취업 준비생\n클로드 코드를 설치는 했지만 어디에 써야 할지 모르는 사람\n반복 작업을 스크립트로 묶어 본 적 없는 비개발자",
   cover_image_url: null,
   language: "ko",
   status: "published",

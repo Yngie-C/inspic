@@ -46,6 +46,24 @@ describe("초기 스키마", () => {
     expect(result.rows).toEqual([]);
   });
 
+  it("books.audience는 1000자까지 받는다", async () => {
+    const user = await db.query<{ id: string }>(
+      `INSERT INTO auth.users (email) VALUES ('audience@example.com') RETURNING id`,
+    );
+    const ownerId = user.rows[0].id;
+
+    await db.query(
+      `INSERT INTO books (owner_id, title, audience) VALUES ($1, '책', $2)`,
+      [ownerId, "가".repeat(1000)],
+    );
+    await expect(
+      db.query(
+        `INSERT INTO books (owner_id, title, audience) VALUES ($1, '책', $2)`,
+        [ownerId, "가".repeat(1001)],
+      ),
+    ).rejects.toThrow();
+  });
+
   it("모든 테이블에 RLS가 켜져 있다", async () => {
     const result = await db.query<{ relname: string }>(
       `SELECT relname FROM pg_class c

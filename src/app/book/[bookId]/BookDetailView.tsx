@@ -18,7 +18,10 @@ import type { Book, Chapter } from "@/types";
  * 데이터 로딩은 `BookDetailClient`가 하고, `/dev/book`은 목 데이터로 이 화면을 그린다.
  */
 
-export type DetailBook = Book & { author_name?: string | null };
+export type DetailBook = Book & {
+  author_name?: string | null;
+  author_bio?: string | null;
+};
 
 export interface DetailAccess {
   hasAccess: boolean;
@@ -62,6 +65,7 @@ export function BookDetailView({
   const displayChapters = showAllChapters
     ? chapters
     : chapters.slice(0, VISIBLE_CHAPTERS);
+  const audience = audienceLines(book.audience);
 
   return (
     <div className="mx-auto flex max-w-[936px] flex-col gap-12 px-4 pb-16 pt-6 min-[601px]:px-6 min-[601px]:pt-12">
@@ -106,12 +110,6 @@ export function BookDetailView({
 
           <Facts book={book} owned={!isOwner && book.price > 0 && !!access?.hasAccess} />
 
-          {book.description && (
-            <p className="whitespace-pre-line text-body-reader text-primary">
-              {book.description}
-            </p>
-          )}
-
           {/* 모바일: 주요 버튼은 한 줄 전체, 보조 버튼은 그 아래에 나눠 둔다. 오류 문장은 버튼 규칙에서 뺀다. */}
           <div className="mt-1 flex flex-wrap gap-2 max-[600px]:[&>:is(a,button)]:flex-1 max-[600px]:[&>:first-child]:basis-full">
             <Actions
@@ -129,6 +127,28 @@ export function BookDetailView({
           </div>
         </div>
       </div>
+
+      {book.description && (
+        <section>
+          <h2 className="mb-3.5 text-label text-muted">책 소개</h2>
+          <p className="max-w-[640px] whitespace-pre-line text-body-reader text-primary">
+            {book.description}
+          </p>
+        </section>
+      )}
+
+      {audience.length > 0 && (
+        <section>
+          <h2 className="mb-3.5 text-label text-muted">이런 분께</h2>
+          <ul className="max-w-[640px] border-t border-line">
+            {audience.map((line, i) => (
+              <li key={i} className="border-b border-line py-[11px] text-body text-primary">
+                {line}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section>
         <h2 className="mb-3.5 text-label text-muted">목차</h2>
@@ -177,6 +197,26 @@ export function BookDetailView({
         )}
       </section>
 
+      {/* "해 본 사람"이 누구인지는 이 책을 고르는 이유입니다. 소개가 없어도
+          저자 페이지로 가는 길은 남깁니다. */}
+      {book.author_name && (
+        <section>
+          <h2 className="mb-3.5 text-label text-muted">지은이</h2>
+          <div className="flex max-w-[640px] flex-col gap-2">
+            <p className="text-subtitle text-primary">{book.author_name}</p>
+            {book.author_bio && (
+              <p className="whitespace-pre-line text-body text-primary">{book.author_bio}</p>
+            )}
+            <Link
+              href={`/author/${book.owner_id}`}
+              className="self-start text-body-sm text-muted underline decoration-1 underline-offset-3 hover:text-primary"
+            >
+              저자 페이지 보기
+            </Link>
+          </div>
+        </section>
+      )}
+
       {otherBooks.length > 0 && (
         <section>
           <h2 className="mb-3.5 text-label text-muted">이 저자의 다른 책</h2>
@@ -195,6 +235,15 @@ export function BookDetailView({
       )}
     </div>
   );
+}
+
+/** "이런 분께"는 한 줄에 한 사람이다. 빈 줄은 버린다. */
+function audienceLines(audience: string | null | undefined): string[] {
+  if (!audience) return [];
+  return audience
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
 }
 
 /**

@@ -32,19 +32,23 @@ export async function GET(
   // 공개 상태를 다시 보면 저자가 내린 책을 산 독자가 상세 화면을 잃습니다.
   const isOwner = user?.id === bookData.owner_id;
 
-  // Fetch author name separately (no FK between books.owner_id and user_profiles.user_id)
+  // Fetch author name and bio separately (no FK between books.owner_id and user_profiles.user_id)
   const { data: profile, error: profileError } = await supabase
     .from("user_profiles")
-    .select("display_name")
+    .select("display_name, bio")
     .eq("user_id", bookData.owner_id)
     .maybeSingle();
 
-  // 저자 이름은 없어도 상세 화면은 그려집니다. 막지 않고 남기기만 합니다.
+  // 저자 이름과 소개는 없어도 상세 화면은 그려집니다. 막지 않고 남기기만 합니다.
   if (profileError) {
     console.error("[books/detail] 저자 이름을 읽지 못했습니다", profileError.message);
   }
 
-  const book = { ...bookData, author_name: profile?.display_name ?? null };
+  const book = {
+    ...bookData,
+    author_name: profile?.display_name ?? null,
+    author_bio: profile?.bio ?? null,
+  };
 
   // 소유자는 편집용으로 draft까지 봅니다. 나머지는 목차 함수로 published 장의
   // 제목을 봅니다 — chapters를 직접 읽으면 RLS가 사지 않은 독자에게 미리보기

@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from "react";
 import { Upload, X, Image as ImageIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { MAX_AUDIENCE_LENGTH } from "@/lib/authoring-input";
 import type { Book } from "@/types";
 
 interface BookMetadataFormProps {
@@ -35,6 +36,7 @@ function statusLabel(book: Book): string {
 export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
   const [title, setTitle] = useState(book.title);
   const [description, setDescription] = useState(book.description ?? "");
+  const [audience, setAudience] = useState(book.audience ?? "");
   const [language, setLanguage] = useState(book.language);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -55,7 +57,12 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
     setSaving(true);
     setError(null);
     try {
-      await onSave({ title: title.trim(), description: description.trim() || null, language });
+      await onSave({
+        title: title.trim(),
+        description: description.trim() || null,
+        audience: audience.trim() || null,
+        language,
+      });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch {
@@ -224,12 +231,25 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
 
       {/* Description */}
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-primary">소개</label>
+        <label className="mb-1.5 block text-sm font-medium text-primary">책 소개</label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="이 책을 읽고 독자가 할 수 있게 되는 일을 적어 주세요"
           rows={4}
+          className="w-full resize-none rounded-lg border border-line-strong px-3 py-2 text-sm text-primary placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+      </div>
+
+      {/* 책 상세의 "이런 분께". 줄마다 목록 항목 하나로 보입니다. */}
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-primary">이런 분께</label>
+        <textarea
+          value={audience}
+          onChange={(e) => setAudience(e.target.value)}
+          placeholder={"한 줄에 한 사람씩 적어 주세요.\n예) 처음 팀장을 맡은 사람"}
+          rows={3}
+          maxLength={MAX_AUDIENCE_LENGTH}
           className="w-full resize-none rounded-lg border border-line-strong px-3 py-2 text-sm text-primary placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
         />
       </div>
