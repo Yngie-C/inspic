@@ -135,7 +135,7 @@ export const blockFieldClass =
  * Stone 면 + faint 글자로 바꿉니다. 테두리는 그대로 둬 paper 위에서 칸이 보이게 합니다.
  */
 export const blockFieldLockedClass =
-  "cursor-not-allowed bg-mark text-faint placeholder:text-faint";
+  "cursor-not-allowed bg-mark/50 text-faint placeholder:text-faint";
 
 /** 척도 칸. 선택 여부에 따라 면이 바뀝니다. */
 export function scaleCellClass(selected: boolean) {

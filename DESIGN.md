@@ -215,7 +215,7 @@ components:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.faint}"
   field-locked:
-    backgroundColor: "{colors.mark}"
+    backgroundColor: "{colors.mark} 50%"
     borderColor: "{colors.field-line}"
     textColor: "{colors.faint}"
 ---
@@ -258,7 +258,7 @@ SecretTome은 해 본 사람이 쓴 실전 워크북, "읽는 책이 아니라 �
 - **mark (#E4DED2)**: Stone. 현재 위치(목차의 현재 장), 본문 `strong` 하이라이트, hover 면, 표지 면이다. paper와 대비가 1.22라 면끼리 붙일 때는 선을 둔다.
 - **line (#E4DED2) / line-strong (#C9C1B2)**: 1px 선이다. `line`(Stone)은 구획과 블록 테두리에, `line-strong`(진한 Stone)은 컨트롤 테두리 hover와 강한 구분선에 쓴다.
 - **field (#FFFFFF) / field-line (#C9C1B2)**: 흰 면 + 진한 Stone 테두리다. **"내가 쓰는 영역"**을 뜻하며, 독자와 저자가 입력하는 모든 필드(textarea, input, 척도 칸)에 쓴다. 토큰 이름은 역할을 가리키므로 값이 surface와 같아도 따로 둔다. 단, **검색창은 예외로 paper 면에 field-line 테두리**를 쓴다. 검색은 길 찾기 도구라 흰 면이 필요 없고, 화면에 순백이 있으면 그것이 흰색 기준이 되어 paper 바탕이 회색으로 읽히기 때문이다(2026-10-01 결정).
-- **입력을 받지 않는 필드(field-locked)**는 흰 면을 걷어내고 **mark 면 + field-line 테두리 + faint 글자**로 그린다. 흰 면이 "쓸 수 있는 자리"라는 약속이므로, 쓸 수 없는 칸에 흰 면을 남기지 않는다. 커서는 `not-allowed`. 이유 안내(로그인·구매)는 칸 아래 muted 한 줄로 둔다(2026-10-20 결정).
+- **입력을 받지 않는 필드(field-locked)**는 흰 면을 걷어내고 **mark 50% 면 + field-line 테두리 + faint 글자**로 그린다. mark를 그대로 칠하면 hover·현재 위치 면과 같아 너무 무거워서 반만 깐다. 흰 면이 "쓸 수 있는 자리"라는 약속이므로, 쓸 수 없는 칸에 흰 면을 남기지 않는다. 커서는 `not-allowed`. 이유 안내(로그인·구매)는 칸 아래 muted 한 줄로 둔다(2026-10-20 결정).
 - 표지 면은 옅은 색만 쓴다(Stone, 흰색). 짙은 면(accent, primary)을 표지에 칠하지 않는 이유는, 표지가 여러 권 모이면 코랄과 검정 판이 화면을 덮어 "코랄 한 점"이 무너지기 때문이다(2026-10-01 결정).
 - **상태색 (danger #B42318, success #2F6B3A, warning #8A5A00, info #2C5B66)**: 텍스트, 아이콘, 1px 테두리로만 쓴다. **면을 칠하지 않는다.**
   - danger는 accent와 색상이 가깝다(대비 2.09). 그래서 항상 오류 문장과 함께 쓴다.
