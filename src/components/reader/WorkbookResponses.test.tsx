@@ -107,7 +107,6 @@ function renderReflection(
   client: WorkbookResponseClient,
   canSave = true,
   viewerId: string | null = VIEWER,
-  isPreview = false,
 ) {
   return render(
     <WorkbookResponsesProvider
@@ -117,7 +116,7 @@ function renderReflection(
       client={client}
       debounceMs={0}
     >
-      <SaveStatusBadge isPreview={isPreview} />
+      <SaveStatusBadge />
       <ReflectionReader element={reflectionElement()} />
     </WorkbookResponsesProvider>,
   );
@@ -155,15 +154,19 @@ describe("워크북 응답 저장", () => {
     expect(textarea).toHaveValue("");
   });
 
-  it("비로그인 방문자에게는 자기 칸의 캐시를 돌려준다", async () => {
+  it("저장할 수 없는 화면에는 이 기기의 옛 캐시를 띄우지 않는다", async () => {
+    // 입력을 막기 전에 익명으로 쓴 답이 남아 있을 수 있습니다. 읽기 전용
+    // 화면에 떠오르면 저장된 답처럼 보이고, 로그인하면 사라집니다.
     seedCache(null, "익명일 때 쓴 답");
 
-    // 저장할 수 없는 상태이므로 서버를 부르지 않습니다.
     renderReflection(fakeClient(), false, null);
 
-    expect(
-      await screen.findByDisplayValue("익명일 때 쓴 답"),
-    ).toBeInTheDocument();
+    const textarea = await screen.findByRole("textbox");
+    expect(textarea).toHaveValue("");
+    // 지우지는 않습니다. 칸 분리가 여전히 이 값을 로그인 화면과 섞지 않습니다.
+    expect(readResponseCache(BOOK, null).answers[BLOCK]).toEqual({
+      answer: "익명일 때 쓴 답",
+    });
   });
 
   it("입력하면 화면이 먼저 바뀌고 저장이 뒤따른다", async () => {
@@ -242,30 +245,42 @@ describe("워크북 응답 저장", () => {
     expect(await screen.findByText(/저장 실패/)).toBeInTheDocument();
   });
 
-  it("저장할 수 없는 상태에서는 서버로 보내지 않고 그렇다고 알린다", async () => {
+  it("비로그인이면 입력을 막고 로그인으로 안내하며, 아무 데도 쓰지 않는다", async () => {
+    // 이 기기에만 남는 답은 로그인하는 순간 사라진 것처럼 보입니다
+    // (2026-10-20). 문항은 보이고 입력은 받지 않습니다.
     const user = userEvent.setup();
     const client = fakeClient();
-    renderReflection(client, false);
+    renderReflection(client, false, null);
 
-    await user.type(await screen.findByRole("textbox"), "답");
+    const textarea = await screen.findByRole("textbox");
+    expect(textarea).toHaveAttribute("readonly");
+    expect(screen.getByText("오늘 무엇을 배웠나요?")).toBeInTheDocument();
+    await user.type(textarea, "답");
 
+    expect(textarea).toHaveValue("");
     expect(client.save).not.toHaveBeenCalled();
     expect(client.load).not.toHaveBeenCalled();
-    expect(await screen.findByText("이 기기에만 저장됨")).toBeInTheDocument();
+    expect(readResponseCache(BOOK, null).answers).toEqual({});
+    expect(screen.getByRole("link", { name: "로그인" })).toHaveAttribute(
+      "href",
+      `/auth/login?redirect=/reader/${BOOK}`,
+    );
+    // 헤더 배지는 아무것도 말하지 않습니다. 본문·블록 안내가 이미 말합니다.
+    expect(screen.queryByText(/이 기기에만/)).not.toBeInTheDocument();
   });
 
-  it("미리보기에서는 같은 사실을 경고가 아니라 미리보기로 알린다", async () => {
-    // 본문 안내가 info로 "미리보기로 읽고 있어요"라고 말하는데 상단만
-    // 경고색이면 독자는 무언가 잘못된 줄 압니다.
-    const user = userEvent.setup();
+  it("로그인했지만 사지 않은 미리보기면 구매로 안내한다", async () => {
     const client = fakeClient();
-    renderReflection(client, false, VIEWER, true);
+    renderReflection(client, false, VIEWER);
 
-    await user.type(await screen.findByRole("textbox"), "답");
-
-    expect(client.save).not.toHaveBeenCalled();
-    expect(await screen.findByText("미리보기 · 이 기기에만")).toBeInTheDocument();
-    expect(screen.queryByText("이 기기에만 저장됨")).not.toBeInTheDocument();
+    expect(await screen.findByRole("textbox")).toHaveAttribute("readonly");
+    expect(screen.getByText(/구매하면 여기에 쓸 수 있어요/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "책 정보 보기" })).toHaveAttribute(
+      "href",
+      `/book/${BOOK}`,
+    );
+    expect(screen.queryByRole("link", { name: "로그인" })).not.toBeInTheDocument();
+    expect(client.load).not.toHaveBeenCalled();
   });
 
   it("불러오기가 실패하면 캐시를 보여 주고 실패를 알린다", async () => {

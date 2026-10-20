@@ -5,6 +5,9 @@ import type { DOMNode } from "html-react-parser";
 import { HtmlContentRenderer } from "../HtmlContentRenderer";
 import { WorkbookResponsesProvider } from "../WorkbookResponsesProvider";
 import ScaleReader from "./ScaleReader";
+import ReflectionReader from "./ReflectionReader";
+import SmartGoalReader from "./SmartGoalReader";
+import ChecklistReader from "./ChecklistReader";
 import { getTemplateComponent } from "./index";
 import type {
   LoadedResponse,
@@ -100,5 +103,45 @@ describe("척도", () => {
     expect(
       screen.getAllByRole("button").every((b) => b.getAttribute("aria-pressed") === "false"),
     ).toBe(true);
+  });
+});
+
+describe("계정에 저장할 수 없는 독자", () => {
+  it("입력이 있는 템플릿 4종이 모두 입력을 막고 로그인으로 안내한다", async () => {
+    // 비로그인·미구매 미리보기에서는 답을 받지 않습니다(2026-10-20).
+    // 이 기기에만 남는 답을 만들면 로그인하는 순간 사라진 것처럼 보입니다.
+    const client = clientWith([]);
+    const blocks = [
+      `<section data-template-type="reflection" data-node-id="${BLOCK}" data-prompt="질문"></section>`,
+      `<section data-template-type="smart-goal" data-node-id="33333333-3333-4333-8333-333333333333"></section>`,
+      `<section data-template-type="scale" data-node-id="44444444-4444-4444-8444-444444444444" data-min="1" data-max="3"></section>`,
+      `<section data-template-type="checklist" data-node-id="55555555-5555-4555-8555-555555555555" data-items='[{"id":"a","text":"항목"}]'></section>`,
+    ].map(element);
+
+    render(
+      <WorkbookResponsesProvider
+        bookId={BOOK}
+        canSave={false}
+        viewerId={null}
+        client={client}
+        debounceMs={0}
+      >
+        <ReflectionReader element={blocks[0]} />
+        <SmartGoalReader element={blocks[1]} />
+        <ScaleReader element={blocks[2]} />
+        <ChecklistReader element={blocks[3]} />
+      </WorkbookResponsesProvider>,
+    );
+
+    const textboxes = await screen.findAllByRole("textbox");
+    // 성찰 1 + SMART 5
+    expect(textboxes).toHaveLength(6);
+    for (const textbox of textboxes) expect(textbox).toHaveAttribute("readonly");
+    for (const button of screen.getAllByRole("button", { name: /^[123]$/ })) {
+      expect(button).toBeDisabled();
+    }
+    expect(screen.getByRole("checkbox")).toBeDisabled();
+    expect(screen.getAllByRole("link", { name: "로그인" })).toHaveLength(4);
+    expect(client.load).not.toHaveBeenCalled();
   });
 });

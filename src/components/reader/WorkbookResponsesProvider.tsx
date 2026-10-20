@@ -55,6 +55,9 @@ import type { WorkbookAnswer } from "@/lib/workbook/types";
  * - **서버가 분명히 거절한 것(4xx, `rejected`)은 큐에서 뺍니다.** 남기면
  *   다음 저장마다 다시 실려 그 세션의 저장이 전부 막힙니다.
  * - **계정이 바뀌면 이전 사람의 큐를 보내지 않습니다.**
+ * - **계정에 저장할 수 없는 독자(비로그인·미구매 미리보기)에게는 입력을
+ *   받지 않습니다**(2026-10-20). 이 기기에만 남는 답은 로그인하는 순간
+ *   사라진 것처럼 보입니다. 문항은 보여 주고 로그인·구매로 안내합니다.
  */
 
 export type SaveState =
@@ -66,8 +69,8 @@ export type SaveState =
   | "saved"
   /** 저장 실패. 값은 화면과 캐시에 남아 있습니다. */
   | "error"
-  /** 저장할 수 없는 상태(비로그인·미구매). 이 기기에만 남습니다. */
-  | "local-only";
+  /** 계정에 저장할 수 없는 상태(비로그인·미구매). 입력을 받지 않습니다. */
+  | "read-only";
 
 /**
  * 블록이 저장되지 못한 이유.
@@ -83,6 +86,15 @@ export type BlockFailure = "retry" | "rejected";
  * "저장됨 · 방금"을 쓰기 위해 둡니다. 실패도 블록 단위입니다 — 책 전체
  * 상태로 판정하면 실패한 적 없는 블록까지 "저장 안 됨"이 뜹니다.
  */
+/**
+ * 블록이 입력을 받지 않는 이유. 블록 안내(`BlockLockNotice`)가 이유별 문구를 고릅니다.
+ *
+ * - `unavailable`: 블록 ID가 깨져 답이 매달릴 곳이 없음. 저자가 다시 저장해야 합니다.
+ * - `sign-in`: 로그인 전. 로그인하면 쓸 수 있습니다(산 독자일 수도 있습니다).
+ * - `purchase`: 로그인했지만 이 책에 답을 저장할 권한이 없음(미리보기).
+ */
+export type BlockLock = "unavailable" | "sign-in" | "purchase";
+
 export interface BlockSave {
   /** 이 블록에 아직 서버로 못 보낸 응답이 있다. */
   pending: boolean;
@@ -92,6 +104,10 @@ export interface BlockSave {
 }
 
 interface WorkbookResponsesValue {
+  bookId: string;
+  /** 이 답을 계정에 저장할 수 있는가. false면 입력을 받지 않습니다. */
+  canSave: boolean;
+  signedIn: boolean;
   cache: ResponseCache;
   blockSaves: Record<string, BlockSave>;
   setAnswer(blockId: string, fieldKey: string, value: WorkbookAnswer): void;
@@ -132,9 +148,10 @@ interface Props {
   /**
    * 서버에 저장할 수 있는 상태인가 (로그인했고 이 책에 접근 권한이 있는가).
    *
-   * false면 캐시에만 씁니다. 저장할 수 없는데 저장된 척하지 않으려고
-   * 상태를 분리했습니다. 쓴 답은 미전송으로 남아, 같은 사람이 저장할 수
-   * 있게 되면(구매) 다음에 열 때 갑니다.
+   * false면 입력을 받지 않고(`useBlockResponses().canWrite`), 캐시도 읽거나
+   * 쓰지 않습니다. 이 기기에만 남는 답을 만들지 않기 위해서입니다. 캐시를
+   * 지우지는 않습니다 — 예전에 쓴 미전송 답은 저장할 수 있게 되면(구매)
+   * 다음에 열 때 갑니다.
    */
   canSave: boolean;
   /**
@@ -466,7 +483,11 @@ export function WorkbookResponsesProvider({
     sessionRejectedRef.current = new Set();
     // 화면에 그리기 전에도 setAnswer가 이 사람의 캐시 위에서 쓰게 합니다.
     // 빈 값에서 시작하면 로딩 중 입력 하나가 캐시 전체를 덮습니다.
-    cacheRef.current = readResponseCache(bookId, viewerId);
+    // 저장할 수 없으면 캐시를 그리지 않습니다 — 옛 익명 답이 읽기 전용
+    // 화면에 떠오르면 저장된 답처럼 보입니다.
+    cacheRef.current = canSave
+      ? readResponseCache(bookId, viewerId)
+      : emptyResponseCache();
 
     let cancelled = false;
 
@@ -480,7 +501,7 @@ export function WorkbookResponsesProvider({
       setBlockSaves({});
       setSaveError(null);
       if (!canSave) {
-        setSaveState("local-only");
+        setSaveState("read-only");
         return;
       }
 
@@ -571,6 +592,9 @@ export function WorkbookResponsesProvider({
       // ID가 없거나 저장할 수 없는 키는 받지 않습니다. 큐에 들어가면 서버가
       // 거절할 뿐이고, ID 없는 블록끼리는 답 하나를 나눠 갖게 됩니다.
       if (!isStorableBlockId(blockId) || !isStorableFieldKey(fieldKey)) return;
+      // 입력은 템플릿이 막지만 여기서 한 번 더 지킵니다. 저장할 수 없는 답을
+      // 캐시에 남기면 "이 기기에만 있는 답"이 다시 생깁니다.
+      if (!sessionRef.current.canSave) return;
 
       const previous = cacheRef.current;
       const writtenAt = Date.now();
@@ -582,11 +606,6 @@ export function WorkbookResponsesProvider({
         unsent: withMark(previous.unsent, blockId, fieldKey, writtenAt),
         rejected: withoutMark(previous.rejected, blockId, fieldKey),
       });
-
-      if (!sessionRef.current.canSave) {
-        setSaveState("local-only");
-        return;
-      }
 
       enqueue([
         { block_id: blockId, field_key: fieldKey, value, written_at: writtenAt },
@@ -612,9 +631,20 @@ export function WorkbookResponsesProvider({
     void flush();
   }, [enqueue, flush]);
 
+  const signedIn = viewerId !== null;
   const value = useMemo<WorkbookResponsesValue>(
-    () => ({ cache, blockSaves, setAnswer, saveState, saveError, retry }),
-    [cache, blockSaves, setAnswer, saveState, saveError, retry],
+    () => ({
+      bookId,
+      canSave,
+      signedIn,
+      cache,
+      blockSaves,
+      setAnswer,
+      saveState,
+      saveError,
+      retry,
+    }),
+    [bookId, canSave, signedIn, cache, blockSaves, setAnswer, saveState, saveError, retry],
   );
 
   return (
@@ -671,8 +701,9 @@ export function useWorkbookSaveStatus() {
  * 응답은 field_key로만 찾습니다. 화면에 몇 번째로 그려지는지는 상관없고,
  * 크리에이터가 문항을 추가·삭제·이동해도 남은 응답은 제자리에 붙습니다.
  *
- * `canWrite`가 false면 이 블록은 답을 받을 수 없습니다(`data-node-id`가
- * 없거나 UUID가 아님). 입력을 막고 그렇다고 알리세요.
+ * `canWrite`가 false면 이 블록은 답을 받을 수 없습니다. 입력을 막고
+ * `lock`(이유)을 `BlockLockNotice`로 알리세요. 블록 ID가 깨진 것
+ * (`unavailable`)이 계정 상태보다 먼저입니다 — 로그인해도 쓸 수 없습니다.
  */
 export function useBlockResponses(blockId: string) {
   const context = useContext(WorkbookResponsesContext);
@@ -684,7 +715,15 @@ export function useBlockResponses(blockId: string) {
   }
 
   const { cache, setAnswer } = context;
-  const canWrite = isStorableBlockId(blockId);
+  const storable = isStorableBlockId(blockId);
+  const canWrite = storable && context.canSave;
+  const lock: BlockLock | null = !storable
+    ? "unavailable"
+    : context.canSave
+      ? null
+      : context.signedIn
+        ? "purchase"
+        : "sign-in";
   const save = context.blockSaves[blockId] ?? NO_SAVE;
   // 다시 열었을 때도, 거절된 답이 남은 블록은 그렇다고 말합니다.
   const rejectedEarlier =
@@ -692,6 +731,7 @@ export function useBlockResponses(blockId: string) {
 
   return {
     canWrite,
+    lock,
     answers: canWrite ? (cache.answers[blockId] ?? NO_ANSWERS) : NO_ANSWERS,
     save:
       save.failure === null && rejectedEarlier
@@ -701,4 +741,15 @@ export function useBlockResponses(blockId: string) {
     setAnswer: (fieldKey: string, value: WorkbookAnswer) =>
       setAnswer(blockId, fieldKey, value),
   };
+}
+
+/** 지금 읽는 책. 블록 안내가 로그인·책 정보 주소를 만들 때 씁니다. */
+export function useWorkbookBookId(): string {
+  const context = useContext(WorkbookResponsesContext);
+  if (!context) {
+    throw new Error(
+      "useWorkbookBookId는 WorkbookResponsesProvider 안에서만 쓸 수 있습니다.",
+    );
+  }
+  return context.bookId;
 }

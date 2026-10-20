@@ -10,9 +10,12 @@ import type { AuthFailure } from "@/lib/auth-errors";
  */
 export function ResendConfirmation({
   email,
+  next,
   label = "인증 메일 다시 보내기",
 }: {
   email: string;
+  /** 메일 인증 뒤 돌아갈 곳. 없으면 첫 화면. */
+  next?: string;
   label?: string;
 }) {
   const resendConfirmation = useAuthStore((s) => s.resendConfirmation);
@@ -28,7 +31,7 @@ export function ResendConfirmation({
     setNeedsEmail(false);
     setFailure(null);
     setStatus("sending");
-    const result = await resendConfirmation(email.trim());
+    const result = await resendConfirmation(email.trim(), next);
     if (result.error) {
       setFailure(result.error);
       setStatus("idle");

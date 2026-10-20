@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuthStore } from "@/stores/auth-store";
-import { safeInternalPath } from "@/lib/safe-redirect";
+import { withRedirect } from "@/lib/safe-redirect";
 import type { AuthFailure } from "@/lib/auth-errors";
 import { FormAlert } from "@/components/auth/FormAlert";
 import { ResendConfirmation } from "@/components/auth/ResendConfirmation";
@@ -14,8 +14,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 
 export default function LoginForm({
   initialFailure,
+  redirect,
 }: {
   initialFailure: AuthFailure | null;
+  /** 로그인 뒤 돌아갈 곳. `safeInternalPath()`를 거친 값(page.tsx). */
+  redirect: string | null;
 }) {
   const router = useRouter();
   const signIn = useAuthStore((s) => s.signIn);
@@ -24,17 +27,6 @@ export default function LoginForm({
   const [password, setPassword] = useState("");
   const [failure, setFailure] = useState<AuthFailure | null>(initialFailure);
   const [isLoading, setIsLoading] = useState(false);
-
-  /**
-   * 로그인 후 돌아갈 곳. 리더처럼 로그인이 필요한 화면이 `?redirect=`로
-   * 넘겨 줍니다. `useSearchParams()` 대신 여기서 읽는 것은 Suspense
-   * 경계를 강제하지 않기 위해서이고, 값은 제출 시점에만 필요합니다.
-   */
-  const redirectTarget = () =>
-    safeInternalPath(
-      new URLSearchParams(window.location.search).get("redirect"),
-      "/",
-    );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +38,7 @@ export default function LoginForm({
       if (result.error) {
         setFailure(result.error);
       } else {
-        router.push(redirectTarget());
+        router.push(redirect ?? "/");
       }
     } finally {
       setIsLoading(false);
@@ -65,7 +57,9 @@ export default function LoginForm({
             {failure && !failure.field && (
               <FormAlert>
                 <p>{failure.message}</p>
-                {failure.action === "resend" && <ResendConfirmation email={email} />}
+                {failure.action === "resend" && (
+                  <ResendConfirmation email={email} next={redirect ?? undefined} />
+                )}
                 {failure.action === "reset" && (
                   <Link
                     href="/auth/forgot-password"
@@ -110,7 +104,10 @@ export default function LoginForm({
         <CardFooter className="justify-center">
           <p className="text-sm text-muted">
             계정이 없나요?{" "}
-            <Link href="/auth/signup" className="font-medium text-primary hover:underline">
+            <Link
+              href={withRedirect("/auth/signup", redirect)}
+              className="font-medium text-primary hover:underline"
+            >
               회원가입
             </Link>
           </p>

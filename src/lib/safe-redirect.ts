@@ -28,3 +28,13 @@ export function safeInternalPath(raw: string | null, fallback: string): string {
 
   return `${url.pathname}${url.search}${url.hash}`;
 }
+
+/**
+ * 인증 화면 사이를 오갈 때 돌아갈 곳을 함께 싣습니다. 로그인 ↔ 가입을
+ * 오가거나 가입 메일을 거쳐도 보던 책으로 돌아오게 하기 위해서입니다.
+ * `redirect`는 `safeInternalPath()`를 거친 값이어야 합니다.
+ */
+export function withRedirect(path: string, redirect: string | null): string {
+  if (!redirect) return path;
+  return `${path}?${new URLSearchParams({ redirect })}`;
+}
