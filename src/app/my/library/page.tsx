@@ -96,6 +96,7 @@ export default function LibraryPage() {
                     bookId={book.id}
                     title={book.title}
                     coverImageUrl={book.cover_image_url}
+                    authorName={book.author_name}
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
                     size="md"
                   />

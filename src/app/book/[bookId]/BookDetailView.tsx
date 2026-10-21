@@ -78,6 +78,7 @@ export function BookDetailView({
             bookId={book.id}
             title={book.title}
             coverImageUrl={book.cover_image_url}
+            authorName={book.author_name}
             sizes="(max-width: 600px) 156px, 220px"
             size="lg"
             priority

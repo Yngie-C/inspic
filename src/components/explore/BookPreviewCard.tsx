@@ -52,6 +52,7 @@ export function BookPreviewCard({
           bookId={book.id}
           title={book.title}
           coverImageUrl={book.cover_image_url}
+          authorName={book.author_name}
           sizes={
             size === "sm"
               ? "144px"

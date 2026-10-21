@@ -13,6 +13,9 @@ colors:
   paper: "#F6F4F1"
   surface: "#FFFFFF"
   mark: "#E4DED2"
+  cover-sand: "#EDE3CF"
+  cover-clay: "#EAD6CC"
+  cover-sage: "#DCE0D2"
   line: "#E4DED2"
   line-strong: "#C9C1B2"
   field: "#FFFFFF"
@@ -179,8 +182,16 @@ components:
     backgroundColor: "{colors.mark}"
     textColor: "{colors.primary}"
     rounded: "{rounded.sm}"
-  cover-white:
-    backgroundColor: "{colors.surface}"
+  cover-sand:
+    backgroundColor: "{colors.cover-sand}"
+    textColor: "{colors.primary}"
+    rounded: "{rounded.sm}"
+  cover-clay:
+    backgroundColor: "{colors.cover-clay}"
+    textColor: "{colors.primary}"
+    rounded: "{rounded.sm}"
+  cover-sage:
+    backgroundColor: "{colors.cover-sage}"
     textColor: "{colors.primary}"
     rounded: "{rounded.sm}"
   cover-border:
@@ -259,7 +270,8 @@ SecretTome은 해 본 사람이 쓴 실전 워크북, "읽는 책이 아니라 �
 - **line (#E4DED2) / line-strong (#C9C1B2)**: 1px 선이다. `line`(Stone)은 구획과 블록 테두리에, `line-strong`(진한 Stone)은 컨트롤 테두리 hover와 강한 구분선에 쓴다.
 - **field (#FFFFFF) / field-line (#C9C1B2)**: 흰 면 + 진한 Stone 테두리다. **"내가 쓰는 영역"**을 뜻하며, 독자와 저자가 입력하는 모든 필드(textarea, input, 척도 칸)에 쓴다. 토큰 이름은 역할을 가리키므로 값이 surface와 같아도 따로 둔다. 단, **검색창은 예외로 paper 면에 field-line 테두리**를 쓴다. 검색은 길 찾기 도구라 흰 면이 필요 없고, 화면에 순백이 있으면 그것이 흰색 기준이 되어 paper 바탕이 회색으로 읽히기 때문이다(2026-10-01 결정).
 - **입력을 받지 않는 필드(field-locked)**는 흰 면을 걷어내고 **mark 50% 면 + field-line 테두리 + faint 글자**로 그린다. mark를 그대로 칠하면 hover·현재 위치 면과 같아 너무 무거워서 반만 깐다. 흰 면이 "쓸 수 있는 자리"라는 약속이므로, 쓸 수 없는 칸에 흰 면을 남기지 않는다. 커서는 `not-allowed`. 이유 안내(로그인·구매)는 칸 아래 muted 한 줄로 둔다(2026-10-20 결정).
-- 표지 면은 옅은 색만 쓴다(Stone, 흰색). 짙은 면(accent, primary)을 표지에 칠하지 않는 이유는, 표지가 여러 권 모이면 코랄과 검정 판이 화면을 덮어 "코랄 한 점"이 무너지기 때문이다(2026-10-01 결정).
+- **cover-sand (#EDE3CF) / cover-clay (#EAD6CC) / cover-sage (#DCE0D2)**: 표지 플레이스홀더 전용 면이다. 다른 면에 쓰지 않는다.
+- 표지 면은 채도 낮은 옅은 면 4종(Stone, Sand, Clay, Sage)만 쓴다. 짙은 면(accent, primary)을 표지에 칠하지 않는 이유는, 표지가 여러 권 모이면 코랄과 검정 판이 화면을 덮어 "코랄 한 점"이 무너지기 때문이다(2026-10-01 결정). 흰 면도 쓰지 않는다 — 단조롭고, 순백이 paper를 회색으로 보이게 한다(2026-10-21 결정).
 - **상태색 (danger #B42318, success #2F6B3A, warning #8A5A00, info #2C5B66)**: 텍스트, 아이콘, 1px 테두리로만 쓴다. **면을 칠하지 않는다.**
   - danger는 accent와 색상이 가깝다(대비 2.09). 그래서 항상 오류 문장과 함께 쓴다.
   - 파괴적 동작은 `button-danger`(면 없음 + danger 텍스트 + danger 테두리)로 만든다.
@@ -342,7 +354,7 @@ SecretTome은 해 본 사람이 쓴 실전 워크북, "읽는 책이 아니라 �
 - **척도**: 10칸 격자다. 모바일에서 7칸을 넘으면 두 줄(5×2)로 접어 칸 높이 44px를 지킨다. 칸은 field 면에 field-line 테두리, radius sm이다. 선택된 칸은 accent 면에 on-accent 굵은 숫자다. 양 끝 라벨은 칸 아래에 caption muted로 둔다.
 - **체크리스트**: 네이티브 checkbox에 `accent-color: accent`를 준다. 체크된 항목은 muted 색에 1px 취소선이다.
 - **코드 블록**: 잉크 면에 on-primary 텍스트, radius md다. 인라인 코드는 surface 면에 `line` 테두리, radius sm, 0.86em이다.
-- **책 표지 플레이스홀더** (`BookCover` 하나로 통일한다): 옅은 단색 면 2종(Stone, 흰색. 둘 다 잉크 글자) 중 하나를 책 id 해시로 고른다. paper와 대비가 낮으므로 항상 1px 테두리(`line` 또는 잉크 10%)와 함께 쓴다. 제목은 표지 위에 700으로, 하단에 `SECRETTOME`을 label로 둔다. 그라디언트는 쓰지 않는다.
+- **책 표지 플레이스홀더** (`BookCover` 하나로 통일한다): 옅은 단색 면 4종(Stone, Sand, Clay, Sage. 모두 잉크 글자) 중 하나를 책 id 해시로 고른다. paper와 대비가 낮으므로 항상 1px 테두리(`line` 또는 잉크 10%)와 함께 쓴다. 위에서부터 잉크 1px 짧은 선(폭 1/3), 제목(700), 하단에 저자 이름(caption, 가장 작은 표지에서는 생략)과 `SECRETTOME`(label)을 둔다. 그라디언트는 쓰지 않는다.
 - **탐색 카드**: 표지, 제목(subtitle), 메타(caption muted) 순이다. 카드 테두리와 면은 없다. hover 시 제목에 밑줄만 생긴다.
 - **목차 항목**: 현재 장은 mark 면에 600 굵기이고, 번호는 잉크다. 다른 장의 번호는 muted다. 현재 장 번호에 accent를 쓰지 않는다 — 상단 바의 진행 선과 겹친다(2026-10-01 결정).
 - **토스트**: 잉크 면에 on-primary 텍스트, radius md다. 떠 있는 레이어 그림자를 쓴다. 문구는 결과를 말한다("저장했어요", "링크를 복사했어요").
