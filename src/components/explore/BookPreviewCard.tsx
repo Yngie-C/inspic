@@ -9,10 +9,19 @@ export interface BookWithAuthor extends Book {
   author_bio?: string | null;
 }
 
+/** 카드가 그리는 필드. 저자 페이지처럼 책 행 일부만 읽는 곳도 같은 카드를 씁니다. */
+export type PreviewBook = Pick<BookWithAuthor, "id" | "title" | "cover_image_url" | "price"> &
+  Partial<Pick<BookWithAuthor, "author_name" | "author_bio" | "description" | "total_chapters">>;
+
 interface BookPreviewCardProps {
-  book: BookWithAuthor;
+  book: PreviewBook;
   /** sm은 가로 스크롤 줄처럼 좁은 자리용. */
   size?: "sm" | "md";
+  /**
+   * 소개 두 줄과 장 수를 함께 싣습니다. 저자 페이지처럼 표지만으로 고르기
+   * 어려운 자리용이고, 탐색 그리드는 쓰지 않습니다.
+   */
+  showSummary?: boolean;
   className?: string;
 }
 
@@ -23,11 +32,15 @@ interface BookPreviewCardProps {
 export function BookPreviewCard({
   book,
   size = "md",
+  showSummary = false,
   className,
 }: BookPreviewCardProps) {
   const price = book.price > 0 ? `${book.price.toLocaleString("ko-KR")}원` : "무료";
-  const meta = [book.author_name, price].filter(Boolean).join(" · ");
+  const chapters =
+    showSummary && book.total_chapters ? `${book.total_chapters}개 장` : null;
+  const meta = [book.author_name, chapters, price].filter(Boolean).join(" · ");
   const bio = size === "md" ? book.author_bio?.trim() : undefined;
+  const summary = showSummary ? book.description?.trim() : undefined;
 
   return (
     <Link
@@ -56,6 +69,9 @@ export function BookPreviewCard({
         >
           {book.title}
         </h3>
+        {summary && (
+          <p className="line-clamp-2 text-body-sm text-muted">{summary}</p>
+        )}
         <p className="truncate text-caption text-muted">{meta}</p>
         {bio && <p className="truncate text-caption text-muted">{bio}</p>}
       </div>

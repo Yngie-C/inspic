@@ -8,7 +8,10 @@ export interface UserProfile {
   user_id: string;
   display_name: string | null;
   avatar_url: string | null;
+  /** 한 줄 소개. 랜딩·탐색 카드·저자 페이지 이름 아래에 한 줄로 나갑니다. */
   bio: string | null;
+  /** 긴 이력. 저자 페이지와 책 상세 "지은이"에 나갑니다(00014). */
+  about: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -34,7 +34,7 @@ vi.mock("@/lib/supabase/admin", async () => {
   };
 });
 
-const { coverStoragePath, removeBookFiles, removeChapterImages } = await import(
+const { avatarStoragePath, coverStoragePath, removeBookFiles, removeChapterImages } = await import(
   "./storage-cleanup"
 );
 
@@ -71,6 +71,28 @@ describe("coverStoragePath", () => {
       ),
     ).toBeNull();
     expect(coverStoragePath("표지 아님", BOOK)).toBeNull();
+  });
+});
+
+describe("avatarStoragePath", () => {
+  const base = "https://project.supabase.co/storage/v1/object/public/avatars/";
+  const USER = "44444444-4444-4444-8444-444444444444";
+
+  it("본인 폴더의 사진 경로를 꺼낸다", () => {
+    expect(avatarStoragePath(`${base}${USER}/1.png`, USER)).toBe(`${USER}/1.png`);
+  });
+
+  it("남의 폴더·다른 버킷·외부 URL·이상한 경로는 null", () => {
+    expect(avatarStoragePath(`${base}${BOOK}/1.png`, USER)).toBeNull();
+    expect(avatarStoragePath(`${base}${USER}/`, USER)).toBeNull();
+    expect(avatarStoragePath(`${base}${USER}/../${BOOK}/1.png`, USER)).toBeNull();
+    expect(
+      avatarStoragePath(
+        `https://project.supabase.co/storage/v1/object/public/covers/${USER}/1.png`,
+        USER,
+      ),
+    ).toBeNull();
+    expect(avatarStoragePath(`https://example.com/${USER}/me.png`, USER)).toBeNull();
   });
 });
 

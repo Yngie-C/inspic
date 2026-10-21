@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Check, Share2 } from "lucide-react";
 import { BookCover } from "@/components/ui/book-cover";
+import { AuthorAvatar } from "@/components/ui/author-avatar";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +22,8 @@ import type { Book, Chapter } from "@/types";
 export type DetailBook = Book & {
   author_name?: string | null;
   author_bio?: string | null;
+  author_about?: string | null;
+  author_avatar_url?: string | null;
 };
 
 export interface DetailAccess {
@@ -214,10 +217,20 @@ export function BookDetailView({
       {book.author_name && (
         <section>
           <h2 className="mb-3.5 text-label text-muted">지은이</h2>
-          <div className="flex max-w-[640px] flex-col gap-2">
-            <p className="text-subtitle text-primary">{book.author_name}</p>
-            {book.author_bio && (
-              <p className="whitespace-pre-line text-body text-primary">{book.author_bio}</p>
+          <div className="flex max-w-[640px] flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <AuthorAvatar name={book.author_name} url={book.author_avatar_url} size="sm" />
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <p className="text-subtitle text-primary">{book.author_name}</p>
+                {book.author_bio && (
+                  <p className="text-body-sm text-muted">{book.author_bio}</p>
+                )}
+              </div>
+            </div>
+            {book.author_about && (
+              <p className="line-clamp-4 whitespace-pre-line text-body text-primary">
+                {book.author_about}
+              </p>
             )}
             <Link
               href={`/author/${book.owner_id}`}

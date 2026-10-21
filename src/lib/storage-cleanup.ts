@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
- * Storage 파일 정리. 표지 교체·삭제, 장·책 삭제 뒤에 부릅니다.
+ * Storage 파일 정리. 표지·프로필 사진 교체·삭제, 장·책 삭제 뒤에 부릅니다.
  *
  * 전부 DB가 바뀐 **뒤에** 부르고, 실패해도 던지지 않습니다. 파일을 먼저
  * 지웠는데 DB 갱신이 실패하면 책이 없는 파일을 가리켜 표지·본문 이미지가
@@ -12,24 +12,22 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export const COVERS_BUCKET = "covers";
 export const CHAPTER_IMAGES_BUCKET = "chapter-images";
+export const AVATARS_BUCKET = "avatars";
 
 const LIST_PAGE = 1000;
 
 /**
- * 표지 공개 URL에서 `covers` 버킷 안의 경로를 꺼냅니다.
- *
- * 이 책의 폴더(`covers/{bookId}/`) 안이 아니면 null입니다. `cover_image_url`이
- * 다른 책의 파일을 가리키고 있어도(예전에는 책 PUT으로 아무 URL이나 넣을 수
- * 있었습니다) 그 파일을 지우지 않게 합니다.
+ * 공개 URL에서 `bucket` 안의 경로를 꺼냅니다. `folder`(끝에 `/`) 안의 파일이
+ * 아니면 null입니다.
  */
-export function coverStoragePath(url: string, bookId: string): string | null {
+function publicObjectPath(url: string, bucket: string, folder: string): string | null {
   let pathname: string;
   try {
     pathname = new URL(url).pathname;
   } catch {
     return null;
   }
-  const marker = `/storage/v1/object/public/${COVERS_BUCKET}/`;
+  const marker = `/storage/v1/object/public/${bucket}/`;
   const at = pathname.indexOf(marker);
   if (at === -1) return null;
 
@@ -39,10 +37,46 @@ export function coverStoragePath(url: string, bookId: string): string | null {
   } catch {
     return null;
   }
-  const folder = `covers/${bookId}/`;
   if (!path.startsWith(folder) || path.length === folder.length) return null;
   if (path.split("/").some((part) => part === ".." || part === ".")) return null;
   return path;
+}
+
+/**
+ * 표지 공개 URL에서 `covers` 버킷 안의 경로를 꺼냅니다.
+ *
+ * 이 책의 폴더(`covers/{bookId}/`) 안이 아니면 null입니다. `cover_image_url`이
+ * 다른 책의 파일을 가리키고 있어도(예전에는 책 PUT으로 아무 URL이나 넣을 수
+ * 있었습니다) 그 파일을 지우지 않게 합니다.
+ */
+export function coverStoragePath(url: string, bookId: string): string | null {
+  return publicObjectPath(url, COVERS_BUCKET, `covers/${bookId}/`);
+}
+
+/**
+ * 프로필 사진 공개 URL에서 `avatars` 버킷 안의 경로를 꺼냅니다.
+ *
+ * 본인 폴더(`{userId}/`) 안이 아니면 null입니다. 예전에는 `avatar_url`에
+ * 아무 URL이나 넣을 수 있었습니다.
+ */
+export function avatarStoragePath(url: string, userId: string): string | null {
+  return publicObjectPath(url, AVATARS_BUCKET, `${userId}/`);
+}
+
+/** 프로필 사진 파일 하나를 지웁니다. 본인 사진이 아니면 아무것도 하지 않습니다. */
+export async function removeAvatarFile(
+  supabase: SupabaseClient,
+  url: string | null | undefined,
+  userId: string,
+): Promise<void> {
+  if (!url) return;
+  const path = avatarStoragePath(url, userId);
+  if (!path) return;
+
+  const { error } = await supabase.storage.from(AVATARS_BUCKET).remove([path]);
+  if (error) {
+    console.error("[storage] 프로필 사진을 지우지 못했습니다", { userId, path, error });
+  }
 }
 
 /** 표지 파일 하나를 지웁니다. 이 책의 표지가 아니면 아무것도 하지 않습니다. */

@@ -32,10 +32,10 @@ export async function GET(
   // 공개 상태를 다시 보면 저자가 내린 책을 산 독자가 상세 화면을 잃습니다.
   const isOwner = user?.id === bookData.owner_id;
 
-  // Fetch author name and bio separately (no FK between books.owner_id and user_profiles.user_id)
+  // Fetch author profile separately (no FK between books.owner_id and user_profiles.user_id)
   const { data: profile, error: profileError } = await supabase
     .from("user_profiles")
-    .select("display_name, bio")
+    .select("display_name, bio, about, avatar_url")
     .eq("user_id", bookData.owner_id)
     .maybeSingle();
 
@@ -48,6 +48,8 @@ export async function GET(
     ...bookData,
     author_name: profile?.display_name ?? null,
     author_bio: profile?.bio ?? null,
+    author_about: profile?.about ?? null,
+    author_avatar_url: profile?.avatar_url ?? null,
   };
 
   // 소유자는 편집용으로 draft까지 봅니다. 나머지는 목차 함수로 published 장의

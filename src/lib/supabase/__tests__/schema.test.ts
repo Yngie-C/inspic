@@ -88,6 +88,40 @@ describe("초기 스키마", () => {
     ).rejects.toThrow();
   });
 
+  it("user_profiles.about은 2000자까지 받는다", async () => {
+    const user = await db.query<{ id: string }>(
+      `INSERT INTO auth.users (email) VALUES ('about@example.com') RETURNING id`,
+    );
+    const userId = user.rows[0].id;
+
+    await db.query(`UPDATE user_profiles SET about = $2 WHERE user_id = $1`, [
+      userId,
+      "가".repeat(2000),
+    ]);
+    await expect(
+      db.query(`UPDATE user_profiles SET about = $2 WHERE user_id = $1`, [
+        userId,
+        "가".repeat(2001),
+      ]),
+    ).rejects.toThrow();
+  });
+
+  it("avatars 버킷은 공개이고 라우트와 같은 크기·형식만 받는다", async () => {
+    const result = await db.query<{
+      public: boolean;
+      file_size_limit: string;
+      allowed_mime_types: string[];
+    }>(`SELECT public, file_size_limit, allowed_mime_types FROM storage.buckets WHERE id = 'avatars'`);
+    expect(result.rows).toEqual([
+      {
+        public: true,
+        file_size_limit: expect.anything(),
+        allowed_mime_types: ["image/jpeg", "image/png", "image/webp"],
+      },
+    ]);
+    expect(Number(result.rows[0].file_size_limit)).toBe(5 * 1024 * 1024);
+  });
+
   it("모든 테이블에 RLS가 켜져 있다", async () => {
     const result = await db.query<{ relname: string }>(
       `SELECT relname FROM pg_class c
