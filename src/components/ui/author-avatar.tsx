@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { isStorageImageUrl } from "@/lib/storage-image";
 
 // 사진이 없으면 이름 첫 글자를 책 표지 플레이스홀더와 같은 Stone 면에 둔다.
 const SIZE = {
@@ -35,6 +36,7 @@ export function AuthorAvatar({ name, url, size = "md", className }: AuthorAvatar
           fill
           className="object-cover"
           sizes={s.px}
+          unoptimized={!isStorageImageUrl(url)}
         />
       ) : (
         <span className={cn("select-none", s.text)} aria-hidden>

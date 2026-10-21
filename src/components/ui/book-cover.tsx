@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { isStorageImageUrl } from "@/lib/storage-image";
 import { SERVICE_NAME } from "@/lib/brand";
 
 // DESIGN.md Components > 책 표지 플레이스홀더. Stone·흰 면 2종 중 하나를 책 id 해시로 고른다.
@@ -54,6 +55,7 @@ export function BookCover({
         className={cn("object-cover", className)}
         sizes={sizes}
         priority={priority}
+        unoptimized={!isStorageImageUrl(coverImageUrl)}
       />
     );
   }
