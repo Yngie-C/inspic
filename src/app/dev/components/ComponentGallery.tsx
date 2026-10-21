@@ -39,7 +39,7 @@ const TYPE_SCALE = [
   ["text-label text-muted", "label 12 · 체크리스트"],
 ] as const;
 
-const COVER_IDS = ["a", "b", "c"];
+const COVER_IDS = ["a", "b", "c", "d"];
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -173,14 +173,15 @@ export function ComponentGallery() {
       </Section>
 
       <Section title="책 표지 플레이스홀더">
-        <div className="grid grid-cols-3 gap-4 sm:gap-6">
+        <div className="grid grid-cols-4 gap-4 sm:gap-6">
           {COVER_IDS.map((id, i) => (
             <div key={id} className="relative aspect-[3/4] overflow-hidden rounded-sm border border-primary/10">
               <BookCover
                 bookId={id}
-                title={["적용하는 독서법", "하루 10분 회고 워크북", "나의 강점 찾기"][i]}
+                title={["적용하는 독서법", "하루 10분 회고 워크북", "나의 강점 찾기", "첫 팀장 90일"][i]}
+                authorName="김현장"
                 sizes="200px"
-                size={(["sm", "md", "lg"] as const)[i]}
+                size={(["sm", "md", "lg", "md"] as const)[i]}
               />
             </div>
           ))}

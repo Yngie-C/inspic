@@ -3,11 +3,13 @@ import { cn } from "@/lib/utils";
 import { isStorageImageUrl } from "@/lib/storage-image";
 import { SERVICE_NAME } from "@/lib/brand";
 
-// DESIGN.md Components > 책 표지 플레이스홀더. Stone·흰 면 2종 중 하나를 책 id 해시로 고른다.
+// DESIGN.md Components > 책 표지 플레이스홀더. 옅은 면 4종 중 하나를 책 id 해시로 고른다.
 // paper와 대비가 낮아 부모 박스가 1px 테두리를 둘러야 한다.
 const COVER_TONES = [
   "bg-mark text-primary",
-  "bg-surface text-primary",
+  "bg-cover-sand text-primary",
+  "bg-cover-clay text-primary",
+  "bg-cover-sage text-primary",
 ] as const;
 
 const TITLE_SIZE = {
@@ -28,6 +30,8 @@ interface BookCoverProps {
   bookId: string;
   title: string;
   coverImageUrl?: string | null;
+  /** 플레이스홀더 하단에 둔다. `size="sm"`에서는 그리지 않는다 */
+  authorName?: string | null;
   /** next/image `sizes`. 표지 이미지가 있을 때만 쓴다 */
   sizes: string;
   /** 플레이스홀더 제목 크기 */
@@ -41,6 +45,7 @@ export function BookCover({
   bookId,
   title,
   coverImageUrl,
+  authorName,
   sizes,
   size = "md",
   priority,
@@ -68,17 +73,27 @@ export function BookCover({
         className,
       )}
     >
-      <span
-        className={cn(
-          "line-clamp-4 font-bold break-keep [text-wrap:balance]",
-          TITLE_SIZE[size],
+      <div className="flex flex-col gap-2">
+        <span className="block w-1/3 border-t border-primary" aria-hidden />
+        <span
+          className={cn(
+            "line-clamp-4 font-bold break-keep [text-wrap:balance]",
+            TITLE_SIZE[size],
+          )}
+        >
+          {title}
+        </span>
+      </div>
+      <div className="flex flex-col gap-1">
+        {authorName && size !== "sm" && (
+          <span className="truncate text-caption" aria-hidden>
+            {authorName}
+          </span>
         )}
-      >
-        {title}
-      </span>
-      <span className="text-label" aria-hidden>
-        {SERVICE_NAME.toUpperCase()}
-      </span>
+        <span className="text-label" aria-hidden>
+          {SERVICE_NAME.toUpperCase()}
+        </span>
+      </div>
     </div>
   );
 }
