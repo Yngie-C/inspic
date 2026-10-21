@@ -8,7 +8,10 @@ export interface UserProfile {
   user_id: string;
   display_name: string | null;
   avatar_url: string | null;
+  /** 한 줄 소개. 랜딩·탐색 카드·저자 페이지 이름 아래에 한 줄로 나갑니다. */
   bio: string | null;
+  /** 긴 이력. 저자 페이지와 책 상세 "지은이"에 나갑니다(00014). */
+  about: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -26,6 +29,10 @@ export interface Book {
   /** "이런 분께". 한 줄에 한 사람. */
   audience: string | null;
   cover_image_url: string | null;
+  /** 책 상세 "책 소개" 아래의 이미지 한 장. 선택. `/detail-image` 업로드로만 바꿉니다. */
+  detail_image_url: string | null;
+  /** 소개 이미지의 대체 글(이미지 속 글을 옮겨 적은 것). */
+  detail_image_alt: string | null;
   language: string;
   status: BookStatus;
   visibility: BookVisibility;

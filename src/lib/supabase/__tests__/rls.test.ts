@@ -1163,6 +1163,87 @@ describe("covers 버킷", () => {
 });
 
 /**
+ * 프로필 사진 버킷 (마이그레이션 00014).
+ *
+ * 경로는 avatars 버킷 안의 {userId}/{파일명}이고, 첫 폴더가 본인 ID일 때만
+ * 올리고 지웁니다. 공개 버킷이라 사진은 공개 URL로 받으므로 목록은 본인만 봅니다.
+ */
+describe("avatars 버킷", () => {
+  const avatarCount = (name: string) =>
+    countRows(`SELECT 1 FROM storage.objects WHERE bucket_id = 'avatars' AND name = $1`, [name]);
+
+  it("본인 폴더에 사진을 올리고 지운다", async () => {
+    const name = `${creator}/1.png`;
+    await asUser(creator, () =>
+      db.query(`INSERT INTO storage.objects (bucket_id, name) VALUES ('avatars', $1)`, [name]),
+    );
+    expect(await avatarCount(name)).toBe(1);
+
+    const affected = await asUser(creator, async () => {
+      const result = await db.query(
+        `DELETE FROM storage.objects WHERE bucket_id = 'avatars' AND name = $1`,
+        [name],
+      );
+      return result.affectedRows;
+    });
+    expect(affected).toBe(1);
+  });
+
+  it("남의 폴더나 규약 밖 경로에는 올리지 못하고, 비로그인은 아예 못 올린다", async () => {
+    for (const name of [`${creator}/intruder.png`, `${readerB}.png`, `x/${readerB}/a.png`]) {
+      await expect(
+        asUser(readerB, () =>
+          db.query(`INSERT INTO storage.objects (bucket_id, name) VALUES ('avatars', $1)`, [name]),
+        ),
+      ).rejects.toThrow();
+    }
+    await expect(
+      asAnon(() =>
+        db.query(`INSERT INTO storage.objects (bucket_id, name) VALUES ('avatars', $1)`, [
+          `${readerB}/anon.png`,
+        ]),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("남의 사진은 지우지도, 목록으로 보지도 못한다", async () => {
+    const name = `${creator}/kept.png`;
+    await db.query(`INSERT INTO storage.objects (bucket_id, name) VALUES ('avatars', $1)`, [name]);
+
+    const affected = await asUser(readerB, async () => {
+      const result = await db.query(
+        `DELETE FROM storage.objects WHERE bucket_id = 'avatars' AND name = $1`,
+        [name],
+      );
+      return result.affectedRows;
+    });
+    expect(affected).toBe(0);
+    expect(await avatarCount(name)).toBe(1);
+
+    expect(
+      await asUser(readerB, () =>
+        countRows(`SELECT 1 FROM storage.objects WHERE bucket_id = 'avatars'`),
+      ),
+    ).toBe(0);
+    expect(
+      await asAnon(() => countRows(`SELECT 1 FROM storage.objects WHERE bucket_id = 'avatars'`)),
+    ).toBe(0);
+    expect(await asUser(creator, () => avatarCount(name))).toBe(1);
+  });
+
+  it("남의 이력은 고치지 못한다", async () => {
+    const affected = await asUser(readerB, async () => {
+      const result = await db.query(
+        `UPDATE user_profiles SET about = '사칭' WHERE user_id = $1`,
+        [creator],
+      );
+      return result.affectedRows;
+    });
+    expect(affected).toBe(0);
+  });
+});
+
+/**
  * 00008: 응답 행은 지금의 정의를 가리켜야 하고, 공개 전 장의 문항은
  * 소유자만 봅니다. 라우트(PUT /responses)가 먼저 같은 판정을 하지만,
  * PostgREST로 직접 쓰면 라우트를 건너뛰므로 정책이 마지막 방어선입니다.

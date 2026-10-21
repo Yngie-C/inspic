@@ -144,7 +144,10 @@ describe("DELETE /api/books/[bookId]", () => {
 
     expect(res.status).toBe(200);
     expect(deletes().map((q) => q.table)).toEqual(["books"]);
-    expect(cleanup.removeBookFiles).toHaveBeenCalledExactlyOnceWith(BOOK, "https://x/cover.png");
+    expect(cleanup.removeBookFiles).toHaveBeenCalledExactlyOnceWith(BOOK, [
+      "https://x/cover.png",
+      undefined,
+    ]);
   });
 
   it("다른 실패는 500이고 DB 원문을 싣지 않는다", async () => {
@@ -234,6 +237,25 @@ describe("PUT /api/books/[bookId] — 입력 검증 (4-P1-17, 4-P1-18)", () => {
 
     expect(res.status).toBe(400);
     expect(updates()).toHaveLength(0);
+  });
+
+  it("소개 이미지 URL은 받지 않는다 — /detail-image 업로드로만 바꾼다", async () => {
+    const res = await PUT(
+      request("PUT", { detail_image_url: "https://tracker.example/pixel.png" }),
+      params,
+    );
+
+    expect(res.status).toBe(400);
+    expect(updates()).toHaveLength(0);
+  });
+
+  it("소개 이미지 대체 글은 상한을 넘으면 400, 공백뿐이면 null로 저장한다", async () => {
+    const tooLong = await PUT(request("PUT", { detail_image_alt: "가".repeat(2001) }), params);
+    expect(tooLong.status).toBe(400);
+    expect(updates()).toHaveLength(0);
+
+    await PUT(request("PUT", { detail_image_alt: "  " }), params);
+    expect(updates().at(-1)?.args.update).toMatchObject({ detail_image_alt: null });
   });
 
   it("목록 밖 언어라도 지금 값 그대로면 다른 필드를 저장한다", async () => {
