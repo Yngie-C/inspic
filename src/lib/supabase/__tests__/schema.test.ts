@@ -64,6 +64,30 @@ describe("초기 스키마", () => {
     ).rejects.toThrow();
   });
 
+  it("books.detail_image_alt는 2000자까지 받고, 소개 이미지는 비워 둘 수 있다", async () => {
+    const user = await db.query<{ id: string }>(
+      `INSERT INTO auth.users (email) VALUES ('detail-image@example.com') RETURNING id`,
+    );
+    const ownerId = user.rows[0].id;
+
+    const book = await db.query<{ detail_image_url: string | null }>(
+      `INSERT INTO books (owner_id, title) VALUES ($1, '책') RETURNING detail_image_url`,
+      [ownerId],
+    );
+    expect(book.rows[0].detail_image_url).toBeNull();
+
+    await db.query(
+      `INSERT INTO books (owner_id, title, detail_image_alt) VALUES ($1, '책', $2)`,
+      [ownerId, "가".repeat(2000)],
+    );
+    await expect(
+      db.query(
+        `INSERT INTO books (owner_id, title, detail_image_alt) VALUES ($1, '책', $2)`,
+        [ownerId, "가".repeat(2001)],
+      ),
+    ).rejects.toThrow();
+  });
+
   it("모든 테이블에 RLS가 켜져 있다", async () => {
     const result = await db.query<{ relname: string }>(
       `SELECT relname FROM pg_class c

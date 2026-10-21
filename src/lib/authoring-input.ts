@@ -11,6 +11,9 @@ export const INVALID_BODY_MESSAGE = "요청 형식이 올바르지 않아요.";
 /** `books.audience`("이런 분께") 상한. 00012의 CHECK와 같은 값입니다. */
 export const MAX_AUDIENCE_LENGTH = 1000;
 
+/** `books.detail_image_alt`(소개 이미지 대체 글) 상한. 00013의 CHECK와 같은 값입니다. */
+export const MAX_DETAIL_IMAGE_ALT_LENGTH = 2000;
+
 export type InputResult<T> =
   | { ok: true; value: T }
   | { ok: false; message: string };
@@ -78,3 +81,4 @@ export function isOneOf<T extends string>(
 ): value is T {
   return (list as readonly unknown[]).includes(value);
 }
+

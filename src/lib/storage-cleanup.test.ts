@@ -115,7 +115,7 @@ describe("removeChapterImages", () => {
 });
 
 describe("removeBookFiles", () => {
-  it("책 폴더 아래 장 폴더까지 내려가 지우고, 표지도 지운다", async () => {
+  it("책 폴더 아래 장 폴더까지 내려가 지우고, 표지와 소개 이미지도 지운다", async () => {
     mocks.respond = (query) => {
       if (query.ops.includes("list")) {
         return query.args.list === BOOK
@@ -126,14 +126,15 @@ describe("removeBookFiles", () => {
       return { data: null, error: null };
     };
 
-    await removeBookFiles(
-      BOOK,
+    await removeBookFiles(BOOK, [
       `https://project.supabase.co/storage/v1/object/public/covers/covers/${BOOK}/1.png`,
-    );
+      `https://project.supabase.co/storage/v1/object/public/covers/covers/${BOOK}/detail-2.png`,
+    ]);
 
     const removes = mocks.queries.filter((q) => q.ops.includes("remove"));
     expect(removes.map((q) => [q.table, q.args.remove])).toEqual([
       ["storage:covers", [`covers/${BOOK}/1.png`]],
+      ["storage:covers", [`covers/${BOOK}/detail-2.png`]],
       ["storage:chapter-images", [`${BOOK}/${CHAPTER}/a.png`]],
     ]);
   });

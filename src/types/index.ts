@@ -26,6 +26,10 @@ export interface Book {
   /** "이런 분께". 한 줄에 한 사람. */
   audience: string | null;
   cover_image_url: string | null;
+  /** 책 상세 "책 소개" 아래의 이미지 한 장. 선택. `/detail-image` 업로드로만 바꿉니다. */
+  detail_image_url: string | null;
+  /** 소개 이미지의 대체 글(이미지 속 글을 옮겨 적은 것). */
+  detail_image_alt: string | null;
   language: string;
   status: BookStatus;
   visibility: BookVisibility;

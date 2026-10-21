@@ -128,12 +128,24 @@ export function BookDetailView({
         </div>
       </div>
 
-      {book.description && (
+      {(book.description || book.detail_image_url) && (
         <section>
           <h2 className="mb-3.5 text-label text-muted">책 소개</h2>
-          <p className="max-w-[640px] whitespace-pre-line text-body-reader text-primary">
-            {book.description}
-          </p>
+          {book.description && (
+            <p className="max-w-[640px] whitespace-pre-line text-body-reader text-primary">
+              {book.description}
+            </p>
+          )}
+          {/* 저자가 고른 소개 이미지 한 장. 세로로 긴 이미지는 자르지 않고 그대로 둔다. */}
+          {book.detail_image_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={book.detail_image_url}
+              alt={book.detail_image_alt || `${book.title} 소개 이미지`}
+              loading="lazy"
+              className={cn("block h-auto w-full max-w-[640px]", book.description && "mt-6")}
+            />
+          )}
         </section>
       )}
 

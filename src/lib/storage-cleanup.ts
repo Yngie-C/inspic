@@ -132,13 +132,19 @@ export async function removeChapterImages(
   }
 }
 
-/** 지운 책의 표지와 본문 이미지를 지웁니다. 책 행을 지운 뒤에 부르세요. */
+/**
+ * 지운 책의 표지·소개 이미지와 본문 이미지를 지웁니다. 책 행을 지운 뒤에 부르세요.
+ * `imageUrls`는 책 행의 `cover_image_url`, `detail_image_url`입니다.
+ */
 export async function removeBookFiles(
   bookId: string,
-  coverUrl: string | null | undefined,
+  imageUrls: readonly (string | null | undefined)[],
 ): Promise<void> {
   try {
-    await removeCoverFile(createAdminClient(), coverUrl, bookId);
+    const admin = createAdminClient();
+    for (const url of imageUrls) {
+      await removeCoverFile(admin, url, bookId);
+    }
   } catch (error) {
     console.error("[storage] 표지 파일을 지우지 못했습니다", { bookId, error });
   }

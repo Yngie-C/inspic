@@ -59,6 +59,8 @@ export const DEV_BOOK: Book = {
   audience:
     "여러 회사에 지원하느라 자소서를 매번 처음부터 쓰는 취업 준비생\n클로드 코드를 설치는 했지만 어디에 써야 할지 모르는 사람\n반복 작업을 스크립트로 묶어 본 적 없는 비개발자",
   cover_image_url: null,
+  detail_image_url: null,
+  detail_image_alt: null,
   language: "ko",
   status: "published",
   visibility: "public",

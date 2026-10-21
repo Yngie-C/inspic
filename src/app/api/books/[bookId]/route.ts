@@ -12,6 +12,7 @@ import {
   EDITABLE_BOOK_STATUSES,
   INVALID_BODY_MESSAGE,
   MAX_AUDIENCE_LENGTH,
+  MAX_DETAIL_IMAGE_ALT_LENGTH,
   isOneOf,
   readBookTitle,
 } from "@/lib/authoring-input";
@@ -122,6 +123,21 @@ export async function PUT(request: NextRequest, { params }: Params) {
     }
     updates.audience = audience;
   }
+  if ("detail_image_alt" in body) {
+    if (body.detail_image_alt !== null && typeof body.detail_image_alt !== "string") {
+      return apiError(INVALID_BODY_MESSAGE, "VALIDATION_ERROR", 400);
+    }
+    const alt =
+      typeof body.detail_image_alt === "string" ? body.detail_image_alt.trim() || null : null;
+    if (alt && alt.length > MAX_DETAIL_IMAGE_ALT_LENGTH) {
+      return apiError(
+        `소개 이미지 설명은 ${MAX_DETAIL_IMAGE_ALT_LENGTH.toLocaleString()}자까지 쓸 수 있어요.`,
+        "VALIDATION_ERROR",
+        400,
+      );
+    }
+    updates.detail_image_alt = alt;
+  }
   // 업로드는 언어를 자유롭게 받았으므로, 목록 밖이어도 지금 값 그대로면
   // 받습니다 — 설정 폼은 제목만 고쳐도 현재 언어를 함께 보냅니다.
   if ("language" in body) {
@@ -152,6 +168,14 @@ export async function PUT(request: NextRequest, { params }: Params) {
   if ("cover_image_url" in body) {
     return apiError(
       "표지는 표지 올리기로 바꿔 주세요.",
+      "VALIDATION_ERROR",
+      400,
+    );
+  }
+  // 소개 이미지도 같은 이유로 `/detail-image` 업로드로만 바꿉니다.
+  if ("detail_image_url" in body) {
+    return apiError(
+      "소개 이미지는 이미지 올리기로 바꿔 주세요.",
       "VALIDATION_ERROR",
       400,
     );
@@ -247,7 +271,7 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
 
   const { data: existing, error: fetchError } = await supabase
     .from("books")
-    .select("owner_id, cover_image_url")
+    .select("owner_id, cover_image_url, detail_image_url")
     .eq("id", bookId)
     .single();
 
@@ -275,7 +299,7 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
 
   // 파일은 책이 지워진 뒤에 지웁니다. 먼저 지우면 삭제가 거절됐을 때(판매된
   // 책) 산 독자의 표지·본문 이미지가 깨집니다.
-  await removeBookFiles(bookId, existing.cover_image_url);
+  await removeBookFiles(bookId, [existing.cover_image_url, existing.detail_image_url]);
 
   return apiSuccess({ deleted: true });
 }
