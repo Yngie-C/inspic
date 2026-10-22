@@ -29,6 +29,7 @@ interface RichTextEditorProps {
   chapterId: string;
   placeholder?: string;
   className?: string;
+  toolbarClassName?: string;
 }
 
 export function RichTextEditor({
@@ -38,6 +39,7 @@ export function RichTextEditor({
   chapterId,
   placeholder = "내용을 입력하세요",
   className,
+  toolbarClassName,
 }: RichTextEditorProps) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Track the chapterId to detect chapter switches
@@ -182,7 +184,11 @@ export function RichTextEditor({
     <div className={cn("flex flex-col", className)}>
       {editor && (
         <>
-          <EditorToolbar editor={editor} onImageUpload={handleImageUpload} />
+          <EditorToolbar
+            editor={editor}
+            onImageUpload={handleImageUpload}
+            className={toolbarClassName}
+          />
           <EditorMenuBubble editor={editor} />
         </>
       )}
