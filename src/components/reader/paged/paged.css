@@ -1,0 +1,33 @@
+/* 쪽 넘김 리더. 쪽 경계에서 잘리면 안 되는 것들. */
+
+.paged-columns {
+  column-fill: auto;
+}
+
+/* 흐름의 맨 위 요소(저장 안내·장 머리·미리보기 끝)와 블록·그림. 워크북 카드는
+   높이가 고정이라 잘리지 않게 다음 쪽으로 넘겨도 입력 중에 다시 나누지 않습니다. */
+.paged-columns > :not(.reader-content),
+.paged-columns section,
+.paged-columns img,
+.paged-columns figure,
+.paged-columns table,
+.paged-columns blockquote,
+.paged-columns pre {
+  break-inside: avoid;
+}
+
+/* 쪽보다 큰 그림은 나눌 수 없어 잘립니다. 쪽 높이에 맞춥니다. */
+.paged-columns img {
+  max-height: var(--page-height, 100vh);
+  object-fit: contain;
+}
+
+.paged-columns h2,
+.paged-columns h3 {
+  break-after: avoid;
+}
+
+.paged-columns p {
+  orphans: 2;
+  widows: 2;
+}

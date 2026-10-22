@@ -29,6 +29,9 @@ function storageImagePatterns(): NonNullable<NextConfig["images"]>["remotePatter
 }
 
 const nextConfig: NextConfig = {
+  // 개발 서버에 폰 등 다른 기기로 붙을 때 그 주소. 예: DEV_ORIGINS=172.16.20.223
+  // Next 16은 등록하지 않은 주소의 개발 리소스 요청을 막아 화면이 뜨지 않습니다.
+  allowedDevOrigins: process.env.DEV_ORIGINS?.split(",").filter(Boolean),
   images: {
     remotePatterns: storageImagePatterns(),
   },

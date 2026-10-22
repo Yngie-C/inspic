@@ -4,7 +4,8 @@ import { useMemo } from "react";
 import { ReaderView } from "@/components/reader/ReaderView";
 import { WorkbookResponsesProvider } from "@/components/reader/WorkbookResponsesProvider";
 import type { WorkbookResponseClient } from "@/lib/workbook/response-client";
-import { DEV_BOOK, DEV_CHAPTERS } from "../_mock/book";
+import { DEV_BOOK } from "../_mock/book";
+import { DEV_PAGED_CHAPTERS } from "./paged-mock";
 
 /** 네트워크 대신 메모리에 저장하는 가짜 클라이언트. 저장은 400ms 걸린다. */
 function memoryClient(fail: boolean): WorkbookResponseClient {
@@ -32,7 +33,7 @@ export function DevReader({ mode }: { mode: string }) {
       client={client}
     >
       <ReaderView
-        book={{ ...DEV_BOOK, chapters: DEV_CHAPTERS }}
+        book={{ ...DEV_BOOK, chapters: DEV_PAGED_CHAPTERS }}
         access={{
           hasAccess: canSave,
           reason: mode === "preview" ? "preview" : "purchased",
