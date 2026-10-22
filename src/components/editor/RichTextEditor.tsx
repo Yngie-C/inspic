@@ -5,6 +5,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import { SlashCommand } from "./extensions/SlashCommand";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
+import Superscript from "@tiptap/extension-superscript";
 import Highlight from "@tiptap/extension-highlight";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
@@ -60,6 +61,7 @@ export function RichTextEditor({
       BlockExitOnEnter,
       SlashCommand.configure({ imageUploadRef }),
       Underline,
+      Superscript,
       Highlight.configure({ multicolor: false }),
       Image.configure({ inline: false, allowBase64: true }),
       Link.configure({

@@ -145,6 +145,45 @@ describe("stripHtmlForPdf 표", () => {
   });
 });
 
+describe("stripHtmlForPdf 위 첨자", () => {
+  it("각주 번호를 위 첨자 조각으로 나눈다", () => {
+    expect(stripHtmlForPdf("<p>해 본 사람<sup>1</sup>의 <b>노하우</b></p>")).toEqual([
+      {
+        type: "paragraph",
+        text: "해 본 사람1의 노하우",
+        runs: [{ text: "해 본 사람" }, { text: "1", sup: true }, { text: "의 노하우" }],
+      },
+    ]);
+  });
+
+  it("위 첨자가 없으면 조각을 두지 않는다", () => {
+    expect(stripHtmlForPdf("<ul><li><p>항목</p></li></ul><section>끝</section>")).toEqual([
+      { type: "listitem", text: "항목" },
+      { type: "paragraph", text: "끝" },
+    ]);
+  });
+
+  it("위 첨자를 작은 글자로 찍고 Helvetica로 흘리지 않는다", async () => {
+    const pdf = await render(
+      createElement(BookPDF, {
+        book: BOOK,
+        chapters: [chapter("<p>각주가 붙은 문장<sup>12</sup></p>")],
+        authorName: "김작가",
+      }) as ReactElement<DocumentProps>,
+    );
+
+    const text = pdfTextOperators(pdf);
+    expect(text).toMatch(/\s7\.7\d* Tf/);
+    expect(text).not.toContain("Helvetica");
+  });
+
+  it("표 칸에는 표시 문자를 남기지 않는다", () => {
+    expect(
+      stripHtmlForPdf("<table><tbody><tr><td>m<sup>2</sup></td><td>답</td></tr></tbody></table>"),
+    ).toEqual([{ type: "tablerow", text: "m2", value: "답" }]);
+  });
+});
+
 describe("stripHtmlForPdf 블록 경계", () => {
   it("코드 블록을 다음 문단과 합치지 않는다", () => {
     expect(stripHtmlForPdf("<pre><code>a\nb</code></pre><p>next</p>")).toEqual([

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
+import Superscript from "@tiptap/extension-superscript";
 import Highlight from "@tiptap/extension-highlight";
 import Link from "@tiptap/extension-link";
 import TextAlign from "@tiptap/extension-text-align";
@@ -30,6 +31,7 @@ function createEditor(content: string): Editor {
         underline: false,
       }),
       Underline,
+      Superscript,
       Highlight.configure({ multicolor: false }),
       Link.configure({
         openOnClick: false,
@@ -48,6 +50,7 @@ describe("에디터 서식 왕복", () => {
     ["밑줄", "<p><u>밑줄</u></p>"],
     ["취소선", "<p><s>취소선</s></p>"],
     ["형광펜", "<p><mark>형광펜</mark></p>"],
+    ["위 첨자", "<p>각주<sup>1</sup></p>"],
     ["문단 가운데 정렬", '<p style="text-align: center">가운데</p>'],
     ["제목 오른쪽 정렬", '<h2 style="text-align: right">제목</h2>'],
     [

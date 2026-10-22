@@ -2,12 +2,12 @@ import DOMPurify, { type UponSanitizeAttributeHook } from "isomorphic-dompurify"
 
 /**
  * 에디터(`RichTextEditor`)가 내는 서식은 전부 여기를 통과해야 저장됩니다.
- * 밑줄(`u`)·취소선(`s`)·형광펜(`mark`)이 빠져 있으면 저장할 때마다
+ * 밑줄(`u`)·취소선(`s`)·형광펜(`mark`)·위 첨자(`sup`)가 빠져 있으면 저장할 때마다
  * 조용히 사라집니다.
  */
 const ALLOWED_TAGS = [
   "p", "h1", "h2", "h3", "h4", "h5", "h6",
-  "em", "strong", "u", "s", "mark",
+  "em", "strong", "u", "s", "mark", "sup",
   "ul", "ol", "li", "blockquote", "img", "a",
   "br", "hr", "table", "thead", "tbody", "tr", "th", "td",
   "pre", "code", "span", "div", "figure", "figcaption",
