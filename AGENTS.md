@@ -33,9 +33,11 @@ SecretTome(옛 이름 Inspic, 2026-10-12 변경)은 **해 본 사람이 쓴 실�
 
 아래 기능은 저장소에 **없습니다**. 다시 추가하지 마세요. 필요하면 먼저 사용자와 범위를 합의하세요.
 
-TTS·오디오북 · 하이라이트/북마크/독서진행률/리더설정 · 시리즈 연재 · 알림 · 다국어(next-intl) · AI 보조(요약/교정/번역/커버) · 협업 저작 · 리뷰·팔로우 · 워크북 템플릿 7종(Toggle, N열, Before/After, 사분면, OKR, 습관 트래커, WOOP)
+TTS·오디오북 · 하이라이트/북마크/독서진행률(읽던 쪽 저장)/리더설정(글자 크기 등) · 시리즈 연재 · 알림 · 다국어(next-intl) · AI 보조(요약/교정/번역/커버) · 협업 저작 · 리뷰·팔로우 · 워크북 템플릿 7종(Toggle, N열, Before/After, 사분면, OKR, 습관 트래커, WOOP)
 
 삭제 이전 코드는 `pre-mvp-archive` 태그에 있습니다.
+
+쪽 넘김(페이지네이션)은 M0에서 지웠다가 2026-10-22에 새로 들였습니다(아래 "쪽 넘김 리더"). 옛 페이지네이터를 되살린 것이 아닙니다.
 
 ## 기술 스택
 
@@ -185,6 +187,16 @@ workbook_responses         독자 응답. (user_id, block_id, field_key) 유일
 - **동기화가 실패해도 챕터 저장을 실패시키지 마세요.** 본문은 이미 저장된 뒤라 여기서 던지면 크리에이터에게는 글이 날아간 것처럼 보입니다. 결과를 응답의 `workbook_sync`에 싣고, 공개 전 검수(`lib/publish-checks.ts`)가 본문과 DB가 어긋난 상태를 차단합니다.
 - **`data-node-id`가 없는 블록에 ID를 만들어 붙이지 마세요.** `extractWorkbookBlocks()`는 그런 블록을 건너뜁니다. 세어야 할 때는 `countWorkbookBlockElements()`를 쓰세요 — 두 수의 차이가 곧 "화면에는 보이지만 응답을 받을 수 없는 블록"이고, 검수가 그것을 차단 사유로 씁니다.
 - 워크북 블록을 추가/변경하면 에디터 Node, 리더 컴포넌트, `lib/sanitize.ts` 허용 목록, `lib/template-fallback.ts`(EPUB/PDF 정적 폴백), `lib/workbook/extract-blocks.ts`의 `BLOCK_TYPE_BY_TEMPLATE` 표, `00001` 스키마의 `block_type` CHECK 제약을 **함께** 확인하세요. `data-template-type` 문자열은 앞의 네 곳이 공유합니다. 표현 설정(`data-min`/`data-max`, `data-callout-type` 등)의 해석은 `lib/workbook/block-config.ts` 한 곳에 두고 에디터·리더·추출기·폴백·저장 라우트가 함께 씁니다. 리더 템플릿 레지스트리처럼 `data-*` 값으로 무언가를 찾을 때는 객체 리터럴 대신 `Map`이나 목록 비교를 쓰세요 — `constructor` 같은 프로토타입 키가 통과합니다.
+
+## 쪽 넘김 리더
+
+2026-10-22 결정(C안), 같은 날 구현. 근거와 비교한 안은 `docs/agent-knowledge/paged-reader-decision.md`. 코드는 `src/components/reader/paged/`, 화면은 `ReaderView`입니다.
+
+- **쪽 안에는 입력을 두지 않습니다.** 입력 블록 4종은 `BlockCard`(질문 한 줄 · 내 답 한 줄 · 버튼)로 그리고, 쓰기는 `BlockSheet`에서 합니다. 시트 안은 스크롤 리더 때와 같은 블록 템플릿이라 저장 경로와 위의 응답 규칙은 그대로입니다. 쪽 안에서 입력하면 글이 늘 때마다 쪽을 다시 나누고, iOS Safari에서는 키보드와 고정 높이 화면이 부딪혀 블록이 깨졌습니다.
+- **카드 높이는 답에 따라 바뀌면 안 됩니다.** 줄마다 높이를 고정하고, 저장 실패 문장도 카드가 아니라 시트에서 보여 줍니다(카드에는 상태 "저장 안 됨"만). 카드 상태 문구는 `block-status.ts`와 `useSaveStatus()`에서 옵니다 — 따로 만들지 마세요.
+- **보던 위치는 쪽 번호가 아니라 요소로 지킵니다**(`usePagedColumns`). 화면 폭·키보드로 쪽 수가 바뀌면 쪽 번호는 의미가 없습니다. `MutationObserver`는 `childList`만 봅니다 — `attributes`까지 보면 자동 높이 조절의 style 변경으로 키 입력마다 다시 나눕니다.
+- **쪽 넘김 조작은 입력을 피합니다**(`turn-input.ts`). 화살표 키는 입력 중·한글 조합 중·시트가 열린 동안 받지 않고, 탭·스와이프는 카드·버튼·링크 위에서 시작하면 받지 않습니다.
+- 진행률(읽던 쪽) 저장과 글자 크기 설정은 여전히 범위 밖입니다. 쪽 넘김은 움직임 없이 바로 바뀝니다(DESIGN.md는 위치를 애니메이션하지 않음).
 
 ## 내보내기 (PDF·EPUB)
 

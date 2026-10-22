@@ -1,21 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import type { Element } from "html-react-parser";
 import { ArrowLeft, ChevronLeft, ChevronRight, List, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Book, Chapter } from "@/types";
 import type { AccessReason } from "@/lib/access-control";
 import { cn } from "@/lib/utils";
-import { HtmlContentRenderer } from "./HtmlContentRenderer";
+import { BlockSheet } from "./paged/BlockSheet";
+import { PagedContentRenderer } from "./paged/PagedContentRenderer";
+import {
+  keyTurn,
+  startsOnControl,
+  swipeTurn,
+  tapTurn,
+  type TouchPoint,
+  type TurnDirection,
+} from "./paged/turn-input";
+import { usePagedColumns } from "./paged/usePagedColumns";
 import { bookHref, loginHref } from "./reader-links";
 import { SaveStatusBadge } from "./SaveStatusBadge";
+import "./paged/paged.css";
 
 /**
  * 리더의 화면 부분. 데이터 로딩과 접근 판정은 `app/reader/[bookId]/page.tsx`가
  * 하고, 여기서는 받은 책을 그립니다. `WorkbookResponsesProvider` 안에서
  * 그려야 합니다.
+ *
+ * 본문은 쪽으로 나눠 넘깁니다(2026-10-22 결정, C안). 쪽 안의 워크북 블록은
+ * 카드이고 쓰기는 시트에서 합니다 — `docs/agent-knowledge/paged-reader-decision.md`.
  *
  * 페이지에서 떼어 둔 것은 `/dev/reader`에서 목 데이터로 같은 화면을
  * 검증하기 위해서입니다.
@@ -55,6 +70,7 @@ export function ReaderView({
     index: initialIndex,
   }));
   const [tocOpen, setTocOpen] = useState(false);
+  const [sheet, setSheet] = useState<Element | null>(null);
 
   const foundIndex = chapters.findIndex((chapter) => chapter.id === position.id);
   const currentIndex =
@@ -63,29 +79,98 @@ export function ReaderView({
       : Math.max(0, Math.min(position.index, chapters.length - 1));
   const currentChapter = chapters[currentIndex];
   const isFirst = currentIndex === 0;
-  const isLast = currentIndex >= chapters.length - 1;
+  // 미리보기는 그 장에서 끝납니다. 끝에 구매 안내(PreviewEnd)가 있습니다.
   const isPreview = access.reason === "preview";
+  const isLast = isPreview || currentIndex >= chapters.length - 1;
   const backHref = isLoggedIn ? "/my/library" : "/explore";
   const progress = ((currentIndex + 1) / chapters.length) * 100;
 
-  const goTo = (index: number) => {
-    const next = Math.max(0, Math.min(index, chapters.length - 1));
-    setPosition({ id: chapters[next]?.id ?? null, index: next });
+  // 돌려받은 객체를 그대로 들고 다니면 React Compiler가 ref 접근으로 봅니다.
+  const { clipRef, columnsRef, page, total, next, prev, startAt } =
+    usePagedColumns({ contentKey: currentChapter?.id ?? "" });
+
+  const openChapter = useCallback(
+    (index: number, where: "first" | "last") => {
+      const target = Math.max(0, Math.min(index, chapters.length - 1));
+      startAt(where);
+      setPosition({ id: chapters[target]?.id ?? null, index: target });
+    },
+    [chapters, startAt],
+  );
+
+  const turn = useCallback(
+    (direction: TurnDirection) => {
+      if (direction === "forward") {
+        if (next() || isLast) return;
+        openChapter(currentIndex + 1, "first");
+      } else {
+        if (prev() || isFirst) return;
+        openChapter(currentIndex - 1, "last");
+      }
+    },
+    [currentIndex, isFirst, isLast, next, openChapter, prev],
+  );
+
+  const selectChapter = (index: number) => {
+    openChapter(index, "first");
     setTocOpen(false);
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  // 화살표 키. 입력 중·한글 조합 중이거나 시트·목차가 떠 있으면 넘기지 않습니다.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const direction = keyTurn(event, sheet !== null || tocOpen);
+      if (!direction) return;
+      event.preventDefault();
+      turn(direction);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sheet, tocOpen, turn]);
+
+  // 좌우 20% 탭. 카드·버튼·링크 위와 글을 고르는 중에는 넘기지 않습니다.
+  const onClick = (event: React.MouseEvent<HTMLElement>) => {
+    if (startsOnControl(event.target)) return;
+    if (window.getSelection()?.toString().trim()) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const direction = tapTurn((event.clientX - rect.left) / rect.width);
+    if (direction) turn(direction);
+  };
+
+  const touch = useRef<TouchPoint | null>(null);
+  const onTouchStart = (event: React.TouchEvent) => {
+    const start = event.touches[0];
+    touch.current =
+      event.touches.length === 1 && !startsOnControl(event.target)
+        ? { x: start.clientX, y: start.clientY, t: Date.now() }
+        : null;
+  };
+  const onTouchEnd = (event: React.TouchEvent) => {
+    const start = touch.current;
+    touch.current = null;
+    const end = event.changedTouches[0];
+    if (!start || !end) return;
+    const direction = swipeTurn(start, {
+      x: end.clientX,
+      y: end.clientY,
+      t: Date.now(),
+    });
+    if (direction) turn(direction);
+  };
+
+  const closeSheet = useCallback(() => setSheet(null), []);
 
   const toc = (
     <ChapterList
       chapters={chapters}
       currentIndex={currentIndex}
-      onSelect={goTo}
+      onSelect={selectChapter}
     />
   );
 
   return (
-    <div className="min-h-screen bg-paper text-primary">
-      <header className="sticky top-0 z-30 flex h-12 items-center gap-3 border-b border-line bg-paper px-4 min-[601px]:px-6">
+    <div className="flex h-dvh flex-col overflow-hidden bg-paper text-primary">
+      <header className="relative flex h-12 flex-none items-center gap-3 border-b border-line bg-paper px-4 min-[601px]:px-6">
         <button
           type="button"
           onClick={() => router.push(backHref)}
@@ -117,13 +202,11 @@ export function ReaderView({
         />
       </header>
 
-      <div className="grid min-[601px]:grid-cols-[248px_minmax(0,1fr)]">
-        {/* 선은 열 전체 높이로, 목차는 화면에 붙어 따라온다. */}
-        <div className="border-r border-line max-[600px]:hidden">
-          <aside className="sticky top-12 max-h-[calc(100vh-3rem)] overflow-y-auto px-4 py-6">
-            {toc}
-          </aside>
-        </div>
+      {/* 열을 minmax(0,1fr)로 묶어야 합니다. auto면 다단 본문의 폭이 열을 밀어 쪽이 화면보다 넓어집니다. */}
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)] min-[601px]:grid-cols-[248px_minmax(0,1fr)]">
+        <aside className="overflow-y-auto border-r border-line px-4 py-6 max-[600px]:hidden">
+          {toc}
+        </aside>
 
         {tocOpen && (
           <div className="fixed inset-0 z-40 min-[601px]:hidden">
@@ -149,66 +232,84 @@ export function ReaderView({
           </div>
         )}
 
-        <main className="px-14 pb-20 pt-12 max-[600px]:px-4 max-[600px]:pb-14 max-[600px]:pt-7">
-          <div className="max-w-[38em] text-body-reader">
-            {!access.canSaveResponses && (
-              <UnsavedNotice
-                bookId={book.id}
-                isPreview={isPreview}
-                isLoggedIn={isLoggedIn}
-              />
-            )}
+        <div className="flex min-h-0 flex-col">
+          <main
+            className="min-h-0 flex-1 px-14 pb-6 pt-12 max-[600px]:px-4 max-[600px]:pb-4 max-[600px]:pt-7"
+            onClick={onClick}
+            onTouchStart={onTouchStart}
+            onTouchEnd={onTouchEnd}
+          >
+            <div ref={clipRef} className="h-full max-w-[38em] overflow-hidden">
+              <div ref={columnsRef} className="paged-columns h-full text-body-reader">
+                {!access.canSaveResponses && (
+                  <UnsavedNotice
+                    bookId={book.id}
+                    isPreview={isPreview}
+                    isLoggedIn={isLoggedIn}
+                  />
+                )}
 
-            {currentChapter && (
-              <>
-                <p className="mb-2 text-caption font-semibold text-muted">
-                  {currentIndex + 1}장
-                  {currentChapter.estimated_reading_time
-                    ? ` · 약 ${currentChapter.estimated_reading_time}분`
-                    : null}
-                </p>
-                <h1 className="mb-8 text-display text-balance text-primary max-[600px]:text-[25px]">
-                  {currentChapter.title}
-                </h1>
-                <HtmlContentRenderer html={currentChapter.content_html} />
-              </>
-            )}
+                {currentChapter && (
+                  <>
+                    <header>
+                      <p className="mb-2 text-caption font-semibold text-muted">
+                        {currentIndex + 1}장
+                        {currentChapter.estimated_reading_time
+                          ? ` · 약 ${currentChapter.estimated_reading_time}분`
+                          : null}
+                      </p>
+                      <h1 className="mb-8 text-display text-balance text-primary max-[600px]:text-[25px]">
+                        {currentChapter.title}
+                      </h1>
+                    </header>
+                    <PagedContentRenderer
+                      html={currentChapter.content_html}
+                      onOpenBlock={setSheet}
+                    />
+                  </>
+                )}
 
-            {isPreview ? (
-              <PreviewEnd
-                bookId={book.id}
-                price={book.price}
-                isLoggedIn={isLoggedIn}
-              />
-            ) : (
-              <nav
-                aria-label="장 이동"
-                className="mt-16 flex items-center justify-between gap-3 border-t border-line pt-8"
-              >
-                <Button
-                  variant="secondary"
-                  onClick={() => goTo(currentIndex - 1)}
-                  disabled={isFirst}
-                >
-                  <ChevronLeft className="h-4 w-4" strokeWidth={1.75} />
-                  이전 장
-                </Button>
-                <span className="text-caption tabular-nums text-muted">
-                  {currentIndex + 1} / {chapters.length}
-                </span>
-                <Button
-                  variant="secondary"
-                  onClick={() => goTo(currentIndex + 1)}
-                  disabled={isLast}
-                >
-                  다음 장
-                  <ChevronRight className="h-4 w-4" strokeWidth={1.75} />
-                </Button>
-              </nav>
-            )}
-          </div>
-        </main>
+                {isPreview && (
+                  <PreviewEnd
+                    bookId={book.id}
+                    price={book.price}
+                    isLoggedIn={isLoggedIn}
+                  />
+                )}
+              </div>
+            </div>
+          </main>
+
+          <nav
+            aria-label="쪽 이동"
+            className="flex h-12 flex-none items-center justify-between gap-3 border-t border-line px-4 min-[601px]:px-6"
+          >
+            <button
+              type="button"
+              onClick={() => turn("back")}
+              disabled={isFirst && page === 0}
+              className="rounded-md p-1.5 text-primary transition-colors duration-150 ease-out hover:bg-mark disabled:text-faint disabled:hover:bg-transparent"
+              aria-label="이전 쪽"
+            >
+              <ChevronLeft className="h-[18px] w-[18px]" strokeWidth={1.75} />
+            </button>
+            <p className="m-0 text-caption tabular-nums text-muted">
+              {currentIndex + 1}장 · {page + 1} / {total}쪽
+            </p>
+            <button
+              type="button"
+              onClick={() => turn("forward")}
+              disabled={isLast && page >= total - 1}
+              className="rounded-md p-1.5 text-primary transition-colors duration-150 ease-out hover:bg-mark disabled:text-faint disabled:hover:bg-transparent"
+              aria-label="다음 쪽"
+            >
+              <ChevronRight className="h-[18px] w-[18px]" strokeWidth={1.75} />
+            </button>
+          </nav>
+        </div>
       </div>
+
+      {sheet && <BlockSheet element={sheet} onClose={closeSheet} />}
     </div>
   );
 }
