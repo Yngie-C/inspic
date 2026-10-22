@@ -321,7 +321,22 @@ export interface TextBlock {
    * 다섯 항목의 라벨과 답이 한 줄에 이어 붙습니다.
    */
   value?: string;
+  /**
+   * 위 첨자(`<sup>`)가 섞인 글이면 `text`를 조각으로 나눈 것. 없으면 비웁니다.
+   * 문단·제목·인용·목록에만 둡니다 — 각주 번호가 들어가는 자리입니다.
+   */
+  runs?: TextRun[];
 }
+
+export interface TextRun {
+  text: string;
+  sup?: boolean;
+}
+
+// 위 첨자 경계 표시. 태그를 걷어 내는 동안 살아남게 사용자 영역 문자를 씁니다.
+const SUP_OPEN = "\uE000";
+const SUP_CLOSE = "\uE001";
+const SUP_MARKS = /[\uE000\uE001]/g;
 
 export function stripHtmlForPdf(html: string): TextBlock[] {
   if (!html || html.trim() === "") return [];
@@ -355,17 +370,35 @@ export function stripHtmlForPdf(html: string): TextBlock[] {
    * 남은 태그는 블록 경계라 공백으로 바꿉니다 — 인용 안의 두 문단이
    * 붙어 한 낱말이 되지 않게.
    */
-  const innerText = (s: string): string =>
+  const collapse = (s: string): string =>
     decodeEntities(s.replace(/<[^>]*>/g, " "))
       .replace(/\s+/g, " ")
       .trim();
+
+  const innerText = (s: string): string => collapse(s).replace(SUP_MARKS, "");
+
+  /** 위 첨자가 있으면 조각(`runs`)까지 냅니다. */
+  const inline = (s: string): Pick<TextBlock, "text" | "runs"> => {
+    const runs: TextRun[] = [];
+    let sup = false;
+    for (const part of collapse(s).split(/([\uE000\uE001])/)) {
+      if (part === SUP_OPEN) sup = true;
+      else if (part === SUP_CLOSE) sup = false;
+      else if (part) runs.push(sup ? { text: part, sup: true } : { text: part });
+    }
+    const text = runs.map((run) => run.text).join("");
+    return runs.some((run) => run.sup) ? { text, runs } : { text };
+  };
 
   const processedHtml = html
     // Normalize line breaks inside tags
     .replace(/<br\s*\/?>/gi, "\n")
     // 인라인 태그는 내용만 남깁니다. 이름 뒤에 경계를 두지 않으면 `<b`가
     // `<blockquote>`, `<u`가 `<ul>`, `<s`가 `<section>`까지 먹습니다.
-    .replace(/<\/?(?:strong|b|em|i|u|s|mark|span|a)(?:\s[^>]*)?>/gi, "");
+    .replace(/<\/?(?:strong|b|em|i|u|s|mark|span|a)(?:\s[^>]*)?>/gi, "")
+    // 위 첨자는 표시로 바꿔 둡니다. 내용만 남기면 각주 번호가 본문 숫자처럼 붙습니다.
+    .replace(/<sup(?:\s[^>]*)?>/gi, SUP_OPEN)
+    .replace(/<\/sup>/gi, SUP_CLOSE);
 
   /**
    * 블록 단위로 자릅니다. 태그 이름 뒤에는 경계(`(?:\s[^>]*)?>`)를 둡니다 —
@@ -404,37 +437,35 @@ export function stripHtmlForPdf(html: string): TextBlock[] {
     }
 
     if (h1Match) {
-      const text = innerText(h1Match[1]);
-      if (text) blocks.push({ type: "heading1", text });
+      const content = inline(h1Match[1]);
+      if (content.text) blocks.push({ type: "heading1", ...content });
     } else if (h2Match) {
-      const text = innerText(h2Match[1]);
-      if (text) blocks.push({ type: "heading2", text });
+      const content = inline(h2Match[1]);
+      if (content.text) blocks.push({ type: "heading2", ...content });
     } else if (h3Match || h456Match) {
-      const text = innerText((h3Match || h456Match)![1]);
-      if (text) blocks.push({ type: "heading3", text });
+      const content = inline((h3Match || h456Match)![1]);
+      if (content.text) blocks.push({ type: "heading3", ...content });
     } else if (pMatch) {
-      const text = innerText(pMatch[2]);
-      if (text) blocks.push({ type: "paragraph", text });
+      const content = inline(pMatch[2]);
+      if (content.text) blocks.push({ type: "paragraph", ...content });
       // 답을 쓰지 않은 칸. 공백뿐이라 위에서 버려지면 인쇄본에 쓸 자리가
       // 없습니다. 저자가 넣은 빈 문단과는 클래스로 구분합니다.
       else if (hasClass(pMatch[1] ?? "", BLANK_ANSWER_CLASS)) {
         blocks.push({ type: "answerblank", text: "" });
       }
     } else if (bqMatch) {
-      const text = innerText(bqMatch[1]);
-      if (text) blocks.push({ type: "blockquote", text });
+      const content = inline(bqMatch[1]);
+      if (content.text) blocks.push({ type: "blockquote", ...content });
     } else if (preMatch) {
-      const text = decodeEntities(preMatch[1].replace(/<[^>]*>/g, ""));
+      const text = decodeEntities(preMatch[1].replace(/<[^>]*>/g, "")).replace(SUP_MARKS, "");
       if (text) blocks.push({ type: "code", text });
     } else if (liMatch) {
-      const text = innerText(liMatch[1]);
-      if (text) blocks.push({ type: "listitem", text });
+      const content = inline(liMatch[1]);
+      if (content.text) blocks.push({ type: "listitem", ...content });
     } else {
       // Plain text segment (not wrapped in a known tag)
-      const text = innerText(seg);
-      if (text && text.length > 0) {
-        blocks.push({ type: "paragraph", text });
-      }
+      const content = inline(seg);
+      if (content.text) blocks.push({ type: "paragraph", ...content });
     }
   }
 
@@ -509,6 +540,27 @@ function TOCPage({
   );
 }
 
+/**
+ * 블록 글을 그립니다. 위 첨자 조각은 줄여서 올립니다 — react-pdf의
+ * `verticalAlign: "super"`는 기준선만 올리고 크기는 그대로 둡니다.
+ */
+function InlineText({ block, fontSize }: { block: TextBlock; fontSize: number }) {
+  if (!block.runs) return <>{block.text}</>;
+  return (
+    <>
+      {block.runs.map((run, i) =>
+        run.sup ? (
+          <Text key={i} style={{ fontSize: fontSize * 0.7, verticalAlign: "super" }}>
+            {run.text}
+          </Text>
+        ) : (
+          run.text
+        ),
+      )}
+    </>
+  );
+}
+
 // Single chapter page
 function ChapterPage({
   chapter,
@@ -547,25 +599,25 @@ function ChapterPage({
           case "heading1":
             return (
               <Text key={i} style={styles.heading1}>
-                {block.text}
+                <InlineText block={block} fontSize={styles.heading1.fontSize} />
               </Text>
             );
           case "heading2":
             return (
               <Text key={i} style={styles.heading2}>
-                {block.text}
+                <InlineText block={block} fontSize={styles.heading2.fontSize} />
               </Text>
             );
           case "heading3":
             return (
               <Text key={i} style={styles.heading3}>
-                {block.text}
+                <InlineText block={block} fontSize={styles.heading3.fontSize} />
               </Text>
             );
           case "blockquote":
             return (
               <Text key={i} style={styles.blockquote}>
-                {block.text}
+                <InlineText block={block} fontSize={styles.blockquote.fontSize} />
               </Text>
             );
           case "code":
@@ -578,7 +630,9 @@ function ChapterPage({
             return (
               <View key={i} style={styles.listItem}>
                 <Text style={styles.listBullet}>•</Text>
-                <Text style={styles.listContent}>{block.text}</Text>
+                <Text style={styles.listContent}>
+                  <InlineText block={block} fontSize={styles.listItem.fontSize} />
+                </Text>
               </View>
             );
           case "answerblank":
@@ -593,7 +647,7 @@ function ChapterPage({
           default:
             return (
               <Text key={i} style={styles.paragraph}>
-                {block.text}
+                <InlineText block={block} fontSize={styles.paragraph.fontSize} />
               </Text>
             );
         }

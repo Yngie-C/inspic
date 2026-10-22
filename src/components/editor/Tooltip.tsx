@@ -20,6 +20,7 @@ export const SHORTCUTS: Record<string, string> = {
   bold: "mod+B",
   italic: "mod+I",
   underline: "mod+U",
+  superscript: "mod+.",
   heading1: "mod+Alt+1",
   heading2: "mod+Alt+2",
   heading3: "mod+Alt+3",

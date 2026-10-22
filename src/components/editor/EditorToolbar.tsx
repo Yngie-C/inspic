@@ -6,6 +6,7 @@ import {
   Italic,
   Underline,
   Strikethrough,
+  Superscript,
   Heading1,
   Heading2,
   Heading3,
@@ -185,6 +186,15 @@ export function EditorToolbar({ editor, onImageUpload }: EditorToolbarProps) {
           title="인라인 코드 (Ctrl+E)"
         >
           <Code2 className="h-4 w-4" />
+        </ToolbarButton>
+      </Tooltip>
+      <Tooltip label="위 첨자" shortcut={SHORTCUTS.superscript}>
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleSuperscript().run()}
+          isActive={editor.isActive("superscript")}
+          title="위 첨자 (Ctrl+.)"
+        >
+          <Superscript className="h-4 w-4" />
         </ToolbarButton>
       </Tooltip>
       {/* <ToolbarButton

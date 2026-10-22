@@ -192,6 +192,13 @@
     border-radius: var(--radius-xs);
   }
 
+  /* 각주 번호. 기본 sup은 줄 높이를 밀어 그 줄만 아래로 벌어진다. */
+  .reader-content sup,
+  .prose sup {
+    font-size: 0.7em;
+    line-height: 0;
+  }
+
   /* 2px 세로선은 Callout 전용이다. 인용은 1px로 한 단계 낮추고 들여쓰기를 Callout(16px)에 맞춘다. */
   .reader-content blockquote {
     border-left: 1px solid var(--color-line-strong);
