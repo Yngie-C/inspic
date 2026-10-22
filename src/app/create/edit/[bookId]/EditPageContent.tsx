@@ -526,7 +526,7 @@ export function EditPageContent() {
         </div>
       )}
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1">
         {/* Sidebar: chapter list */}
         <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-paper">
           <div className="flex items-center justify-between border-b border-line px-4 py-3">
@@ -590,9 +590,9 @@ export function EditPageContent() {
         </aside>
 
         {/* Main editor */}
-        <main className="flex flex-1 flex-col overflow-hidden">
+        <main className="flex min-w-0 flex-1 flex-col">
           {selectedChapter ? (
-            <div className="flex flex-1 flex-col overflow-hidden">
+            <div className="flex flex-1 flex-col">
               <div className="border-b border-line bg-paper px-8 pt-8 pb-4">
                 <input
                   type="text"
@@ -625,7 +625,7 @@ export function EditPageContent() {
                 </div>
               </div>
 
-              <div className="flex flex-1 flex-col overflow-hidden bg-surface">
+              <div className="flex flex-1 flex-col bg-surface">
                 <RichTextEditor
                   key={selectedChapter.id}
                   content={editContent}
@@ -633,7 +633,9 @@ export function EditPageContent() {
                   bookId={bookId}
                   chapterId={selectedChapter.id}
                   placeholder="내용을 입력하거나 /를 눌러 블록을 넣어 보세요"
-                  className="flex-1 overflow-hidden"
+                  className="flex-1"
+                  // 툴바만 페이지 스크롤에 붙는다. top은 사이트 헤더 높이(h-14 + 테두리 1px).
+                  toolbarClassName="sticky top-[57px] z-20"
                 />
               </div>
             </div>

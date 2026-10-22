@@ -132,9 +132,10 @@ function WorkbookBlockMenu({ editor }: { editor: Editor }) {
 interface EditorToolbarProps {
   editor: Editor;
   onImageUpload?: () => void;
+  className?: string;
 }
 
-export function EditorToolbar({ editor, onImageUpload }: EditorToolbarProps) {
+export function EditorToolbar({ editor, onImageUpload, className }: EditorToolbarProps) {
   const addLink = () => {
     const previousUrl = editor.getAttributes("link").href as string | undefined;
     const url = window.prompt("URL을 입력하세요:", previousUrl ?? "https://");
@@ -147,10 +148,12 @@ export function EditorToolbar({ editor, onImageUpload }: EditorToolbarProps) {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-0.5 border-b border-line bg-paper px-3 py-2 overflow-x-auto">
-      <WorkbookBlockMenu editor={editor} />
-      <ToolbarDivider />
-
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-0.5 border-b border-line bg-paper px-3 py-2 overflow-x-auto",
+        className,
+      )}
+    >
       {/* Text formatting */}
       <Tooltip label="굵게" shortcut={SHORTCUTS.bold}>
         <ToolbarButton
@@ -337,6 +340,10 @@ export function EditorToolbar({ editor, onImageUpload }: EditorToolbarProps) {
           <AlignRight className="h-4 w-4" />
         </ToolbarButton>
       </Tooltip>
+
+      <ToolbarDivider />
+
+      <WorkbookBlockMenu editor={editor} />
     </div>
   );
 }
