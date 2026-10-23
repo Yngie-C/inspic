@@ -173,6 +173,7 @@
 
 ### 6. 남은 정리 — 낮음
 
+- [ ] 코드 리뷰 2차(9~14단계, `34aca10` 이후 작업분) — 계획은 `docs/agent-knowledge/code-review-plan.md`의 "2차" 절
 - [ ] 코드 리뷰 8단계 결과 문서 `docs/agent-knowledge/code-review-results/08-*.md` 쓰기 (수정은 PR #13으로 병합됨)
 - [ ] 탐색 검색을 실제 서버에서 확인 — `C++, Python`, `100%`, `say "hi"` (PostgREST 따옴표 이스케이프)
 - [x] 미리보기에서 쓴 익명 답을 로그인 후 옮길지 — 옮길 답을 만들지 않기로 함(2026-10-20, 저장할 수 없는 독자에게는 입력을 막음)
