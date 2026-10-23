@@ -35,8 +35,11 @@ const FOREIGN_KEY_VIOLATION = "23503";
  * `books_select_*`가 남의 비공개·미발행 책을 아예 안 돌려주고,
  * `chapters_select*`가 챕터 단위로 거릅니다 — 접근 권한이 있으면
  * published 챕터 전부, 없으면 미리보기 챕터 하나입니다.
+ *
+ * 저자도 기본은 독자와 같은 published 챕터만 받습니다. draft까지 받는 것은
+ * 소유자가 `?drafts=1`을 붙였을 때뿐이고, 편집 화면의 미리보기가 그렇게 부릅니다.
  */
-export async function GET(_request: NextRequest, { params }: Params) {
+export async function GET(request: NextRequest, { params }: Params) {
   const user = await getAuthUser();
 
   const { bookId } = await params;
@@ -50,7 +53,8 @@ export async function GET(_request: NextRequest, { params }: Params) {
 
   if (bookError || !book) return apiError("Book not found", "NOT_FOUND", 404);
 
-  const isOwner = !!user && book.owner_id === user.id;
+  const withDrafts =
+    !!user && book.owner_id === user.id && request.nextUrl.searchParams.get("drafts") === "1";
   let chaptersQuery = supabase
     .from("chapters")
     .select("*")
@@ -59,7 +63,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
     .order("created_at", { ascending: true })
     .order("id", { ascending: true });
 
-  if (!isOwner) {
+  if (!withDrafts) {
     chaptersQuery = chaptersQuery.eq("status", "published");
   }
 

@@ -25,7 +25,8 @@ export function PreviewFrame({ bookId, viewport }: Props) {
   const [scale, setScale] = useState(1);
 
   const iframeWidth = VIEWPORT_WIDTHS[viewport];
-  const iframeSrc = `/reader/${bookId}`;
+  // 미리보기만 draft 장까지 보여 줍니다. 공개 전에 독자 화면으로 확인하게.
+  const iframeSrc = `/reader/${bookId}?drafts=1`;
 
   // Allowed URL patterns for navigation guard
   const allowedPatterns = [`/book/${bookId}`, `/reader/${bookId}`];
