@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { NextRequest } from "next/server";
+import { NextRequest } from "next/server";
 import {
   OK_EMPTY,
   type QueryResult,
@@ -56,7 +56,7 @@ vi.mock("@/lib/api-utils", async (importOriginal) => ({
 const cleanup = vi.hoisted(() => ({ removeBookFiles: vi.fn(async () => {}) }));
 vi.mock("@/lib/storage-cleanup", () => cleanup);
 
-const { DELETE, PUT } = await import("./route");
+const { DELETE, GET, PUT } = await import("./route");
 
 const params = { params: Promise.resolve({ bookId: BOOK }) };
 
@@ -95,6 +95,34 @@ beforeEach(() => {
   // 남습니다.
   mocks.queries = [];
   respondWith(() => OK_EMPTY);
+});
+
+describe("GET /api/books/[bookId] — 저자도 독자와 같은 장 (2026-10-23)", () => {
+  function chapterStatusFilter(): unknown[] | undefined {
+    const chapters = mocks.queries.find((q) => q.table === "chapters");
+    return chapters?.calls?.find((c) => c.method === "eq" && c.args[0] === "status")?.args;
+  }
+
+  async function get(query = "") {
+    const res = await GET(new NextRequest(`http://localhost/api/books/${BOOK}${query}`), params);
+    expect(res.status).toBe(200);
+  }
+
+  it("소유자라도 기본은 published 장만", async () => {
+    await get();
+    expect(chapterStatusFilter()).toEqual(["status", "published"]);
+  });
+
+  it("소유자가 ?drafts=1을 붙이면 draft 장까지 (미리보기)", async () => {
+    await get("?drafts=1");
+    expect(chapterStatusFilter()).toBeUndefined();
+  });
+
+  it("소유자가 아니면 ?drafts=1을 무시한다", async () => {
+    respondWith(() => OK_EMPTY, { owner_id: "someone-else" });
+    await get("?drafts=1");
+    expect(chapterStatusFilter()).toEqual(["status", "published"]);
+  });
 });
 
 describe("DELETE /api/books/[bookId]", () => {

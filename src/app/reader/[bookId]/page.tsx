@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -32,8 +32,8 @@ class ReaderLoadError extends Error {
   }
 }
 
-async function fetchReaderBook(bookId: string): Promise<ReaderBook> {
-  const res = await fetch(`/api/books/${bookId}`);
+async function fetchReaderBook(bookId: string, withDrafts: boolean): Promise<ReaderBook> {
+  const res = await fetch(`/api/books/${bookId}${withDrafts ? "?drafts=1" : ""}`);
   if (!res.ok) throw new ReaderLoadError(res.status);
   return (await res.json()).data;
 }
@@ -46,6 +46,9 @@ async function fetchAccess(bookId: string): Promise<AccessInfo> {
 
 export default function ReaderPage() {
   const { bookId } = useParams<{ bookId: string }>();
+  // 저자도 독자와 같은 장만 봅니다. draft 장은 편집 화면의 미리보기가
+  // `?drafts=1`로 열 때만 보입니다(소유자가 아니면 서버가 무시합니다).
+  const withDrafts = useSearchParams().get("drafts") === "1";
   const user = useAuthStore((state) => state.user);
   const isInitialized = useAuthStore((state) => state.isInitialized);
 
@@ -58,8 +61,8 @@ export default function ReaderPage() {
     // 장 목록은 보는 사람의 권한으로 걸러지므로 키에 넣습니다. 없으면
     // 로그인하고 돌아온 구매자에게 미리보기 1장이, 로그아웃한 뒤에는
     // 구매자가 받은 장 전체가 캐시에서 그대로 보입니다.
-    queryKey: ["reader-book", bookId, user?.id ?? null],
-    queryFn: () => fetchReaderBook(bookId),
+    queryKey: ["reader-book", bookId, user?.id ?? null, withDrafts],
+    queryFn: () => fetchReaderBook(bookId, withDrafts),
     enabled: isInitialized,
     retry: false,
   });

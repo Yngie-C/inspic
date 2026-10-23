@@ -196,6 +196,7 @@ workbook_responses         독자 응답. (user_id, block_id, field_key) 유일
 - **카드 높이는 답에 따라 바뀌면 안 됩니다.** 줄마다 높이를 고정하고, 저장 실패 문장도 카드가 아니라 시트에서 보여 줍니다(카드에는 상태 "저장 안 됨"만). 카드 상태 문구는 `block-status.ts`와 `useSaveStatus()`에서 옵니다 — 따로 만들지 마세요.
 - **보던 위치는 쪽 번호가 아니라 요소로 지킵니다**(`usePagedColumns`). 화면 폭·키보드로 쪽 수가 바뀌면 쪽 번호는 의미가 없습니다. `MutationObserver`는 `childList`만 봅니다 — `attributes`까지 보면 자동 높이 조절의 style 변경으로 키 입력마다 다시 나눕니다.
 - **쪽 넘김 조작은 입력을 피합니다**(`turn-input.ts`). 화살표 키는 입력 중·한글 조합 중·시트가 열린 동안 받지 않고, 탭·스와이프는 카드·버튼·링크 위에서 시작하면 받지 않습니다.
+- **저자도 `/reader`에서는 독자와 같은 published 장만 봅니다**(2026-10-23). draft 장은 편집 화면의 미리보기 iframe이 `/reader/{id}?drafts=1`로 열 때만 보이고, `GET /api/books/[id]`는 소유자가 `?drafts=1`을 붙였을 때만 draft를 싣습니다.
 - 진행률(읽던 쪽) 저장과 글자 크기 설정은 여전히 범위 밖입니다. 쪽 넘김은 움직임 없이 바로 바뀝니다(DESIGN.md는 위치를 애니메이션하지 않음).
 
 ## 내보내기 (PDF·EPUB)
