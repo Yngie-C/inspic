@@ -108,6 +108,70 @@
 ```
 중점: 버그 위주. 디자인·스타일은 이 리뷰 범위가 아니에요(DESIGN.md 점검은 별도).
 
+## 2차 — 10-05 이후 작업분 (9~14단계)
+
+2026-10-22에 세웠어요. 1차 수정이 main에 모두 들어간 시점은 `34aca10`(PR #12·#13·#14)이고, 그 뒤 PR #15~#34가 리뷰 없이 병합됐어요(소스 113개 파일, +6,086 / −1,587줄). 진행 방식은 1차와 같아요 — 한 세션에 한 단계, 경로마다 따로 실행, 리뷰와 수정 분리.
+
+- **기준**: `34aca10` → `ab6ba02`. 각 단계 시작 때 `git diff 34aca10 HEAD -- <경로>`로 변경 범위를 먼저 보고, 파일 전체를 보되 변경된 부분 중심으로 봐요.
+- **effort**: 9~11단계 `high`, 12~14단계 `medium`.
+- **제외**: lint 에러 9개(React Compiler), 7-P2-9, 공개본/편집본 분리(M6 이후).
+- **결과**: `code-review-results/09-*.md` ~ `14-*.md`, 7단계 결과 문서와 같은 형식.
+- **수정**: 단계별이 아니라 근본 원인별 묶음(한 묶음 = 한 PR). 마이그레이션은 `00015`부터 새로 추가해요.
+
+### 9. 독자 응답·쪽 넘김 리더 — `high` (약 1,700줄 변경)
+```
+/code-review high src/components/reader/WorkbookResponsesProvider.tsx
+/code-review high src/components/reader/paged
+/code-review high src/components/reader/ReaderView.tsx
+/code-review high src/components/reader/templates
+/code-review high src/components/reader/SaveStatusBadge.tsx src/components/reader/reader-links.ts
+```
+중점: `canSaveResponses`가 false일 때 provider가 캐시를 읽지도·쓰지도·지우지도 않는지와 입력이 실제로 막히는지(`canWrite`/`lock`/`BlockLockNotice`), 시트(`BlockSheet`)를 거쳐도 저장 경로·한 번에 하나 flush·블록 단위 실패가 그대로인지와 시트를 닫을 때 미전송 답이 버려지지 않는지, 카드 높이가 답·실패 상태로 바뀌지 않는지(상태 문구는 `block-status.ts`/`useSaveStatus()`에서만), `usePagedColumns`가 위치를 요소로 지키고 `childList`만 보는지(무한 재분할·누수), `turn-input.ts`가 입력·한글 조합·시트 중 조작을 무시하는지, 범위 밖 기능(진행률 저장·글자 크기)이 들어오지 않았는지.
+
+### 10. Storage·프로필·마이그레이션 00012~00014 — `high` (약 900줄 변경)
+```
+/code-review high supabase/migrations/00012_book_audience.sql supabase/migrations/00013_book_detail_image.sql supabase/migrations/00014_author_profile.sql
+/code-review high src/lib/book-image-route.ts
+/code-review high src/app/api/books/[bookId]/cover src/app/api/books/[bookId]/detail-image
+/code-review high src/app/api/my
+/code-review high src/lib/storage-cleanup.ts src/lib/storage-image.ts next.config.ts
+/code-review high src/app/api/authors
+```
+중점: `avatars` 정책이 첫 폴더 = `auth.uid()`에서만 열리고 SELECT가 본인뿐인지, `covers`의 `detail-` 파일이 같은 소유자 정책을 타는지, 프로필 PUT이 `avatar_url`을·책 PUT이 `detail_image_url`/`cover_image_url`을 거절하는지, `bio` 80자·`about` 2000자, 파일 타입·크기·경로 조작, DB 갱신 뒤 옛 파일 삭제와 본인 폴더 밖 URL 보존, `next.config.ts` 원격 호스트가 우리 Storage로만 좁혀졌는지, `/api/authors`가 비공개 책·초안을 섞거나 조회 실패를 빈 결과로 넘기지 않는지, `rls.test.ts`에 통과·차단 케이스가 모두 있는지.
+
+### 11. 출간 경로 개편 — `high` (약 450줄 변경)
+```
+/code-review high src/lib/book-publish.ts
+/code-review high src/app/api/books/[bookId]/route.ts
+/code-review high src/lib/authoring-input.ts
+/code-review high src/app/create/edit/[bookId]/EditPageContent.tsx
+/code-review high src/components/preview/PublishChecklist.tsx
+```
+중점: 공개·내리기가 `publishBook()`/`unpublishBook()` 하나로만 가는지, 판정이 `loadPublishChecks()` 하나인지, 422 `blockers` 처리, `status: published` 단독 요청에 `visibility: public`이 붙는지, 설정 모달에 공개 입력이 남지 않았는지, 1000건 읽기·조회 실패 500.
+
+### 12. 저작 에디터 변경 — `medium` (약 900줄 변경)
+```
+/code-review medium src/components/editor
+/code-review medium src/lib/sanitize.ts
+/code-review medium src/components/dashboard/BookMetadataForm.tsx
+```
+중점: 새 블록 입구(`workbook-blocks.ts`·`SlashCommand`·툴바)가 `TemplateNodeIds`로 ID를 받는지와 재생성 폴백이 없는지, 위 첨자 허용이 sanitize·EPUB(`toXhtml`)·PDF 폴백까지 맞는지, 메타데이터 폼의 "이런 분께"·소개 이미지 입력 검증.
+
+### 13. 인증·공개 화면·내보내기 변경분 — `medium`
+```
+/code-review medium src/app/auth src/lib/safe-redirect.ts src/stores/auth-store.ts
+/code-review medium src/app/api/landing src/app/api/books/[bookId]/detail
+/code-review medium src/app/book src/app/author src/app/page.tsx src/components/landing
+/code-review medium src/lib/pdf-generator.tsx src/lib/payments/fulfillment.ts
+```
+중점: 로그인 뒤 기본 이동 변경이 오픈 리다이렉트를 열지 않는지, Supabase 원문이 화면에 새지 않는지(`toAuthFailure()`), 목록이 `status`/`visibility`를 직접 거르는지, PDF 변경분이 이모지·italic·폰트 밖 글자를 넣지 않는지(`pdf-fallback-glyphs.test.ts`).
+
+### 14. 1회용 이전 스크립트 — `medium` (선택)
+```
+/code-review medium scripts/import-survival-guide
+```
+이미 실행했으므로 버그 위주로 짧게. 블록을 프로덕션 함수(`syncChapterWorkbookBlocks()` 등)를 거쳐 넣었는지, 블록 ID를 1회만 부여했는지만 봐요.
+
 ## 진행 체크리스트
 
 | 단계 | 날짜 | 발견 | 수정 | 비고 |
@@ -117,11 +181,17 @@
 | 3. 응답 쓰기 | 2026-10-02 | 40건 → 중복 정리 후 29건(P0 5 · P1 20 · P2 4, 2단계와 3건 겹침) | 0 | 미검증. [결과](code-review-results/03-responses.md) |
 | 4. 블록 동기화·출간 | 2026-10-02 | 56건 → 중복 정리 후 43건(P0 5 · P1 26 · P2 12, 2·3단계와 5건 겹침) | 0 | 3건만 scratchpad에서 재현, 앱 미확인. [결과](code-review-results/04-block-sync-publish.md) |
 | 5. 보안 입력 | 2026-10-03 | 35건 → 중복 정리 후 28건(P0 3 · P1 13 · P2 12) | 28 (묶음 A~D, PR #8~#11) | P0 3건·sanitize 3건은 코드 대조, 2건은 node 확인. 수정은 묶음 A~D로 끝냄. 앱 화면 확인은 아직 하지 않음. [결과](code-review-results/05-security-inputs.md) |
-| 6. 내보내기 |  |  |  |  |
+| 6. 내보내기 | 2026-10-04 | 21건 | 21 (PR #12) | 결과 문서 미작성 |
 | 7. 조회·분석 API | 2026-10-04 | 25건 → 중복 정리 후 22건(P0 0 · P1 9 · P2 13) | 21 (묶음 A~D, P2-9 보류) | 위치·RLS 대조함. 브랜치 `Yngie-C/fix-read-api`. `00011` 원격 적용·화면 확인 남음. [결과](code-review-results/07-read-analytics.md) |
-| 8. 나머지 UI |  |  |  |  |
+| 8. 나머지 UI | 2026-10-04 | 10건 | 10 (PR #13) | 결과 문서 미작성 |
+| 9. 리더·응답 | 2026-10-22 | 45건 → 중복 정리 후 41건(P0 2 · P1 22 · P2 17) | 0 | 6건만 코드 대조. 묶음 A~D. [결과](code-review-results/09-reader-responses.md) |
+| 10. Storage·프로필 |  |  |  |  |
+| 11. 출간 경로 |  |  |  |  |
+| 12. 에디터 |  |  |  |  |
+| 13. 인증·공개 화면 |  |  |  |  |
+| 14. 이전 스크립트 |  |  |  | 선택 |
 
 ## 검증
 
-- 각 단계 수정 후: `npm run typecheck`, `npm test`, `npm run lint` (에러 10개 이하 유지), 필요 시 `npm run build`.
+- 각 단계 수정 후: `npm run typecheck`, `npm test`, `npm run lint` (에러 9개 이하 유지), 필요 시 `npm run build`.
 - RLS를 고치면 `src/lib/supabase/__tests__/rls.test.ts`에 통과·차단 케이스를 함께 추가해요.
