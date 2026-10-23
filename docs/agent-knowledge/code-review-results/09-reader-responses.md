@@ -82,16 +82,16 @@
 
 ## 수정 묶음 제안
 
-순서는 A → B → C → D. 한 묶음 = 한 PR.
+묶음 이름은 다른 단계와 구분하려고 `9-`를 붙여요. 순서는 9-A → 9-B → 9-C → 9-D이고, 다른 단계 묶음과의 순서는 [code-review-plan.md](../code-review-plan.md) 2차 절의 "수정 순서"를 따라요. 한 묶음 = 한 PR.
 
 | 묶음 | 지적 | 비고 |
 |---|---|---|
-| A. 응답 큐와 세션 경계 | P0-1, P0-2, P1-1~3, P2-1, P2-2, P2-4, P2-5 | 남의 계정에 답이 쓰이는 P0-1이 이번 단계에서 가장 급함. 모두 `WorkbookResponsesProvider.tsx` 한 파일. |
-| B. 쪽 위치 | P1-4~10, P1-21, P1-22, P2-8~10 | `usePagedColumns.ts`·`ReaderView.tsx`·`paged.css`. 장·쪽 건너뛰기 네 건(P1-4~7)이 핵심. |
-| C. 저장·잠금 안내와 시트 | P1-11~20, P2-6, P2-7, P2-11 | `SaveStatusBadge`·`BlockLockNotice`·`reader-links`·`BlockSheet`·`card-summary`·`ReflectionReader`·`useAutoResize`. P1-14·P1-15는 결정이 필요(아래). |
-| D. 한 벌로 모으기와 렌더 비용 | P2-3, P2-12~17 | 동작 변화 없는 정리. C의 P1-16을 고칠 때 P2-14를 함께 하면 같은 파일을 두 번 안 만짐. |
+| 9-A. 응답 큐와 세션 경계 | P0-1, P0-2, P1-1~3, P2-1, P2-2, P2-4, P2-5 | 남의 계정에 답이 쓰이는 P0-1이 이번 단계에서 가장 급함. 모두 `WorkbookResponsesProvider.tsx` 한 파일. |
+| 9-B. 쪽 위치 | P1-4~10, P1-21, P1-22, P2-8~10 | `usePagedColumns.ts`·`ReaderView.tsx`·`paged.css`. 장·쪽 건너뛰기 네 건(P1-4~7)이 핵심. |
+| 9-C. 저장·잠금 안내와 시트 | P1-11~20, P2-6, P2-7, P2-11, P2-12, P2-14, P2-15 | `SaveStatusBadge`·`BlockLockNotice`·`BlockCard`·`reader-links`·`BlockSheet`·`card-summary`·`ReflectionReader`·`useAutoResize`. P1-14·P1-15는 결정이 필요(아래). P2-12·P2-15(`BlockLockNotice` 문구·꼬리)와 P2-14(`card-summary`, P1-16의 원인)는 같은 파일을 두 번 만지지 않도록 D에서 옮겨 왔어요. |
+| 9-D. 한 벌로 모으기와 렌더 비용 | P2-3, P2-13, P2-16, P2-17 | 동작 변화 없는 정리. P2-3은 결정 3. |
 
-### 묶음 A 계획
+### 묶음 9-A 계획
 
 **1. 묶음 사이에 세션 확인 (P0-1)** — `sendPending`의 `for (const chunk of chunkWrites(...))` 안, 매 `save` 직전에 `if (!isCurrent(session)) break;`. 보내지 못한 답은 이전 사람의 캐시 칸에 미전송으로 남는다는 기존 규칙 그대로.
 
@@ -115,5 +115,5 @@
 ### 결정이 필요한 것
 
 1. **P1-14 로그인 뒤 돌아올 위치.** 장을 URL(`/reader/{id}?chapter={chapterId}`)에 싣는 방안을 권장해요. 서버에 읽던 위치를 저장하는 것이 아니라 돌아올 주소일 뿐이라 범위 밖 기능("읽던 쪽 저장")에 해당하지 않는다고 봐요. 쪽 번호는 싣지 않아요(쪽은 화면마다 다름).
-2. **P1-15 잠금 이유의 출처.** 리더 페이지가 서버 `checkBookAccess()` 결과(로그인 필요 / 구매 필요)를 provider에 넘기고, `BlockLockNotice`는 그것만 보게 바꾸는 방안을 권장해요. provider prop이 하나 늘어요.
-3. **P2-3 캐시 쓰기 늦추기.** 늦추면 그 사이 탭이 죽을 때 마지막 몇 글자가 캐시에 없을 수 있어요. `pagehide`에서 즉시 쓰기를 함께 두면 되지만, 오프라인 캐시 보장을 건드리므로 D 묶음에서 따로 정해요.
+2. **P1-15 잠금 이유의 출처.** 리더 페이지가 서버 `checkBookAccess()` 결과(로그인 필요 / 구매 필요)를 provider에 넘기고, `BlockLockNotice`는 그것만 보게 바꾸는 방안을 권장해요. provider prop이 하나 늘어요. 이렇게 하면 AGENTS.md 워크북 절의 "계정에 저장할 수 없는 독자" 항목(`canWrite`/`lock`·`BlockLockNotice` 설명)도 함께 고쳐요.
+3. **P2-3 캐시 쓰기 늦추기.** 늦추면 그 사이 탭이 죽을 때 마지막 몇 글자가 캐시에 없을 수 있어요. `pagehide`에서 즉시 쓰기를 함께 두면 되지만, 오프라인 캐시 보장을 건드리므로 9-D 묶음에서 따로 정해요.
