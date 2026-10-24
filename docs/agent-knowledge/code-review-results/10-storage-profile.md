@@ -81,16 +81,16 @@
 
 ## 수정 묶음
 
-순서는 A → B → C → D. 한 묶음 = 한 PR. B와 C는 `storage-cleanup.ts`를 함께 만지므로 B를 먼저 병합하고 C를 그 위에서 시작해요.
+묶음 이름은 다른 단계와 구분하려고 `10-`을 붙여요. 순서는 10-A → 10-B → 10-C → 10-D이고, 다른 단계 묶음과의 순서는 [code-review-plan.md](../code-review-plan.md) 2차 절의 "수정 순서"를 따라요. 한 묶음 = 한 PR. 10-B와 10-C는 `storage-cleanup.ts`를 함께 만지므로 10-B를 먼저 병합하고 10-C를 그 위에서 시작해요. 10-B는 10-A가 바꾼 쓰기 경로(admin 갱신) 위에서 시작해요.
 
 | 묶음 | 지적 | 비고 |
 |---|---|---|
-| A. DB가 지키게 | P1-1~4, P2-1 | 새 마이그레이션 `00015`. 외부 URL이 공개 화면에 박히는 P1-1·P1-2가 이번 단계에서 가장 급함. P1-3은 운영 DB 확인 먼저. |
-| B. 이미지 교체 흐름 한 벌 | P1-5~12, P2-3~8 | `book-image-route.ts`·`avatar/route.ts`를 공용 헬퍼 하나로. 경쟁·0행·결과 모름·alt·테스트. |
-| C. Storage 정리 | P1-13~19, P2-9~12 | `storage-cleanup.ts`·`storage-image.ts`·`next.config.ts`. 폴더 단위 정리와 "우리 URL인가" 한 벌. |
-| D. 읽기 API | P1-20~22, P2-13~21 | `api/my/workbooks`·`api/authors`. P1-20·P1-22는 결정 필요. P2-14·P2-19·P2-21은 보류 후보. |
+| 10-A. DB가 지키게 | P1-1~4, P2-1 | 새 마이그레이션 `00015`. 외부 URL이 공개 화면에 박히는 P1-1·P1-2가 이번 단계에서 가장 급함. P1-3은 운영 DB 확인 먼저. |
+| 10-B. 이미지 교체 흐름 한 벌 | P1-5~12, P2-3~8 | `book-image-route.ts`·`avatar/route.ts`를 공용 헬퍼 하나로. 경쟁·0행·결과 모름·alt·테스트. |
+| 10-C. Storage 정리 | P1-13~19, P2-9~12 | `storage-cleanup.ts`·`storage-image.ts`·`next.config.ts`. 폴더 단위 정리와 "우리 URL인가" 한 벌. |
+| 10-D. 읽기 API | P1-20~22, P2-13~21 | `api/my/workbooks`·`api/authors`. P1-20·P1-22는 결정 필요. P2-14·P2-19·P2-21은 보류 후보. |
 
-### 묶음 A 계획 — DB가 지키게
+### 묶음 10-A 계획 — DB가 지키게
 
 **1. 이미지 URL 컬럼 잠그기 (P1-1·P1-2)** — `00015_image_url_guards.sql`. BEFORE UPDATE 트리거로 `authenticated` 역할이 `books.cover_image_url`·`books.detail_image_url`·`user_profiles.avatar_url`을 **바꾸면** 거절(42501). 업로드 라우트는 소유자 확인을 이미 한 뒤이므로 그 한 컬럼 갱신만 `createAdminClient()`로. 방식은 아래 "결정이 필요한 것" 1.
   - 다른 컬럼만 바꾸는 갱신은 그대로 통과(`NEW.col IS NOT DISTINCT FROM OLD.col`).
@@ -112,17 +112,19 @@
 
 **5. 확인** — `npm run typecheck && npm test && npm run lint`(에러 9개 이하), `npm run build`. 운영 적용 뒤 표지·소개 이미지·아바타 업로드를 실제로 한 번씩.
 
-### 묶음 B 계획 — 이미지 교체 흐름 한 벌
+### 묶음 10-B 계획 — 이미지 교체 흐름 한 벌
+
+10-A 뒤에는 세 URL 컬럼의 갱신(교체·비우기 모두)이 admin 클라이언트라 RLS가 소유자를 다시 보지 않아요. 아래 조건부 갱신에는 소유자 확인을 마친 행의 키(`id` / `user_id`)를 반드시 함께 걸어요.
 
 **1. 공용 헬퍼 (P2-8)** — `lib/stored-image.ts`에 `replaceStoredImage()`·`clearStoredImage()`. 받는 것: 버킷, 새 경로, 행 갱신 함수(조건부), 파일 삭제 함수, 문구. `book-image-route.ts`와 `avatar/route.ts`는 설정만 넘김. `ALLOWED_IMAGE_TYPES`는 한 곳에서 export.
 
 **2. 조건부 교체 (P1-5·P1-6·P1-8·P1-9)** — 갱신에 읽어 둔 옛 값을 조건으로(`.eq(column, old)`, 비었으면 `.is(column, null)`) 걸고 `.select("id").maybeSingle()`로 바뀐 행을 확인.
-  - 0행이면 그 사이 다른 요청이 바꾼 것 → 방금 올린 파일을 지우고 409 "다른 곳에서 먼저 바뀌었어요. 다시 시도해 주세요."
+  - 0행이면 행을 다시 읽어 갈라요. 행이 있으면 그 사이 다른 요청이 바꾼 것 → 방금 올린 파일을 지우고 409 "다른 곳에서 먼저 바뀌었어요. 다시 시도해 주세요." 행이 없으면 그 사이 책이 지워진 것(P1-11) → 파일을 지우고 404. admin 갱신이라 책 삭제도 에러가 아니라 0행으로 오므로, 가르지 않으면 409로 잘못 안내해요.
   - DELETE도 같은 조건부 갱신. 0행이면 파일을 지우지 않음.
 
-**3. 결과를 모르는 갱신 (P1-10)** — 갱신이 에러면 행을 다시 읽음. 새 URL을 가리키면 성공으로 마무리(옛 파일 삭제), 아니면 새 파일 삭제, 다시 읽기도 실패하면 새 파일을 지우지 않고 500 + 로그(고아가 생겨도 C의 폴더 정리가 책 삭제 때 거둠).
+**3. 결과를 모르는 갱신 (P1-10)** — 갱신이 에러면 행을 다시 읽음. 새 URL을 가리키면 성공으로 마무리(옛 파일 삭제), 아니면 새 파일 삭제, 다시 읽기도 실패하면 새 파일을 지우지 않고 500 + 로그. 책 이미지는 고아가 생겨도 10-C의 폴더 정리가 책 삭제 때 거둬요. **아바타는 거둘 경로가 없어요**(P1-19, 결정 4에서 미룸) — 로그에 `avatars/{userId}/` 경로를 남겨 운영에서 지울 수 있게 하고, 같은 사용자의 다음 아바타 교체·삭제 때 본인 폴더에서 지금 행이 가리키지 않는 파일을 함께 지워요(지운 줄 아는 사진이 남는 P1-6과 같은 결과를 막기 위해).
 
-**4. 롤백은 admin으로 (P1-11)** — 소유자 확인을 마친 요청이 자기가 올린 그 경로를 지우는 것이므로 롤백 삭제만 `createAdminClient()`. 책이 그 사이 지워져도 파일이 남지 않음.
+**4. 롤백도 admin으로 (P1-11)** — 10-A로 갱신이 이미 admin이므로, 소유자 확인을 마친 요청이 자기가 올린 그 경로를 지우는 롤백 삭제도 `createAdminClient()`. 책이 그 사이 지워져도 파일이 남지 않음.
 
 **5. 소개 이미지 대체 글 (P1-7)** — `detail_image_url` DELETE는 `detail_image_alt`도 null. 교체(POST)에서도 비울지는 결정 2. 폼은 응답을 받으면 alt 상태를 서버 값으로 맞춤.
 
@@ -133,9 +135,9 @@
   - 갱신 에러 + 다시 읽기가 새 URL → 성공(P1-10). DELETE 0행 → 파일 삭제 안 함(P1-8).
   - 소개 이미지 라우트: `detail-` 앞머리 경로, `detail_image_url` 컬럼, DELETE가 alt도 비움.
 
-**8. 확인** — 묶음 A와 같음.
+**8. 확인** — 묶음 10-A와 같음.
 
-### 묶음 C 계획 — Storage 정리
+### 묶음 10-C 계획 — Storage 정리
 
 **1. "우리 Storage URL인가" 한 벌 (P1-14·P2-9·P2-11)** — `lib/storage-image.ts`에 `storageImageBase()`(환경변수 → origin·경로 접두사)를 두고 `publicObjectPath`·`isStorageImageUrl`·`next.config.ts`가 함께 씀. `publicObjectPath`는 origin이 다르면 null. 로컬 호스트(127.0.0.1·localhost)면 `isStorageImageUrl`이 false를 돌려 `unoptimized`로.
 
@@ -153,7 +155,7 @@
 
 **8. 테스트** — `storage-cleanup` 단위 테스트: 외부 origin URL은 null, 표지 kind가 `detail-` 파일 거절, `removeBookFiles`가 행에 없는 폴더 파일까지 지움, 본문 이미지 판정이 쿼리 한 번.
 
-### 묶음 D 계획 — 읽기 API
+### 묶음 10-D 계획 — 읽기 API
 
 **1. 내 워크북 (P1-20·P1-21·P2-13·P2-15)** — `owner_id === user.id`인 책 제외, 접근을 잃은 책 처리는 결정 5. 응답을 `book_id` Map으로 한 번 묶기. 에러 문구 한국어로. 55행 주석 고치기.
 
@@ -163,7 +165,7 @@
 
 ## 결정이 필요한 것
 
-1. **URL 컬럼 잠그는 방식 (묶음 A).** 트리거로 `authenticated`의 변경을 거절하고 라우트는 admin으로 쓰는 방안을 권장해요. 비교한 것:
+1. **URL 컬럼 잠그는 방식 (묶음 10-A).** 트리거로 `authenticated`의 변경을 거절하고 라우트는 admin으로 쓰는 방안을 권장해요. 비교한 것:
    - 컬럼 권한 회수(`REVOKE UPDATE ON books` + 나머지 컬럼만 `GRANT`): 컬럼을 새로 더할 때마다 GRANT 목록을 고쳐야 하고, 빠뜨리면 저자 저장이 조용히 막혀요.
    - CHECK로 URL 모양 검사: Supabase 호스트가 환경마다 달라 DB가 알 수 없고, 경로만 보면 같은 경로를 흉내 낸 외부 호스트가 통과해요.
    - SECURITY DEFINER RPC로만 쓰기: 트리거와 효과는 같지만 RPC 세 개와 권한 설정이 더 늘어요.
