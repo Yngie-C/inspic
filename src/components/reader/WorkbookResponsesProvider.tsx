@@ -127,6 +127,7 @@ const DEBOUNCE_MS = 600;
 
 const NO_ANSWERS: BlockAnswers = {};
 const NO_SAVE: BlockSave = { pending: false, savedAt: null, failure: null };
+const NO_CACHE: ResponseCache = emptyResponseCache();
 
 const NETWORK_ERROR = "저장하지 못했어요. 연결을 확인해 주세요.";
 const DENIED_ERROR =
@@ -141,6 +142,16 @@ interface Session {
   viewerId: string | null;
   canSave: boolean;
   generation: number;
+}
+
+/** 화면에 그린 캐시가 누구의 것인가. */
+function cacheOwner(bookId: string, viewerId: string | null): string {
+  return JSON.stringify([bookId, viewerId]);
+}
+
+interface OwnedCache {
+  owner: string;
+  cache: ResponseCache;
 }
 
 interface Props {
@@ -176,7 +187,13 @@ export function WorkbookResponsesProvider({
   debounceMs = DEBOUNCE_MS,
   children,
 }: Props) {
-  const [cache, setCache] = useState<ResponseCache>(emptyResponseCache);
+  // 캐시에 주인을 함께 둡니다. 사람·책이 바뀐 첫 렌더는 이펙트가 돌기 전이라
+  // 이전 사람의 캐시가 남아 있는데, 그대로 그리면 공용 기기에서 A의 답이
+  // B의 칸에 보입니다(코드 리뷰 9-P1-3).
+  const [ownedCache, setOwnedCache] = useState<OwnedCache>(() => ({
+    owner: cacheOwner(bookId, viewerId),
+    cache: emptyResponseCache(),
+  }));
   const [saveState, setSaveState] = useState<SaveState>("loading");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [blockSaves, setBlockSaves] = useState<Record<string, BlockSave>>({});
@@ -222,11 +239,36 @@ export function WorkbookResponsesProvider({
     [],
   );
 
-  const commit = useCallback((next: ResponseCache) => {
+  /** 지금 세션의 캐시를 화면에 그립니다. */
+  const show = useCallback((next: ResponseCache) => {
     const session = sessionRef.current;
-    cacheRef.current = next;
-    setCache(next);
-    writeResponseCache(session.bookId, session.viewerId, next);
+    setOwnedCache({
+      owner: cacheOwner(session.bookId, session.viewerId),
+      cache: next,
+    });
+  }, []);
+
+  const commit = useCallback(
+    (next: ResponseCache) => {
+      const session = sessionRef.current;
+      cacheRef.current = next;
+      show(next);
+      writeResponseCache(session.bookId, session.viewerId, next);
+    },
+    [show],
+  );
+
+  /**
+   * 보낸 값이 아직 큐의 값과 같으면 큐에서 뺍니다. 보낸 사이에 또 고쳤으면
+   * 남겨 둡니다 — 무조건 지우면 마지막 타이핑이 조용히 사라집니다.
+   */
+  const dropSent = useCallback((writes: readonly ResponseWrite[]) => {
+    for (const write of writes) {
+      const key = responseKey(write.block_id, write.field_key);
+      if (pendingRef.current.get(key)?.value === write.value) {
+        pendingRef.current.delete(key);
+      }
+    }
   }, []);
 
   /** 보낸 묶음의 결과를 반영합니다. 서버가 받은 답은 미전송 표시를 지웁니다. */
@@ -248,13 +290,9 @@ export function WorkbookResponsesProvider({
         return;
       }
 
+      dropSent(chunk);
       for (const write of chunk) {
         const key = responseKey(write.block_id, write.field_key);
-        // 보낸 사이에 또 고쳤으면 큐에 남겨 둡니다. 무조건 지우면 마지막
-        // 타이핑이 조용히 사라집니다.
-        if (pendingRef.current.get(key)?.value === write.value) {
-          pendingRef.current.delete(key);
-        }
         if (rejectedKeys.has(key)) sessionRejectedRef.current.add(key);
         else sessionRejectedRef.current.delete(key);
       }
@@ -284,7 +322,7 @@ export function WorkbookResponsesProvider({
         return next;
       });
     },
-    [commit, isCurrent],
+    [commit, dropSent, isCurrent],
   );
 
   const markBlocks = useCallback(
@@ -304,10 +342,14 @@ export function WorkbookResponsesProvider({
     [],
   );
 
+  /**
+   * 큐를 묶음으로 나눠 보냅니다. 다시 보내도 소용없는 실패(연결 오류,
+   * 401/403)로 멈췄으면 true를 돌려줍니다.
+   */
   const sendPending = useCallback(
-    async (session: Session, keepalive: boolean) => {
+    async (session: Session, keepalive: boolean): Promise<boolean> => {
       const batch = [...pendingRef.current.values()];
-      if (batch.length === 0) return;
+      if (batch.length === 0) return false;
 
       if (isCurrent(session)) setSaveState("saving");
 
@@ -317,7 +359,12 @@ export function WorkbookResponsesProvider({
       // 한 요청에 담을 수 있는 수와 크기가 정해져 있습니다(200건, keepalive는
       // 64KB). 넘기면 서버가 통째로 거절하거나 브라우저가 보내지 않습니다.
       const limit = keepalive ? KEEPALIVE_BODY_LIMIT : REQUEST_BODY_LIMIT;
-      for (const chunk of chunkWrites(batch, limit)) {
+      const chunks = chunkWrites(batch, limit);
+      for (const [index, chunk] of chunks.entries()) {
+        // 묶음마다 세션을 다시 봅니다. 앞 묶음을 기다리는 사이 계정이 바뀌면
+        // 쿠키는 이미 새 세션이라, 남은 묶음을 보내면 A의 답이 B의 행이
+        // 됩니다(코드 리뷰 9-P0-1). 남은 답은 A의 캐시 칸에 미전송으로 남습니다.
+        if (!isCurrent(session)) break;
         try {
           const result = await latestRef.current.client.save(
             session.bookId,
@@ -340,19 +387,16 @@ export function WorkbookResponsesProvider({
           }
 
           if (error.status === 401 || error.status === 403) {
-            // 로그인이 풀렸거나 권한이 없어졌습니다. 이 세션에서는 다시 보내도
-            // 같으므로 큐에서 빼고, 답은 캐시에 미전송으로 남깁니다.
+            // 로그인이 풀렸거나 권한이 없어졌습니다. 이 세션에서는 남은 묶음도
+            // 같은 답을 받으므로 보내지 않고 함께 큐에서 뺍니다. 답은 캐시에
+            // 미전송으로 남습니다.
             if (isCurrent(session)) {
-              for (const write of chunk) {
-                const key = responseKey(write.block_id, write.field_key);
-                if (pendingRef.current.get(key)?.value === write.value) {
-                  pendingRef.current.delete(key);
-                }
-              }
-              markBlocks(chunk, false);
+              const rest = chunks.slice(index).flat();
+              dropSent(rest);
+              markBlocks(rest, false);
             }
             denied = true;
-            continue;
+            break;
           }
 
           // 그 밖의 4xx: 본문을 서버가 받지 않음. 같은 묶음을 다시 보내면
@@ -369,7 +413,8 @@ export function WorkbookResponsesProvider({
         }
       }
 
-      if (!isCurrent(session)) return;
+      const stopped = networkFailed || denied;
+      if (!isCurrent(session)) return stopped;
 
       if (networkFailed) {
         setSaveState("error");
@@ -377,6 +422,12 @@ export function WorkbookResponsesProvider({
       } else if (denied) {
         setSaveState("error");
         setSaveError(DENIED_ERROR);
+      } else if (loadFailedRef.current) {
+        // 불러오기 실패는 새 답 하나가 저장돼도 풀리지 않습니다. 캐시의 미전송
+        // 답은 여전히 못 보냈고, "다시 시도"(다시 불러오기)가 사라지면 그
+        // 세션에서 끝내 안 나갑니다(코드 리뷰 9-P1-1).
+        setSaveState("error");
+        setSaveError(LOAD_ERROR);
       } else if (sessionRejectedRef.current.size > 0) {
         setSaveState("error");
         setSaveError(REJECTED_ERROR);
@@ -384,8 +435,9 @@ export function WorkbookResponsesProvider({
         setSaveError(null);
         setSaveState(pendingRef.current.size > 0 ? "saving" : "saved");
       }
+      return stopped;
     },
-    [isCurrent, markBlocks, settle],
+    [dropSent, isCurrent, markBlocks, settle],
   );
 
   /**
@@ -409,12 +461,16 @@ export function WorkbookResponsesProvider({
       const run = (async () => {
         try {
           let keepalive = options?.keepalive ?? false;
+          let stopped: boolean;
           do {
             rerunRef.current = false;
             keepalive = keepalive || rerunKeepaliveRef.current;
             rerunKeepaliveRef.current = false;
-            await sendPending(session, keepalive);
+            stopped = await sendPending(session, keepalive);
           } while (
+            // 실패로 멈췄으면 곧바로 같은 큐를 다시 보내지 않습니다. 남은 답은
+            // 다음 입력이나 "다시 시도"가 보냅니다(코드 리뷰 9-P2-4).
+            !stopped &&
             rerunRef.current &&
             isCurrent(session) &&
             pendingRef.current.size > 0
@@ -497,9 +553,12 @@ export function WorkbookResponsesProvider({
       await Promise.resolve();
       if (cancelled) return;
 
-      setCache(cacheRef.current);
+      show(cacheRef.current);
       setBlockSaves({});
       setSaveError(null);
+      // 사람·책이 바뀌었거나 다시 불러오는 중입니다. 이전 세션의 "저장 실패"나
+      // "저장됨"을 남기면 불러오기 전부터 결과처럼 보입니다(코드 리뷰 9-P2-2).
+      setSaveState("loading");
       if (!canSave) {
         setSaveState("read-only");
         return;
@@ -534,6 +593,12 @@ export function WorkbookResponsesProvider({
       // setAnswer가 캐시에 "방금 쓴 미전송"으로 남겼으므로 여기서 이깁니다.
       const merged = mergeLoadedResponses(cacheRef.current, loaded);
       commit(merged.cache);
+      // 큐는 병합 결과로 다시 짭니다. 로딩 중에 쓴 답이 더 나중에 쓴 서버
+      // 값에 졌으면 화면은 서버 값인데, 큐에 남겨 두면 기기 값이 DB에
+      // 들어가 다음에 열 때 되살아납니다(코드 리뷰 9-P0-2). 이긴 답은
+      // 미전송 표시가 있어 resend에 다시 들어 있습니다.
+      pendingRef.current = new Map();
+      setBlockSaves({});
       enqueue(merged.resend);
       hydratedRef.current = true;
 
@@ -585,7 +650,7 @@ export function WorkbookResponsesProvider({
       const latest = latestRef.current;
       if (latest.viewerId === viewerId && latest.bookId === bookId) leave();
     };
-  }, [bookId, viewerId, canSave, reloadToken, commit, enqueue, flush, schedule]);
+  }, [bookId, viewerId, canSave, reloadToken, commit, enqueue, flush, schedule, show]);
 
   const setAnswer = useCallback(
     (blockId: string, fieldKey: string, value: WorkbookAnswer) => {
@@ -595,6 +660,15 @@ export function WorkbookResponsesProvider({
       // 입력은 템플릿이 막지만 여기서 한 번 더 지킵니다. 저장할 수 없는 답을
       // 캐시에 남기면 "이 기기에만 있는 답"이 다시 생깁니다.
       if (!sessionRef.current.canSave) return;
+      // 사람·책이 바뀐 직후, 이펙트가 새 세션을 열기 전의 입력입니다. 받으면
+      // 이전 사람의 캐시 칸에 쓰입니다. 화면도 이때는 빈 칸을 그립니다.
+      const latest = latestRef.current;
+      if (
+        latest.bookId !== sessionRef.current.bookId ||
+        latest.viewerId !== sessionRef.current.viewerId
+      ) {
+        return;
+      }
 
       const previous = cacheRef.current;
       const writtenAt = Date.now();
@@ -632,6 +706,8 @@ export function WorkbookResponsesProvider({
   }, [enqueue, flush]);
 
   const signedIn = viewerId !== null;
+  const cache =
+    ownedCache.owner === cacheOwner(bookId, viewerId) ? ownedCache.cache : NO_CACHE;
   const value = useMemo<WorkbookResponsesValue>(
     () => ({
       bookId,
@@ -670,7 +746,14 @@ function applySettled(
     const { block_id: blockId, field_key: fieldKey } = write;
     if (cache.answers[blockId]?.[fieldKey] !== write.value) continue;
 
-    const writtenAt = cache.unsent[blockId]?.[fieldKey] ?? Date.now();
+    // 독자가 쓴 시각을 지킵니다. 거절된 답을 다시 보내 또 거절됐을 때 지금
+    // 시각으로 바꾸면, 그 사이 다른 기기에서 쓴 더 새 서버 값을 다음
+    // 불러오기에서 옛 답이 이깁니다(코드 리뷰 9-P1-2).
+    const writtenAt =
+      cache.unsent[blockId]?.[fieldKey] ??
+      cache.rejected[blockId]?.[fieldKey] ??
+      write.written_at ??
+      0;
     unsent = withoutMark(unsent, blockId, fieldKey);
     rejected = rejectedKeys.has(responseKey(blockId, fieldKey))
       ? withMark(rejected, blockId, fieldKey, writtenAt)
@@ -682,12 +765,7 @@ function applySettled(
 
 /** 리더 전체의 저장 상태. 헤더의 표시에 씁니다. */
 export function useWorkbookSaveStatus() {
-  const context = useContext(WorkbookResponsesContext);
-  if (!context) {
-    throw new Error(
-      "useWorkbookSaveStatus는 WorkbookResponsesProvider 안에서만 쓸 수 있습니다.",
-    );
-  }
+  const context = useWorkbookContext("useWorkbookSaveStatus");
   return {
     saveState: context.saveState,
     saveError: context.saveError,
@@ -706,13 +784,7 @@ export function useWorkbookSaveStatus() {
  * (`unavailable`)이 계정 상태보다 먼저입니다 — 로그인해도 쓸 수 없습니다.
  */
 export function useBlockResponses(blockId: string) {
-  const context = useContext(WorkbookResponsesContext);
-  if (!context) {
-    throw new Error(
-      "워크북 블록은 WorkbookResponsesProvider 안에서만 그릴 수 있습니다. " +
-        "provider 없이 그리면 응답이 저장되지 않은 채 저장된 것처럼 보입니다.",
-    );
-  }
+  const context = useWorkbookContext("워크북 블록(useBlockResponses)");
 
   const { cache, setAnswer } = context;
   const storable = isStorableBlockId(blockId);
@@ -745,11 +817,21 @@ export function useBlockResponses(blockId: string) {
 
 /** 지금 읽는 책. 블록 안내가 로그인·책 정보 주소를 만들 때 씁니다. */
 export function useWorkbookBookId(): string {
+  return useWorkbookContext("useWorkbookBookId").bookId;
+}
+
+/**
+ * provider 값을 꺼냅니다. provider 없이 부르면 던집니다 — 조용히 로컬에만
+ * 저장되는 편이 나아 보이지만, "저장되는 줄 알았는데 아니었다"가 이 화면에서
+ * 가장 나쁜 실패입니다.
+ */
+function useWorkbookContext(caller: string): WorkbookResponsesValue {
   const context = useContext(WorkbookResponsesContext);
   if (!context) {
     throw new Error(
-      "useWorkbookBookId는 WorkbookResponsesProvider 안에서만 쓸 수 있습니다.",
+      `${caller}는 WorkbookResponsesProvider 안에서만 쓸 수 있습니다. ` +
+        "provider 없이 그리면 응답이 저장되지 않은 채 저장된 것처럼 보입니다.",
     );
   }
-  return context.bookId;
+  return context;
 }
