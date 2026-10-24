@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthUser, apiError, apiSuccess } from "@/lib/api-utils";
 import { readImageUpload, type ImageMime } from "@/lib/image-upload";
 import { AVATARS_BUCKET, removeAvatarFile } from "@/lib/storage-cleanup";
@@ -9,6 +10,8 @@ import { AVATARS_BUCKET, removeAvatarFile } from "@/lib/storage-cleanup";
  *
  * 순서 규칙은 표지(`bookImageHandlers()`)와 같습니다 — 새 파일 → 프로필 행 →
  * 옛 파일. 옛 파일을 먼저 지우면 갱신이 실패했을 때 사진이 깨집니다.
+ * `avatar_url`은 사용자 권한으로 바꿀 수 없어서(00015 트리거) 그 갱신만 admin
+ * 클라이언트로 씁니다. 대상은 로그인한 본인 행(`user_id = user.id`)뿐입니다.
  */
 
 const ALLOWED_IMAGE_TYPES: readonly ImageMime[] = ["image/jpeg", "image/png", "image/webp"];
@@ -42,6 +45,8 @@ export async function POST(request: NextRequest) {
   if (!user) return apiError("로그인이 필요해요.", "UNAUTHORIZED", 401);
 
   const supabase = await createClient();
+  // 환경변수가 빠져 있으면 파일을 올리기 전에 실패하게 먼저 만듭니다.
+  const admin = createAdminClient();
   const current = await loadCurrentAvatar(supabase, user.id, UPLOAD_FAILED);
   if (!current.ok) return current.response;
 
@@ -62,7 +67,7 @@ export async function POST(request: NextRequest) {
   const { data: urlData } = supabase.storage.from(AVATARS_BUCKET).getPublicUrl(storagePath);
   const avatarUrl = urlData.publicUrl;
 
-  const { error: updateError } = await supabase
+  const { error: updateError } = await admin
     .from("user_profiles")
     .update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() })
     .eq("user_id", user.id);
@@ -87,12 +92,14 @@ export async function DELETE() {
 
   const failed = "사진을 지우지 못했어요. 잠시 뒤 다시 시도해 주세요.";
   const supabase = await createClient();
+  // 환경변수가 빠져 있으면 파일을 올리기 전에 실패하게 먼저 만듭니다.
+  const admin = createAdminClient();
   const current = await loadCurrentAvatar(supabase, user.id, failed);
   if (!current.ok) return current.response;
 
   if (!current.url) return apiSuccess({ deleted: false });
 
-  const { error: updateError } = await supabase
+  const { error: updateError } = await admin
     .from("user_profiles")
     .update({ avatar_url: null, updated_at: new Date().toISOString() })
     .eq("user_id", user.id);

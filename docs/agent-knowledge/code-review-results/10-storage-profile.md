@@ -92,6 +92,8 @@
 
 ### 묶음 10-A 계획 — DB가 지키게
 
+> 2026-10-24 수정함. 결정 1은 트리거로 정했어요. `00015_image_url_guards.sql`이 세 URL 컬럼을 `authenticated`·`anon`이 바꾸거나 값을 들고 INSERT하면 42501로 거절하고, `book-image-route.ts`·`api/my/avatar/route.ts`는 그 컬럼 갱신만 `createAdminClient()`로 써요(환경변수가 빠졌으면 파일을 올리기 전에 실패하게 핸들러 앞에서 만듦). P1-3은 운영 `pg_policies`를 확인해 보니 우리가 만든 12개(`chapter_images_*`·`covers_*`·`avatars_*` 각 4개)뿐이라 실제 문제는 아니었고, 지우는 블록은 다른 환경을 위한 방어로 남겼어요. 새 DB 테스트 4개(URL 컬럼 3개 · `bio`)는 `00015` 없이 실패하는 것을 확인했어요. avatars UPDATE 케이스 2개(P1-4)는 지금 정책에서도 통과하는 고정용 테스트예요. 운영 적용은 **라우트 배포 → `00015` 적용** 순서여야 해요 — 거꾸로 하면 그 사이 업로드가 전부 막혀요. 운영 업로드 확인은 아직이에요.
+
 **1. 이미지 URL 컬럼 잠그기 (P1-1·P1-2)** — `00015_image_url_guards.sql`. BEFORE UPDATE 트리거로 `authenticated` 역할이 `books.cover_image_url`·`books.detail_image_url`·`user_profiles.avatar_url`을 **바꾸면** 거절(42501). 업로드 라우트는 소유자 확인을 이미 한 뒤이므로 그 한 컬럼 갱신만 `createAdminClient()`로. 방식은 아래 "결정이 필요한 것" 1.
   - 다른 컬럼만 바꾸는 갱신은 그대로 통과(`NEW.col IS NOT DISTINCT FROM OLD.col`).
   - INSERT도 막음 — 새 책·새 프로필 행이 처음부터 외부 URL을 들고 오지 못하게(`handle_new_user()`는 `user_id`·`display_name`만 넣어 영향 없음).
@@ -165,7 +167,7 @@
 
 ## 결정이 필요한 것
 
-1. **URL 컬럼 잠그는 방식 (묶음 10-A).** 트리거로 `authenticated`의 변경을 거절하고 라우트는 admin으로 쓰는 방안을 권장해요. 비교한 것:
+1. **URL 컬럼 잠그는 방식 (묶음 10-A).** (2026-10-24 트리거로 정함) 트리거로 `authenticated`의 변경을 거절하고 라우트는 admin으로 쓰는 방안을 권장해요. 비교한 것:
    - 컬럼 권한 회수(`REVOKE UPDATE ON books` + 나머지 컬럼만 `GRANT`): 컬럼을 새로 더할 때마다 GRANT 목록을 고쳐야 하고, 빠뜨리면 저자 저장이 조용히 막혀요.
    - CHECK로 URL 모양 검사: Supabase 호스트가 환경마다 달라 DB가 알 수 없고, 경로만 보면 같은 경로를 흉내 낸 외부 호스트가 통과해요.
    - SECURITY DEFINER RPC로만 쓰기: 트리거와 효과는 같지만 RPC 세 개와 권한 설정이 더 늘어요.
