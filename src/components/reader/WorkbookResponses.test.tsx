@@ -618,3 +618,142 @@ describe("저장 순서와 실패 (코드 리뷰 3단계 P0)", () => {
   });
 });
 
+
+describe("응답 큐와 세션 경계 (코드 리뷰 9-A)", () => {
+  it("묶음 사이에 계정이 바뀌면 남은 묶음을 새 계정으로 보내지 않는다", async () => {
+    // 200건을 넘으면 묶음이 나뉩니다. 첫 묶음을 기다리는 사이 B로 바뀌면
+    // 남은 묶음이 B의 쿠키로 나가 A의 답이 B의 행이 됐습니다(9-P0-1).
+    const answers: Record<string, string> = {};
+    const unsent: Record<string, number> = {};
+    for (let i = 0; i <= 200; i += 1) {
+      answers[`f${i}`] = `답 ${i}`;
+      unsent[`f${i}`] = Date.now();
+    }
+    writeResponseCache(BOOK, "reader-a", {
+      answers: { [BLOCK]: answers },
+      unsent: { [BLOCK]: unsent },
+      rejected: {},
+    });
+
+    const firstChunk = deferred<SaveResponsesResult>();
+    const client = fakeClient({
+      onSave: async (writes) =>
+        client.batches.length === 1
+          ? firstChunk.promise
+          : { saved: writes.length, rejected: [] },
+    });
+    const view = (viewerId: string) => (
+      <WorkbookResponsesProvider
+        bookId={BOOK}
+        canSave
+        viewerId={viewerId}
+        client={client}
+        debounceMs={0}
+      >
+        <ReflectionReader element={reflectionElement()} />
+      </WorkbookResponsesProvider>
+    );
+    const { rerender } = render(view("reader-a"));
+
+    await waitFor(() => expect(client.batches).toHaveLength(1));
+    rerender(view("reader-b"));
+    await act(async () => firstChunk.resolve({ saved: 200, rejected: [] }));
+
+    await new Promise((done) => setTimeout(done, 20));
+    expect(client.batches).toHaveLength(1);
+    // 보내지 못한 답은 A의 칸에 미전송으로 남아, A가 다시 열 때 갑니다.
+    const leftover = readResponseCache(BOOK, "reader-a");
+    expect(Object.keys(leftover.unsent[BLOCK] ?? {})).toHaveLength(1);
+  });
+
+  it("불러오는 중에 쓴 답이 더 새 서버 값에 지면 보내지 않는다", async () => {
+    // 화면은 서버 값으로 "저장됨"인데 큐에 남은 기기 값이 DB에 들어가,
+    // 다시 열면 기기 값이 나타났습니다(9-P0-2).
+    const user = userEvent.setup();
+    const loading = deferred<LoadedResponse[]>();
+    const client = fakeClient();
+    client.load = vi.fn(() => loading.promise);
+    renderReflection(client);
+
+    await user.type(await screen.findByRole("textbox"), "기기 값");
+    await act(async () =>
+      loading.resolve([textResponse("서버의 새 값", BLOCK, "2099-01-01T00:00:00Z")]),
+    );
+
+    expect(await screen.findByDisplayValue("서버의 새 값")).toBeInTheDocument();
+    await new Promise((done) => setTimeout(done, 20));
+    expect(client.save).not.toHaveBeenCalled();
+  });
+
+  it("불러오기가 실패한 뒤 새 답이 저장돼도 실패 표시를 지우지 않는다", async () => {
+    // 저장 성공이 "저장됨"으로 덮어 다시 불러오기 버튼이 사라졌습니다(9-P1-1).
+    const user = userEvent.setup();
+    const client = fakeClient({ failLoad: true });
+    renderReflection(client);
+
+    await screen.findByText(/저장 실패/);
+    await user.type(screen.getByRole("textbox"), "새 답");
+
+    await waitFor(() => expect(client.batches.length).toBeGreaterThan(0));
+    await new Promise((done) => setTimeout(done, 20));
+    expect(screen.getByText(/저장 실패/)).toBeInTheDocument();
+    expect(screen.queryByText("저장됨")).not.toBeInTheDocument();
+  });
+
+  it("거절된 답을 다시 보내 또 거절돼도 쓴 시각을 바꾸지 않는다", async () => {
+    // 지금 시각으로 바꾸면 다른 기기에서 그 사이 쓴 서버 값을 옛 답이 이깁니다(9-P1-2).
+    const user = userEvent.setup();
+    const client = fakeClient({
+      onSave: async (writes) => ({
+        saved: 0,
+        rejected: writes.map((write) => ({
+          block_id: write.block_id,
+          field_key: write.field_key,
+          reason: "unknown_field" as const,
+        })),
+      }),
+    });
+    renderReflection(client);
+
+    await user.type(await screen.findByRole("textbox"), "답");
+    const retry = await screen.findByRole("button", { name: /저장 실패/ });
+    await waitFor(() =>
+      expect(readResponseCache(BOOK, VIEWER).rejected[BLOCK]?.answer).toEqual(
+        expect.any(Number),
+      ),
+    );
+    const firstMark = readResponseCache(BOOK, VIEWER).rejected[BLOCK]?.answer;
+
+    await new Promise((done) => setTimeout(done, 10));
+    await user.click(retry);
+    await waitFor(() => expect(client.batches).toHaveLength(2));
+    await new Promise((done) => setTimeout(done, 20));
+
+    expect(readResponseCache(BOOK, VIEWER).rejected[BLOCK]?.answer).toBe(firstMark);
+  });
+
+  it("401을 받으면 남은 묶음을 보내지 않는다", async () => {
+    // 같은 세션에서는 남은 묶음도 같은 답을 받습니다(9-P2-1).
+    const answers: Record<string, string> = {};
+    const unsent: Record<string, number> = {};
+    for (let i = 0; i <= 200; i += 1) {
+      answers[`f${i}`] = `답 ${i}`;
+      unsent[`f${i}`] = Date.now();
+    }
+    writeResponseCache(BOOK, VIEWER, {
+      answers: { [BLOCK]: answers },
+      unsent: { [BLOCK]: unsent },
+      rejected: {},
+    });
+    const client = fakeClient({
+      onSave: async () => {
+        throw new ResponseSaveRejectedError(401);
+      },
+    });
+    renderReflection(client);
+
+    expect(await screen.findByText(/저장 실패/)).toBeInTheDocument();
+    await new Promise((done) => setTimeout(done, 20));
+    expect(client.batches).toHaveLength(1);
+  });
+});

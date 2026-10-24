@@ -93,6 +93,8 @@
 
 ### 묶음 9-A 계획
 
+> 2026-10-24 수정함. 지적 10건 모두 `WorkbookResponsesProvider.tsx`에서 고쳤고, 7번의 테스트 넷에 401 묶음 중단(P2-1)을 더해 5개를 `WorkbookResponses.test.tsx`에 넣었어요. 다섯 개 모두 수정 전 코드에서 실패하는 것을 확인했어요. 앱 화면 확인은 아직이에요.
+
 **1. 묶음 사이에 세션 확인 (P0-1)** — `sendPending`의 `for (const chunk of chunkWrites(...))` 안, 매 `save` 직전에 `if (!isCurrent(session)) break;`. 보내지 못한 답은 이전 사람의 캐시 칸에 미전송으로 남는다는 기존 규칙 그대로.
 
 **2. 불러오기 뒤 큐 다시 만들기 (P0-2)** — `hydrate`가 병합한 뒤 `pendingRef`를 `merged.resend` 기준으로 다시 짬. 병합이 남기지 않은 키는 큐에서 뺌.
