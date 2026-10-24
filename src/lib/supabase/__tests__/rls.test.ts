@@ -1231,6 +1231,45 @@ describe("avatars 버킷", () => {
     expect(await asUser(creator, () => avatarCount(name))).toBe(1);
   });
 
+  it("본인 폴더 안에서는 옮기고, 남의 폴더로는 옮기지 못한다", async () => {
+    const name = `${readerB}/move.png`;
+    await db.query(`INSERT INTO storage.objects (bucket_id, name) VALUES ('avatars', $1)`, [name]);
+
+    const renamed = await asUser(readerB, async () => {
+      const result = await db.query(
+        `UPDATE storage.objects SET name = $2 WHERE bucket_id = 'avatars' AND name = $1`,
+        [name, `${readerB}/moved.png`],
+      );
+      return result.affectedRows;
+    });
+    expect(renamed).toBe(1);
+
+    await expect(
+      asUser(readerB, () =>
+        db.query(
+          `UPDATE storage.objects SET name = $2 WHERE bucket_id = 'avatars' AND name = $1`,
+          [`${readerB}/moved.png`, `${creator}/planted.png`],
+        ),
+      ),
+    ).rejects.toThrow();
+    expect(await avatarCount(`${creator}/planted.png`)).toBe(0);
+  });
+
+  it("남의 사진은 고치지 못한다", async () => {
+    const name = `${creator}/untouched.png`;
+    await db.query(`INSERT INTO storage.objects (bucket_id, name) VALUES ('avatars', $1)`, [name]);
+
+    const affected = await asUser(readerB, async () => {
+      const result = await db.query(
+        `UPDATE storage.objects SET name = $2 WHERE bucket_id = 'avatars' AND name = $1`,
+        [name, `${readerB}/stolen.png`],
+      );
+      return result.affectedRows;
+    });
+    expect(affected).toBe(0);
+    expect(await avatarCount(name)).toBe(1);
+  });
+
   it("남의 이력은 고치지 못한다", async () => {
     const affected = await asUser(readerB, async () => {
       const result = await db.query(
@@ -1240,6 +1279,109 @@ describe("avatars 버킷", () => {
       return result.affectedRows;
     });
     expect(affected).toBe(0);
+  });
+});
+
+/**
+ * 이미지 URL 컬럼 (마이그레이션 00015).
+ *
+ * 표지·소개 이미지·프로필 사진 URL은 업로드 라우트만 admin 클라이언트로
+ * 바꿉니다. 소유자 UPDATE 정책이 행 전체에 열려 있으므로, 사용자 권한으로
+ * 이 컬럼을 바꾸는 것은 트리거가 막습니다. 같은 행의 다른 컬럼은 그대로
+ * 고칠 수 있어야 합니다 — 막히면 저자 저장이 깨집니다.
+ */
+describe("이미지 URL 컬럼은 업로드 경로만 바꾼다", () => {
+  const STORED = "https://project.supabase.co/storage/v1/object/public/covers/x.png";
+  const EXTERNAL = "https://tracker.example/p.gif";
+
+  async function seedImageBook(): Promise<string> {
+    const result = await db.query<{ id: string }>(
+      `INSERT INTO books (owner_id, title, cover_image_url, detail_image_url)
+       VALUES ($1, '이미지 책', $2, $2) RETURNING id`,
+      [creator, STORED],
+    );
+    return result.rows[0].id;
+  }
+
+  it("소유자도 표지·소개 이미지 URL을 바꾸거나 비우지 못한다", async () => {
+    const bookId = await seedImageBook();
+    for (const column of ["cover_image_url", "detail_image_url"]) {
+      for (const value of [EXTERNAL, null]) {
+        await expect(
+          asUser(creator, () =>
+            db.query(`UPDATE books SET ${column} = $2 WHERE id = $1`, [bookId, value]),
+          ),
+        ).rejects.toThrow();
+      }
+    }
+
+    const row = await db.query(
+      `SELECT cover_image_url, detail_image_url FROM books WHERE id = $1`,
+      [bookId],
+    );
+    expect(row.rows).toEqual([{ cover_image_url: STORED, detail_image_url: STORED }]);
+  });
+
+  it("같은 책의 다른 컬럼은 고칠 수 있다", async () => {
+    const bookId = await seedImageBook();
+    const affected = await asUser(creator, async () => {
+      const result = await db.query(`UPDATE books SET title = '새 제목' WHERE id = $1`, [bookId]);
+      return result.affectedRows;
+    });
+    expect(affected).toBe(1);
+  });
+
+  it("새 책은 이미지 URL을 들고 만들어지지 않는다", async () => {
+    await expect(
+      asUser(creator, () =>
+        db.query(
+          `INSERT INTO books (owner_id, title, cover_image_url) VALUES ($1, '책', $2)`,
+          [creator, EXTERNAL],
+        ),
+      ),
+    ).rejects.toThrow();
+
+    const created = await asUser(creator, async () => {
+      const result = await db.query(
+        `INSERT INTO books (owner_id, title) VALUES ($1, '책') RETURNING id`,
+        [creator],
+      );
+      return result.rows.length;
+    });
+    expect(created).toBe(1);
+  });
+
+  it("본인도 프로필 사진 URL은 바꾸지 못하고, 한 줄 소개는 고친다", async () => {
+    await expect(
+      asUser(readerB, () =>
+        db.query(`UPDATE user_profiles SET avatar_url = $2 WHERE user_id = $1`, [
+          readerB,
+          EXTERNAL,
+        ]),
+      ),
+    ).rejects.toThrow();
+
+    const affected = await asUser(readerB, async () => {
+      const result = await db.query(
+        `UPDATE user_profiles SET bio = '현장 10년' WHERE user_id = $1`,
+        [readerB],
+      );
+      return result.affectedRows;
+    });
+    expect(affected).toBe(1);
+  });
+
+  it("업로드 라우트의 admin 경로(역할 전환 없음)는 바꾼다", async () => {
+    // 하네스에는 service_role이 없어서, 같은 판정을 받는 테이블 소유자 연결로 대신합니다.
+    const bookId = await seedImageBook();
+    await db.query(`UPDATE books SET cover_image_url = NULL WHERE id = $1`, [bookId]);
+    await db.query(`UPDATE user_profiles SET avatar_url = $2 WHERE user_id = $1`, [
+      readerB,
+      STORED,
+    ]);
+
+    const book = await db.query(`SELECT cover_image_url FROM books WHERE id = $1`, [bookId]);
+    expect(book.rows).toEqual([{ cover_image_url: null }]);
   });
 });
 

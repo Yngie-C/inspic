@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthUser, apiError, apiSuccess } from "@/lib/api-utils";
 import { isUuid } from "@/lib/template-node-id";
 import { readImageUpload, type ImageMime } from "@/lib/image-upload";
@@ -10,6 +11,9 @@ import { COVERS_BUCKET, removeCoverFile } from "@/lib/storage-cleanup";
  *
  * 둘 다 covers 버킷의 `covers/{bookId}/` 아래에 두고 책 행의 URL 컬럼 하나를
  * 바꿉니다. 순서 규칙(새 파일 → 책 행 → 옛 파일)이 갈라지지 않게 한 벌로 둡니다.
+ *
+ * URL 컬럼은 사용자 권한으로는 바꿀 수 없습니다(00015 트리거). 소유자 확인을
+ * 마친 뒤 그 컬럼 갱신만 admin 클라이언트로 씁니다.
  */
 
 type Params = { params: Promise<{ bookId: string }> };
@@ -77,6 +81,8 @@ export function bookImageHandlers({ column, filePrefix, objectLabel, logTag }: B
     if (!isUuid(bookId)) return apiError(BOOK_NOT_FOUND, "NOT_FOUND", 404);
 
     const supabase = await createClient();
+    // 환경변수가 빠져 있으면 파일을 올리기 전에 실패하게 먼저 만듭니다.
+    const admin = createAdminClient();
     const book = await loadOwnedBook(supabase, bookId, user.id);
     if (!book.ok) return book.response;
 
@@ -100,7 +106,7 @@ export function bookImageHandlers({ column, filePrefix, objectLabel, logTag }: B
     const { data: urlData } = supabase.storage.from(COVERS_BUCKET).getPublicUrl(storagePath);
     const imageUrl = urlData.publicUrl;
 
-    const { data: updatedBook, error: updateError } = await supabase
+    const { data: updatedBook, error: updateError } = await admin
       .from("books")
       .update({ [column]: imageUrl, updated_at: new Date().toISOString() })
       .eq("id", bookId)
@@ -129,6 +135,8 @@ export function bookImageHandlers({ column, filePrefix, objectLabel, logTag }: B
     if (!isUuid(bookId)) return apiError(BOOK_NOT_FOUND, "NOT_FOUND", 404);
 
     const supabase = await createClient();
+    // 환경변수가 빠져 있으면 파일을 올리기 전에 실패하게 먼저 만듭니다.
+    const admin = createAdminClient();
     const book = await loadOwnedBook(supabase, bookId, user.id);
     if (!book.ok) return book.response;
 
@@ -136,7 +144,7 @@ export function bookImageHandlers({ column, filePrefix, objectLabel, logTag }: B
       return apiSuccess({ deleted: false });
     }
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await admin
       .from("books")
       .update({ [column]: null, updated_at: new Date().toISOString() })
       .eq("id", bookId);

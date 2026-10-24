@@ -16,6 +16,9 @@ const PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 
 const mocks = vi.hoisted(() => ({
   respond: (() => ({ data: null, error: null })) as (query: RecordedQuery) => QueryResult,
   queries: [] as RecordedQuery[],
+  client: null as unknown as { from: (table: string) => unknown },
+  /** admin 클라이언트로 보낸 쿼리. URL 컬럼은 이쪽으로만 바뀝니다(00015). */
+  adminQueries: new Set<RecordedQuery>(),
   avatarUrl: null as string | null,
 }));
 
@@ -25,10 +28,22 @@ vi.mock("@/lib/supabase/server", async () => {
     createClient: async () => {
       const fake = createFakeSupabase((query) => mocks.respond(query));
       mocks.queries = fake.queries;
+      mocks.client = fake.client;
       return fake.client;
     },
   };
 });
+
+// admin 쿼리도 같은 기록에 순서대로 남기고, admin으로 보냈다는 표시만 더합니다.
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: () => ({
+    from: (table: string) => {
+      const builder = mocks.client.from(table);
+      mocks.adminQueries.add(mocks.queries.at(-1)!);
+      return builder;
+    },
+  }),
+}));
 
 vi.mock("@/lib/api-utils", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api-utils")>()),
@@ -64,6 +79,7 @@ const steps = () =>
 
 beforeEach(() => {
   mocks.queries = [];
+  mocks.adminQueries = new Set();
   mocks.avatarUrl = OLD_URL;
   respondWith();
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -98,6 +114,15 @@ describe("POST /api/my/avatar", () => {
     const uploaded = mocks.queries.find((q) => q.ops.includes("upload"))!.args.upload;
     const removes = mocks.queries.filter((q) => q.ops.includes("remove"));
     expect(removes.map((q) => q.args.remove)).toEqual([[uploaded]]);
+  });
+
+  it("URL 컬럼 갱신만 admin 클라이언트로 보낸다 (00015)", async () => {
+    await POST(upload());
+    const updates = mocks.queries.filter((q) => q.table === "user_profiles" && q.ops.includes("update"));
+    expect(updates).toHaveLength(1);
+    expect(mocks.adminQueries.has(updates[0])).toBe(true);
+    const reads = mocks.queries.filter((q) => q.table === "user_profiles" && !q.ops.includes("update"));
+    expect(reads.some((q) => mocks.adminQueries.has(q))).toBe(false);
   });
 
   it("이미지가 아닌 파일은 415, 아무것도 올리지 않는다", async () => {

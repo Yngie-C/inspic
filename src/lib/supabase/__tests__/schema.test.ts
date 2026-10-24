@@ -106,6 +106,30 @@ describe("초기 스키마", () => {
     ).rejects.toThrow();
   });
 
+  it("user_profiles.bio는 새로 쓸 때 80자까지, 이전의 긴 bio는 남긴다 (00015)", async () => {
+    const user = await db.query<{ id: string }>(
+      `INSERT INTO auth.users (email) VALUES ('bio@example.com') RETURNING id`,
+    );
+    const userId = user.rows[0].id;
+
+    await db.query(`UPDATE user_profiles SET bio = $2 WHERE user_id = $1`, [
+      userId,
+      "가".repeat(80),
+    ]);
+    await expect(
+      db.query(`UPDATE user_profiles SET bio = $2 WHERE user_id = $1`, [
+        userId,
+        "가".repeat(81),
+      ]),
+    ).rejects.toThrow();
+
+    // NOT VALID — 00014 이전에 쓴 긴 bio가 있어도 적용이 실패하지 않습니다.
+    const constraint = await db.query<{ convalidated: boolean }>(
+      `SELECT convalidated FROM pg_constraint WHERE conname = 'user_profiles_bio_length'`,
+    );
+    expect(constraint.rows).toEqual([{ convalidated: false }]);
+  });
+
   it("avatars 버킷은 공개이고 라우트와 같은 크기·형식만 받는다", async () => {
     const result = await db.query<{
       public: boolean;
