@@ -185,6 +185,8 @@ describe("PUT /api/chapters/[chapterId] 입력 검증 (4-P1-11)", () => {
     ["제목이 공백뿐", JSON.stringify({ title: "   " })],
     ["순서가 문자열", JSON.stringify({ order_index: "abc" })],
     ["순서가 음수", JSON.stringify({ order_index: -1 })],
+    ["순서가 INTEGER 끝값 — 다음 장의 +1이 넘친다", JSON.stringify({ order_index: 2_147_483_647 })],
+    ["제목이 200자 초과", JSON.stringify({ title: "가".repeat(201) })],
     ["본문이 숫자", JSON.stringify({ content_html: 123 })],
     ["모르는 상태", JSON.stringify({ status: "PUBLISHED" })],
     ["content_raw가 객체", JSON.stringify({ content_raw: {} })],

@@ -249,6 +249,9 @@ describe("PUT /api/books/[bookId] — 입력 검증 (4-P1-17, 4-P1-18)", () => {
     ["처리 중 상태는 서버 몫", JSON.stringify({ status: "processing" })],
     ["모르는 공개 범위", JSON.stringify({ visibility: "everyone" })],
     ["설명이 숫자", JSON.stringify({ description: 1 })],
+    ["소개글이 2,000자 초과 (11-P2-7)", JSON.stringify({ description: "가".repeat(2001) })],
+    ["제목이 200자 초과 (11-P2-6)", JSON.stringify({ title: "가".repeat(201) })],
+    ["제목에 U+0000 (11-P2-5)", JSON.stringify({ title: "a\u0000b" })],
     ["목록 밖의 새 언어", JSON.stringify({ language: "xx" })],
   ])("%s → 400, 저장하지 않는다", async (_label, body) => {
     const res = await PUT(rawRequest(body), params);

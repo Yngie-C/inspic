@@ -5,8 +5,10 @@ import { countWords, isChapterHtmlTooLong } from "@/lib/content-stats";
 import {
   BOOK_LANGUAGES,
   INVALID_BODY_MESSAGE,
+  MAX_DESCRIPTION_LENGTH,
   isOneOf,
   readBookTitle,
+  readOptionalText,
 } from "@/lib/authoring-input";
 import {
   syncChapterWorkbookBlocks,
@@ -73,7 +75,12 @@ export async function POST(request: NextRequest) {
   );
   if (!title.ok) return apiError(title.message, "VALIDATION_ERROR", 400);
 
-  const description = textField(formData, "description")?.trim() || null;
+  const description = readOptionalText(
+    textField(formData, "description") ?? null,
+    MAX_DESCRIPTION_LENGTH,
+    "소개글은",
+  );
+  if (!description.ok) return apiError(description.message, "VALIDATION_ERROR", 400);
   const language = textField(formData, "language")?.trim() || "ko";
   if (!isOneOf(BOOK_LANGUAGES, language)) {
     return apiError(INVALID_BODY_MESSAGE, "VALIDATION_ERROR", 400);
@@ -117,7 +124,7 @@ export async function POST(request: NextRequest) {
     .insert({
       owner_id: user.id,
       title: title.value,
-      description,
+      description: description.value,
       language,
       source_type: SOURCE_TYPE_BY_EXTENSION[ext],
       status: "draft",

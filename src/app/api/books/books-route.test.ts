@@ -65,6 +65,8 @@ describe("POST /api/books", () => {
     ["음수 가격", { ...VALID, price: -100 }],
     ["목록 밖 언어", { ...VALID, language: "xx" }],
     ["숫자 소개글", { ...VALID, description: 3 }],
+    ["2,000자를 넘는 소개글", { ...VALID, description: "가".repeat(2001) }],
+    ["200자를 넘는 제목", { ...VALID, title: "가".repeat(201) }],
   ])("%s는 DB에 가기 전에 400", async (_name, body) => {
     const res = await post(body);
 

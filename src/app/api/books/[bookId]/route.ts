@@ -8,13 +8,15 @@ import {
 } from "@/lib/api-utils";
 import {
   BOOK_LANGUAGES,
-  BOOK_VISIBILITIES,
   EDITABLE_BOOK_STATUSES,
   INVALID_BODY_MESSAGE,
   MAX_AUDIENCE_LENGTH,
+  MAX_DESCRIPTION_LENGTH,
   MAX_DETAIL_IMAGE_ALT_LENGTH,
   isOneOf,
   readBookTitle,
+  readOptionalText,
+  readVisibility,
 } from "@/lib/authoring-input";
 import { loadPublishChecks } from "@/lib/publish-checks-loader";
 import { removeBookFiles } from "@/lib/storage-cleanup";
@@ -104,43 +106,18 @@ export async function PUT(request: NextRequest, { params }: Params) {
     if (!title.ok) return apiError(title.message, "VALIDATION_ERROR", 400);
     updates.title = title.value;
   }
-  if ("description" in body) {
-    if (body.description !== null && typeof body.description !== "string") {
-      return apiError(INVALID_BODY_MESSAGE, "VALIDATION_ERROR", 400);
-    }
-    updates.description =
-      typeof body.description === "string" ? body.description.trim() || null : null;
-  }
-  // DB CHECK(00012)에 걸리면 같은 요청의 제목·소개까지 저장되지 않습니다.
-  if ("audience" in body) {
-    if (body.audience !== null && typeof body.audience !== "string") {
-      return apiError(INVALID_BODY_MESSAGE, "VALIDATION_ERROR", 400);
-    }
-    const audience =
-      typeof body.audience === "string" ? body.audience.trim() || null : null;
-    if (audience && audience.length > MAX_AUDIENCE_LENGTH) {
-      return apiError(
-        `"이런 분께"는 ${MAX_AUDIENCE_LENGTH.toLocaleString()}자까지 쓸 수 있어요.`,
-        "VALIDATION_ERROR",
-        400,
-      );
-    }
-    updates.audience = audience;
-  }
-  if ("detail_image_alt" in body) {
-    if (body.detail_image_alt !== null && typeof body.detail_image_alt !== "string") {
-      return apiError(INVALID_BODY_MESSAGE, "VALIDATION_ERROR", 400);
-    }
-    const alt =
-      typeof body.detail_image_alt === "string" ? body.detail_image_alt.trim() || null : null;
-    if (alt && alt.length > MAX_DETAIL_IMAGE_ALT_LENGTH) {
-      return apiError(
-        `소개 이미지 설명은 ${MAX_DETAIL_IMAGE_ALT_LENGTH.toLocaleString()}자까지 쓸 수 있어요.`,
-        "VALIDATION_ERROR",
-        400,
-      );
-    }
-    updates.detail_image_alt = alt;
+  // 글 필드는 하나라도 DB CHECK(00012·00013)에 걸리면 같은 요청의 제목까지
+  // 저장되지 않으므로 여기서 먼저 거절합니다.
+  const textFields = [
+    ["description", MAX_DESCRIPTION_LENGTH, "소개글은"],
+    ["audience", MAX_AUDIENCE_LENGTH, '"이런 분께"는'],
+    ["detail_image_alt", MAX_DETAIL_IMAGE_ALT_LENGTH, "소개 이미지 설명은"],
+  ] as const;
+  for (const [field, max, label] of textFields) {
+    if (!(field in body)) continue;
+    const text = readOptionalText(body[field], max, label);
+    if (!text.ok) return apiError(text.message, "VALIDATION_ERROR", 400);
+    updates[field] = text.value;
   }
   // 업로드는 언어를 자유롭게 받았으므로, 목록 밖이어도 지금 값 그대로면
   // 받습니다 — 설정 폼은 제목만 고쳐도 현재 언어를 함께 보냅니다.
@@ -159,11 +136,13 @@ export async function PUT(request: NextRequest, { params }: Params) {
     }
     updates.status = body.status;
   }
+  // "링크 공유"는 열어 주는 경로가 없어(has_book_access·is_book_public
+  // 모두 public만 봅니다) 고르면 아무에게도 보이지 않습니다. 새로 고르는
+  // 것은 `readVisibility()`가 막고, 이미 그 값인 책은 그대로 둡니다.
   if ("visibility" in body) {
-    if (!isOneOf(BOOK_VISIBILITIES, body.visibility)) {
-      return apiError(INVALID_BODY_MESSAGE, "VALIDATION_ERROR", 400);
-    }
-    updates.visibility = body.visibility;
+    const visibility = readVisibility(body.visibility, existing.visibility);
+    if (!visibility.ok) return apiError(visibility.message, "VALIDATION_ERROR", 400);
+    updates.visibility = visibility.value;
   }
   // 표지는 `/cover` 업로드로만 바꿉니다. 거기서 파일을 검사하고 이전
   // 파일을 정리합니다. 여기서 아무 URL이나 받으면 외부 추적 픽셀이 공개
@@ -187,19 +166,6 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
   if (Object.keys(updates).length === 0) {
     return apiError("바꿀 내용이 없어요.", "VALIDATION_ERROR", 400);
-  }
-
-  // "링크 공유"는 열어 주는 경로가 없어(has_book_access·is_book_public
-  // 모두 public만 봅니다) 고르면 아무에게도 보이지 않습니다. 화면에서
-  // 선택지를 뺐고, 새로 고르는 것은 여기서 막습니다. 이미 그 값인 책은
-  // DB에 그대로 둡니다 — 설정 폼은 제목만 고쳐도 현재 visibility를 함께
-  // 보내므로, 그대로인 값까지 막으면 그 책은 아무것도 저장하지 못합니다.
-  if (body.visibility === "unlisted" && existing.visibility !== "unlisted") {
-    return apiError(
-      "링크 공유는 더 이상 고를 수 없어요. 공개나 비공개를 골라 주세요.",
-      "VALIDATION_ERROR",
-      400,
-    );
   }
 
   // 공개는 status와 visibility가 함께 바뀌어야 합니다. `{status:'published'}`
