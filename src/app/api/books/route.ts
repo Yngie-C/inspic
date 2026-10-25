@@ -4,9 +4,11 @@ import { getAuthUser, apiError, apiSuccess, readJsonObject } from "@/lib/api-uti
 import {
   BOOK_LANGUAGES,
   INVALID_BODY_MESSAGE,
+  MAX_DESCRIPTION_LENGTH,
   isBookPrice,
   isOneOf,
   readBookTitle,
+  readOptionalText,
 } from "@/lib/authoring-input";
 import type { BookStatus, BookVisibility } from "@/types";
 
@@ -56,16 +58,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (
-    body.description !== undefined &&
-    body.description !== null &&
-    typeof body.description !== "string"
-  ) {
-    return apiError(INVALID_BODY_MESSAGE, "VALIDATION_ERROR", 400);
-  }
   // 공백뿐인 소개글은 없는 것입니다 — 출간 검수의 "소개글 없음" 경고가 봅니다.
-  const description =
-    typeof body.description === "string" ? body.description.trim() || null : null;
+  const description = readOptionalText(body.description ?? null, MAX_DESCRIPTION_LENGTH, "소개글은");
+  if (!description.ok) return apiError(description.message, "VALIDATION_ERROR", 400);
 
   // PUT은 지금 값과 같으면 목록 밖 언어도 받으므로, 여기서 들어간 잘못된
   // 값은 고칠 길이 없습니다.
@@ -87,7 +82,7 @@ export async function POST(request: NextRequest) {
     .insert({
       owner_id: user.id,
       title: title.value,
-      description,
+      description: description.value,
       language,
       source_type: body.source_type,
       status: "draft",

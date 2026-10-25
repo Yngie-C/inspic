@@ -33,6 +33,7 @@ import {
   publishBook,
   unpublishBook,
 } from "@/lib/book-publish";
+import { MAX_CHAPTER_TITLE_LENGTH } from "@/lib/authoring-input";
 import type { PublishCheck } from "@/lib/publish-checks";
 import type { Book, Chapter } from "@/types";
 
@@ -599,6 +600,7 @@ export function EditPageContent() {
                   value={editTitle}
                   onChange={(e) => handleTitleChange(e.target.value)}
                   placeholder="장 제목"
+                  maxLength={MAX_CHAPTER_TITLE_LENGTH}
                   className="w-full border-none bg-transparent text-2xl font-bold text-primary outline-none placeholder:text-muted"
                 />
                 <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">

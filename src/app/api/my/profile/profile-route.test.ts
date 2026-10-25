@@ -93,6 +93,21 @@ describe("PUT /api/my/profile", () => {
     expect((await PUT(put({ bio: "x" }))).status).toBe(401);
   });
 
+  it("예전에 쓴 긴 한 줄 소개가 CHECK에 걸리면 줄이라고 400으로 안내한다 (11-P1-20)", async () => {
+    // 00015의 CHECK는 NOT VALID라, 80자 넘는 bio가 남은 행은 이름만 바꿔도 거절됩니다.
+    mocks.respond = () => ({
+      data: null,
+      error: {
+        code: "23514",
+        message: 'new row for relation "user_profiles" violates check constraint "user_profiles_bio_length"',
+      },
+    });
+    const res = await PUT(put({ display_name: "김저자" }));
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toContain("한 줄 소개가 80자를 넘어요");
+  });
+
   it("저장이 실패하거나 행이 없으면 원문 없이 500", async () => {
     mocks.respond = () => ({ data: null, error: { message: "violates check constraint" } });
     const failed = await PUT(put({ bio: "x" }));

@@ -4,7 +4,12 @@ import { useState, useRef, useCallback } from "react";
 import { Upload, X, Image as ImageIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { MAX_AUDIENCE_LENGTH, MAX_DETAIL_IMAGE_ALT_LENGTH } from "@/lib/authoring-input";
+import {
+  MAX_AUDIENCE_LENGTH,
+  MAX_BOOK_TITLE_LENGTH,
+  MAX_DESCRIPTION_LENGTH,
+  MAX_DETAIL_IMAGE_ALT_LENGTH,
+} from "@/lib/authoring-input";
 import type { Book } from "@/types";
 
 interface BookMetadataFormProps {
@@ -89,6 +94,7 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="책 제목"
+          maxLength={MAX_BOOK_TITLE_LENGTH}
           className="w-full rounded-lg border border-line-strong px-3 py-2 text-sm text-primary placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
         />
       </div>
@@ -101,6 +107,7 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
           onChange={(e) => setDescription(e.target.value)}
           placeholder="이 책을 읽고 독자가 할 수 있게 되는 일을 적어 주세요"
           rows={4}
+          maxLength={MAX_DESCRIPTION_LENGTH}
           className="w-full resize-none rounded-lg border border-line-strong px-3 py-2 text-sm text-primary placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
         />
       </div>

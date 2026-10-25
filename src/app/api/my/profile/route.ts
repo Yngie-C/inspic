@@ -1,9 +1,20 @@
 import type { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthUser, apiError, apiSuccess, readJsonObject } from "@/lib/api-utils";
-import { INVALID_BODY_MESSAGE, parseProfileUpdate } from "@/lib/authoring-input";
+import { INVALID_BODY_MESSAGE, MAX_BIO_LENGTH, parseProfileUpdate } from "@/lib/authoring-input";
 
 const SAVE_FAILED = "저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.";
+
+/** Postgres check_violation. */
+const CHECK_VIOLATION = "23514";
+
+/**
+ * `bio` 80자 CHECK는 `NOT VALID`라(00015) 예전에 쓴 긴 소개가 남아 있고,
+ * 그 행은 이름만 바꿔도 거절됩니다. 일반 실패로 내면 고칠 방법을 모릅니다.
+ */
+function isBioTooLong(error: { code?: string; message?: string }): boolean {
+  return error.code === CHECK_VIOLATION && !!error.message?.includes("user_profiles_bio_length");
+}
 
 /**
  * 내 프로필(이름·한 줄 소개·이력) 저장. 사진은 `/api/my/avatar`로만 바꿉니다.
@@ -28,6 +39,13 @@ export async function PUT(request: NextRequest) {
     .select()
     .maybeSingle();
 
+  if (error && isBioTooLong(error)) {
+    return apiError(
+      `한 줄 소개가 ${MAX_BIO_LENGTH}자를 넘어요. 줄여서 함께 저장해 주세요.`,
+      "VALIDATION_ERROR",
+      400,
+    );
+  }
   if (error) {
     console.error("[my/profile] 프로필을 저장하지 못했습니다", { userId: user.id, error });
     return apiError(SAVE_FAILED, "SERVER_ERROR", 500);
