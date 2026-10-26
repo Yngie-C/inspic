@@ -31,3 +31,11 @@
   orphans: 2;
   widows: 2;
 }
+
+/* 넓은 표(DOCX에서 온 것)는 단 폭을 넘으면 다음 단 위에 겹치고 `scrollWidth`를
+   늘려 빈 쪽을 만듭니다. `pre`처럼 단 안에서 가로로 스크롤합니다. */
+.paged-columns table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
