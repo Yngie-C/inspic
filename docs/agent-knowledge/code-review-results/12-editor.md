@@ -121,6 +121,10 @@
 
 **6. 확인** — 확장 단위 테스트(Tiptap `Editor`를 jsdom에서 띄워 Enter·삽입 시나리오). 개발 서버에서 제목에서 `/체크` + Enter, 전체 선택 후 블록 삽입, 스크린샷 붙여넣기.
 
+> 2026-10-26 수정함(브랜치 `Yngie-C/code-review-12b`, 12-A 위에 쌓음, 마이그레이션 없음, 6건). P0-1은 `insertWorkbookBlock`이 선택이 비어 있지 않으면(블록·전체·범위 선택 모두) 선택을 지우지 않고 **선택이 끝나는 최상위 블록 뒤**(`$to.after(1)`, 깊이 0이면 `selection.to`)에 넣어요 — 계획의 "`selection.to` 뒤"를 글 가운데에 넣으면 문단이 갈라져서 블록 경계로 옮겼어요. P1-6은 결정 3대로 `SlashCommandPluginKey`(`SlashCommand.ts`)를 export하고 `BlockExitOnEnter`가 메뉴가 열려 있으면 `false`(우선순위 150 유지). P1-8은 결과가 0개면 슬래시 메뉴가 모든 키를 넘겨요. P1-7은 비어 있지 않은 제목 맨 앞 Enter가 위에 빈 문단만 넣고 커서·제목을 그대로 둬요. P1-9는 `allowBase64: false`, 붙여넣기·끌어 넣기 이미지는 `chapter-image-upload.ts`(`imageFilesFrom`·`uploadChapterImage`, 이미지 버튼과 같은 경로)로 `/api/books/[bookId]/images`에 올린 뒤에만 넣고 실패하면 상태 줄에 띄워요. 글(HTML·텍스트)이 함께 오는 붙여넣기는 그림을 올리지 않아요(Word가 함께 싣는 미리보기 그림 때문). P2-2는 툴바가 `useEditorState`로 켜짐 값만 구독해요. `TemplateNodeIds`·ID 규칙은 건드리지 않았어요.
+> - 테스트: `workbook-blocks.test.ts`(전체 선택·블록에 걸친 글 선택에서 기존 ID와 글이 남음), `editor-enter.test.tsx`(새로 — `EditorContent`까지 띄워 제목 `/체크` + Enter, 결과 0개에서 화살표·Enter, 제목 맨 앞·가운데 Enter, 빈 코드 블록 탈출), `EditorToolbar.test.tsx`(새로 — 커서 이동으로 굵게 버튼 켜짐), `chapter-image-upload.test.ts`(새로 — 파일 고르기, 업로드, `data:` 이미지 거부). 삽입 2건, Enter 3건(코드 블록 탈출·제목 가운데는 원래 통과), 툴바 1건은 고치기 전 코드에서 실패하는 것을 확인했어요.
+> - 확인하지 않은 것: 개발 서버 화면(제목에서 `/체크` + Enter, 전체 선택 후 블록 삽입, 스크린샷 붙여넣기·끌어 넣기, 툴바 켜짐). 붙여 넣은 HTML 속 바깥 주소 이미지는 에디터에는 보이다가 저장 때 sanitize가 대체 글로 바꿔요(12-A 결정 2) — 편집 중 안내는 넣지 않았어요.
+
 ### 묶음 12-C 계획 — 에디터 성능·정리
 
 - **P2-3** — `appendTransaction`에서 넣은 범위의 템플릿 노드가 ID가 그대로이고 문서 안에서 겹치지 않으면 정리를 건너뜀. 붙여넣기 규칙(새로 들어온 블록만 새 ID)이 그대로인지 기존 `TemplateNodeIds` 테스트가 지켜 줌.

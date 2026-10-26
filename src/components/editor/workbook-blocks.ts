@@ -1,5 +1,4 @@
 import type { Editor, Range } from "@tiptap/core";
-import { NodeSelection } from "@tiptap/pm/state";
 import {
   BarChart3,
   CheckSquare,
@@ -72,10 +71,13 @@ export const WORKBOOK_BLOCKS: readonly WorkbookBlockItem[] = [
 /**
  * 워크북 블록을 넣습니다. `range`는 슬래시 명령이 지울 `/검색어` 자리입니다.
  *
- * 블록이 선택된 채로(블록을 클릭하면 NodeSelection) 그냥 `insertContent`를
- * 하면 선택된 블록이 새 블록으로 바뀝니다 — 기존 블록과 그 ID에 매달린 독자
- * 답이 사라지므로, 그때는 선택한 블록 뒤에 넣습니다. ID는 여기서 만들지 않고
- * `TemplateNodeIds`가 부여합니다.
+ * 선택이 비어 있지 않으면 선택한 내용을 **지우지 않고** 선택이 끝나는 최상위
+ * 블록 뒤에 넣습니다(코드 리뷰 12-P0-1). 블록 선택(NodeSelection)만이 아니라
+ * 전체 선택(AllSelection)·여러 블록에 걸친 글 선택도 그대로 `insertContent`하면
+ * 선택이 새 블록으로 바뀌고, 그 안의 블록 ID에 매달린 독자 답이 끊깁니다. 글
+ * 가운데에 넣으면 문단이 둘로 갈라지므로 블록 경계로 옮깁니다.
+ *
+ * ID는 여기서 만들지 않고 `TemplateNodeIds`가 부여합니다.
  */
 export function insertWorkbookBlock(
   editor: Editor,
@@ -87,9 +89,11 @@ export function insertWorkbookBlock(
     return;
   }
   const { selection } = editor.state;
-  if (selection instanceof NodeSelection) {
-    editor.chain().focus().insertContentAt(selection.to, { type }).run();
+  if (selection.empty) {
+    editor.chain().focus().insertContent({ type }).run();
     return;
   }
-  editor.chain().focus().insertContent({ type }).run();
+  const { $to } = selection;
+  const at = $to.depth > 0 ? $to.after(1) : selection.to;
+  editor.chain().focus().insertContentAt(at, { type }).run();
 }
