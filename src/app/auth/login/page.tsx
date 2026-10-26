@@ -1,5 +1,5 @@
 import { authFailureFromQuery } from "@/lib/auth-errors";
-import { safeInternalPath } from "@/lib/safe-redirect";
+import { readRedirectParam } from "@/lib/safe-redirect";
 import LoginForm from "./LoginForm";
 
 /**
@@ -22,9 +22,7 @@ export default async function LoginPage({
   return (
     <LoginForm
       initialFailure={initialFailure}
-      redirect={
-        typeof redirect === "string" ? safeInternalPath(redirect, "") || null : null
-      }
+      redirect={readRedirectParam(redirect)}
     />
   );
 }
