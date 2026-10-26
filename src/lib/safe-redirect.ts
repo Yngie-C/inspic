@@ -11,7 +11,10 @@
  * (탭·줄바꿈은 지워짐)이 그대로 통과해 외부로 나갑니다.
  *
  * 돌려주는 값은 해석한 결과(경로 + 쿼리 + 해시)입니다. 검사한 것과
- * 쓰는 것이 같은 문자열이어야 하기 때문입니다.
+ * 쓰는 것이 같은 문자열이어야 하기 때문입니다. 그래서 origin만 보지 말고
+ * 해석한 경로도 보세요. `/..//evil.com`은 origin이 그대로인 채 점 구간이
+ * 정리되어 `//evil.com`이 되고, 그 문자열을 쓰는 순간 외부로 나갑니다
+ * (코드 리뷰 13-P0-1).
  */
 const INTERNAL_BASE = "http://internal.invalid";
 
@@ -25,8 +28,18 @@ export function safeInternalPath(raw: string | null, fallback: string): string {
     return fallback;
   }
   if (url.origin !== INTERNAL_BASE) return fallback;
+  // 해석 뒤에는 `\`가 `/`로 바뀌어 있으므로 `//`만 보면 됩니다.
+  if (url.pathname.startsWith("//")) return fallback;
 
   return `${url.pathname}${url.search}${url.hash}`;
+}
+
+/**
+ * 인증 화면의 `?redirect=` 쿼리를 읽습니다. 통과하지 못하면 null — 로그인·가입
+ * 화면은 돌아갈 곳이 없을 때 각자의 기본 이동을 씁니다.
+ */
+export function readRedirectParam(raw: string | string[] | undefined): string | null {
+  return typeof raw === "string" ? safeInternalPath(raw, "") || null : null;
 }
 
 /**
