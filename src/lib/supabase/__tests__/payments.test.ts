@@ -85,8 +85,10 @@ interface FulfillResult {
     | "restored"
     | "already_fulfilled"
     | "duplicate_purchase"
-    | "voided";
+    | "voided"
+    | "mismatch";
   status?: string;
+  reason?: string;
   purchase_id: string | null;
   book_id: string;
   user_id: string;
@@ -271,20 +273,52 @@ describe("중복 호출", () => {
 // ------------------------------------------------------------
 
 describe("승인 내용 검증", () => {
-  it("승인 금액이 요청 시점과 다르면 던진다", async () => {
+  // 던지면 호출자가 "반영 여부 모름"으로 보고 재시도만 해서, 돈이 나간 채
+  // 책도 환불도 없는 상태가 됩니다. 결과로 돌려줘야 취소할 수 있습니다
+  // (코드 리뷰 13-P1-11).
+  it("승인 금액이 요청 시점과 다르면 mismatch이고 아무것도 바꾸지 않는다", async () => {
     await seedTransaction("order-1");
 
-    await expect(fulfill("order-1", { amount: 100 })).rejects.toThrow();
+    const result = await fulfill("order-1", { amount: 100 });
+    expect(result).toMatchObject({
+      outcome: "mismatch",
+      reason: "amount",
+      purchase_id: null,
+      book_id: paidBook,
+      user_id: reader,
+    });
     expect(await countPurchases()).toBe(0);
+    expect(await transactionRow("order-1")).toMatchObject({
+      status: "ready",
+      purchase_id: null,
+      toss_payment_key: null,
+    });
   });
 
-  it("같은 주문에 다른 결제 키가 오면 던진다", async () => {
+  it("같은 주문에 다른 결제 키가 오면 mismatch이고 열린 구매를 알려 준다", async () => {
     await seedTransaction("order-1");
-    await fulfill("order-1", { paymentKey: "key-A" });
+    const first = await fulfill("order-1", { paymentKey: "key-A" });
 
-    await expect(
-      fulfill("order-1", { paymentKey: "key-B" }),
-    ).rejects.toThrow();
+    const result = await fulfill("order-1", { paymentKey: "key-B" });
+    expect(result).toMatchObject({
+      outcome: "mismatch",
+      reason: "payment_key",
+      purchase_id: first.purchase_id,
+    });
+    expect(await transactionRow("order-1")).toMatchObject({
+      status: "done",
+      toss_payment_key: "key-A",
+    });
+    expect(await hasAccess(reader)).toBe(true);
+  });
+
+  it("다시 불러도 같은 결과다 — 재시도로 풀리는 실패가 아니다", async () => {
+    await seedTransaction("order-1");
+
+    await fulfill("order-1", { amount: 100 });
+    const again = await fulfill("order-1", { amount: 100 });
+    expect(again.outcome).toBe("mismatch");
+    expect(await countPurchases()).toBe(0);
   });
 });
 

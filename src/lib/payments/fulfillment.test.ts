@@ -190,6 +190,67 @@ describe("fulfillApprovedPayment", () => {
     expect(recorder.cancelCalls).toHaveLength(1);
   });
 
+  it("금액·결제 키가 맞지 않고 열린 구매가 없으면 결제를 취소한다 (13-P1-11)", async () => {
+    // 예전에는 RPC가 던져 deferred였고, 다시 불러도 이행되지 않아
+    // 돈이 나간 채 책도 환불도 없었습니다.
+    const recorder = makePorts({
+      fulfill: {
+        outcome: "mismatch",
+        reason: "amount",
+        purchase_id: null,
+        book_id: "book-1",
+        user_id: "user-1",
+      },
+    });
+
+    const result = await fulfillApprovedPayment(recorder.ports, PAYMENT);
+
+    expect(result.kind).toBe("refunded");
+    expect(result).not.toHaveProperty("bookId", "book-1");
+    expect(recorder.cancelCalls).toHaveLength(1);
+    expect(recorder.voidCalls).toEqual([{ orderId: "order-1", status: "canceled" }]);
+    expect(recorder.reports).toHaveLength(1);
+  });
+
+  it("맞지 않아도 이 주문으로 열린 구매가 있으면 환불하지 않고 사람에게 알린다", async () => {
+    const recorder = makePorts({
+      fulfill: {
+        outcome: "mismatch",
+        reason: "payment_key",
+        purchase_id: "purchase-1",
+        book_id: "book-1",
+        user_id: "user-1",
+      },
+    });
+
+    const result = await fulfillApprovedPayment(recorder.ports, PAYMENT);
+
+    expect(result).toEqual({
+      kind: "already",
+      purchaseId: "purchase-1",
+      bookId: "book-1",
+    });
+    expect(recorder.cancelCalls).toHaveLength(0);
+    expect(recorder.reports).toHaveLength(1);
+  });
+
+  it("불일치 취소까지 실패하면 stranded", async () => {
+    const recorder = makePorts({
+      fulfill: {
+        outcome: "mismatch",
+        reason: "amount",
+        purchase_id: null,
+        book_id: "book-1",
+        user_id: "user-1",
+      },
+      cancel: new Error("toss down"),
+    });
+
+    const result = await fulfillApprovedPayment(recorder.ports, PAYMENT);
+
+    expect(result.kind).toBe("stranded");
+  });
+
   it("닫혀 있던 구매를 되살렸으면 granted이고 사람에게 알린다 (1-P0-3)", async () => {
     const recorder = makePorts({
       fulfill: {
@@ -282,6 +343,15 @@ describe("parseFulfillRpcResult", () => {
         user_id: "u",
       }),
     ).toMatchObject({ outcome: "voided", status: "canceled" });
+    expect(
+      parseFulfillRpcResult({
+        outcome: "mismatch",
+        reason: "payment_key",
+        purchase_id: null,
+        book_id: "b",
+        user_id: "u",
+      }),
+    ).toMatchObject({ outcome: "mismatch", reason: "payment_key" });
   });
 
   it("모양이 다르면 null", () => {
@@ -294,6 +364,15 @@ describe("parseFulfillRpcResult", () => {
       parseFulfillRpcResult({
         outcome: "granted;drop",
         purchase_id: "p",
+        book_id: "b",
+        user_id: "u",
+      }),
+    ).toBeNull();
+    expect(
+      parseFulfillRpcResult({
+        outcome: "mismatch",
+        reason: "price",
+        purchase_id: null,
         book_id: "b",
         user_id: "u",
       }),

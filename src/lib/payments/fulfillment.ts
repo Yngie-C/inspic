@@ -54,7 +54,7 @@ export interface FulfillArgs {
   raw: unknown;
 }
 
-/** `fulfill_payment` RPC의 반환 (마이그레이션 00005). */
+/** `fulfill_payment` RPC의 반환 (마이그레이션 00005, `mismatch`는 00016). */
 export type FulfillRpcResult =
   | {
       outcome:
@@ -69,6 +69,15 @@ export type FulfillRpcResult =
   | {
       outcome: "voided";
       status: string;
+      purchase_id: string | null;
+      book_id: string;
+      user_id: string;
+    }
+  | {
+      /** 금액·결제 키가 결제 행과 다릅니다. 다시 불러도 이행되지 않습니다. */
+      outcome: "mismatch";
+      reason: "amount" | "payment_key";
+      /** 이 주문으로 이미 열린 구매. 있으면 책은 열려 있습니다. */
       purchase_id: string | null;
       book_id: string;
       user_id: string;
@@ -92,6 +101,8 @@ export interface FulfillmentPorts {
 const DUPLICATE_REASON = "이미 가지고 있는 책이라 이번 결제는 자동으로 취소했어요.";
 const VOIDED_REASON =
   "이미 취소됐거나 끝난 결제라 책을 열지 않았어요. 결제한 금액은 자동으로 취소돼요.";
+const MISMATCH_REASON =
+  "결제 정보가 주문과 맞지 않아 책을 열지 않았어요. 결제한 금액은 자동으로 취소돼요.";
 const STRANDED_REASON = `결제는 됐지만 처리를 끝내지 못했어요. ${CONTACT_EMAIL}으로 알려 주시면 바로 확인할게요.`;
 
 const ROW_OUTCOMES = new Set([
@@ -128,13 +139,30 @@ export function parseFulfillRpcResult(data: unknown): FulfillRpcResult | null {
     };
   }
 
+  if (row.outcome === "mismatch") {
+    if (row.reason !== "amount" && row.reason !== "payment_key") return null;
+    if (row.purchase_id !== null && typeof row.purchase_id !== "string") {
+      return null;
+    }
+    return {
+      outcome: "mismatch",
+      reason: row.reason,
+      purchase_id: row.purchase_id,
+      book_id: row.book_id,
+      user_id: row.user_id,
+    };
+  }
+
   if (typeof row.outcome !== "string" || !ROW_OUTCOMES.has(row.outcome)) {
     return null;
   }
   if (typeof row.purchase_id !== "string") return null;
 
   return {
-    outcome: row.outcome as Exclude<FulfillRpcResult["outcome"], "voided">,
+    outcome: row.outcome as Exclude<
+      FulfillRpcResult["outcome"],
+      "voided" | "mismatch"
+    >,
     purchase_id: row.purchase_id,
     book_id: row.book_id,
     user_id: row.user_id,
@@ -207,6 +235,25 @@ export async function fulfillApprovedPayment(
         status: result.status,
       });
       return compensate(ports, payment, VOIDED_REASON, "종결된 결제");
+
+    case "mismatch":
+      ports.report("승인 결제가 결제 행과 맞지 않습니다", {
+        orderId: payment.orderId,
+        reason: result.reason,
+        purchaseId: result.purchase_id,
+      });
+      // 이 주문으로 이미 책이 열려 있으면 같은 주문에 결제가 둘인 이상한
+      // 상태입니다. 어느 쪽이 정상 결제인지 모르니 자동으로 환불하지 않고
+      // 위 report로 사람이 보게 합니다. 독자는 책을 가졌으므로 성공 화면이
+      // 맞고, stranded로 내면 webhook이 5xx로 끝없이 재시도를 받습니다.
+      if (result.purchase_id) {
+        return {
+          kind: "already",
+          purchaseId: result.purchase_id,
+          bookId: result.book_id,
+        };
+      }
+      return compensate(ports, payment, MISMATCH_REASON, "결제 정보 불일치");
 
     case "restored":
       ports.report("승인된 결제의 닫혀 있던 구매를 다시 열었습니다", {
