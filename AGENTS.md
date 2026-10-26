@@ -320,6 +320,7 @@ M4(2026-08-05)에서 확정했습니다. 여기서 지키는 규칙은 하나입
 - `SUPABASE_SECRET_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, 결제 관련 secret은 서버 전용으로만 사용하세요.
 - 클라이언트에 노출 가능한 값은 `NEXT_PUBLIC_` 접두사가 있는 값으로 제한하세요.
 - 파일 업로드, HTML 렌더링, EPUB/PDF 생성 경로에서는 XSS와 악성 파일 입력을 고려하세요.
+- **본문 sanitize(`lib/sanitize.ts`)의 허용 목록은 에디터·업로드(marked·mammoth)가 실제로 내는 것에 맞춥니다**(코드 리뷰 12-A). 내는 서식이 빠지면 조용히 사라지고, 내지 않는 것을 열면 우회로가 됩니다. `class`는 `code`의 `language-*`만, 체크 상자 `input`은 `[ ]`/`[x]` 글자로, 그 밖의 입력란은 지웁니다. 본문 이미지는 우리 `chapter-images` 주소만(`isChapterImageUrl()` — 내보내기 `loadStorageImage()`와 같은 함수) 남고 나머지는 대체 글이 됩니다. DOCX 그림은 업로드 때 `chapter-images/{bookId}/{chapterId}/`에 올립니다. 원문 크기는 sanitize **전에** `isRawChapterHtmlTooLong()`으로 봅니다(jsdom 파싱이 서버를 붙잡습니다). DOMPurify 훅은 쓰지 않습니다(isomorphic-dompurify의 전역 인스턴스를 나눠 씁니다).
 - DB schema 변경 시 migration 파일을 추가하고, 기존 migration을 수정하는 방식은 피하세요.
 
 ## Supabase 지침

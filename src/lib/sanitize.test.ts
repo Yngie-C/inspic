@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { sanitizeContent, sanitizeForRender } from "./sanitize";
 
 /**
@@ -130,14 +130,112 @@ describe.each([
     });
   });
 
-  describe("input 제한", () => {
-    it("checkbox input은 남긴다", () => {
-      expect(sanitize('<input type="checkbox">')).toContain("checkbox");
+  describe("입력란 (코드 리뷰 12-P1-2·12-P1-3·12-P2-4)", () => {
+    /**
+     * 저장 HTML에는 입력란을 내는 곳이 없습니다. 워크북 블록은 `section` +
+     * `data-*`이고 답은 `workbook_responses`에 있습니다. 본문에 남은 입력란은
+     * 리더에서 살아 있는 칸으로 그려지지만 어디에도 저장되지 않습니다.
+     */
+    it.each([
+      ['<input type="checkbox">', "[ ]"],
+      ['<input disabled="" type="checkbox">', "[ ]"],
+      ['<input type="checkbox" checked>', "[x]"],
+      ['<input type="CHECKBOX" checked>', "[x]"],
+    ])("체크 상자는 글자로 바꾼다: %s", (html, mark) => {
+      expect(sanitize(`<ul><li>${html} 할 일</li></ul>`)).toBe(`<ul><li>${mark} 할 일</li></ul>`);
     });
 
-    it("checkbox가 아닌 input은 지운다 — 자격증명 탈취 폼을 막는다", () => {
-      expect(sanitize('<input type="password" name="pw">')).not.toContain("input");
-      expect(sanitize('<input type="text" name="card">')).not.toContain("input");
+    it.each([
+      '<input type="password" name="pw">',
+      '<input type="text" name="card" value="0000">',
+      "<input>",
+    ])("체크 상자가 아닌 input은 지운다: %s", (html) => {
+      expect(sanitize(`<p>${html} 할 일</p>`)).toBe("<p> 할 일</p>");
+    });
+
+    it("다른 요소의 type·checked는 남기지 않는다", () => {
+      expect(sanitize('<ol type="a"><li checked>가</li></ol>')).toBe("<ol><li>가</li></ol>");
+    });
+
+    it("textarea·label 피싱 폼을 지운다", () => {
+      const output = sanitize(
+        '<label for="card">카드 번호</label><textarea name="card" placeholder="0000-0000" rows="1" readonly></textarea>',
+      );
+      expect(output).not.toMatch(/<label|<textarea|placeholder|rows=|readonly|name=|for=/);
+      expect(output).toBe("카드 번호");
+    });
+
+    it("워크북 블록 안에 끼워 넣은 input도 살아 있는 칸으로 남기지 않는다", () => {
+      expect(
+        sanitize('<section data-template-type="checklist" data-node-id="b-1"><input type="text"></section>'),
+      ).toBe('<section data-template-type="checklist" data-node-id="b-1"></section>');
+    });
+  });
+
+  describe("class (코드 리뷰 12-P1-1)", () => {
+    it("Tailwind 유틸로 화면을 덮는 class를 지운다", () => {
+      expect(
+        sanitize('<div class="fixed inset-0 z-50 bg-surface"><p class="text-danger">결제 정보를 다시 입력해 주세요</p></div>'),
+      ).toBe("<div><p>결제 정보를 다시 입력해 주세요</p></div>");
+    });
+
+    it("코드 블록의 언어 표시만 남긴다", () => {
+      expect(sanitize('<pre><code class="language-ts">const a = 1;</code></pre>')).toBe(
+        '<pre><code class="language-ts">const a = 1;</code></pre>',
+      );
+      expect(sanitize('<pre><code class="language-ts fixed">a</code></pre>')).toBe(
+        "<pre><code>a</code></pre>",
+      );
+      expect(sanitize('<p class="language-ts">a</p>')).toBe("<p>a</p>");
+    });
+  });
+
+  describe("업로드가 내는 서식 (코드 리뷰 12-P1-4·12-P1-5)", () => {
+    it("Markdown 취소선(del)과 DOCX 아래 첨자(sub)를 남긴다", () => {
+      const html = "<p><del>3만 원</del> 2만 원, CO<sub>2</sub></p>";
+      expect(sanitize(html)).toBe(html);
+    });
+
+    it("병합한 표 칸(colspan·rowspan)을 남긴다", () => {
+      const html =
+        '<table><tbody><tr><th colspan="3">머리칸</th></tr><tr><td rowspan="2">가</td><td>나</td><td>다</td></tr></tbody></table>';
+      expect(sanitize(html)).toBe(html);
+    });
+
+    it("숫자가 아닌 colspan은 지운다", () => {
+      expect(sanitize('<table><tbody><tr><td colspan="x">가</td></tr></tbody></table>')).toBe(
+        "<table><tbody><tr><td>가</td></tr></tbody></table>",
+      );
+    });
+  });
+
+  describe("이미지 주소 (코드 리뷰 12-P2-1)", () => {
+    const STORAGE = "https://project.supabase.co";
+    const OURS = `${STORAGE}/storage/v1/object/public/chapter-images/b/c/a.png`;
+
+    beforeEach(() => {
+      vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", STORAGE);
+    });
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it("우리 chapter-images 이미지는 남긴다", () => {
+      const html = `<img src="${OURS}" alt="도표">`;
+      expect(sanitize(html)).toBe(html);
+    });
+
+    it.each([
+      ["외부 추적 픽셀", "https://tracker.example/p.gif"],
+      ["data: URI", "data:image/png;base64,AAAA"],
+      ["다른 버킷", `${STORAGE}/storage/v1/object/public/covers/covers/b/1.png`],
+      ["다른 프로젝트", "https://evil.supabase.co/storage/v1/object/public/chapter-images/b/c/a.png"],
+    ])("%s는 이미지를 빼고 대체 글을 남긴다", (_name, src) => {
+      expect(sanitize(`<p><img src="${src}" alt="도표 1"></p>`)).toBe("<p>도표 1</p>");
+    });
+
+    it("대체 글이 없으면 이미지만 뺀다", () => {
+      expect(sanitize('<p>가<img src="https://tracker.example/p.gif">나</p>')).toBe("<p>가나</p>");
     });
   });
 });

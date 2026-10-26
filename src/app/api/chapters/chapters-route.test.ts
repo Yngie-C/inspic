@@ -6,7 +6,10 @@ import {
   type QueryResult,
   type RecordedQuery,
 } from "@/test/fake-supabase";
-import { MAX_CHAPTER_HTML_LENGTH } from "@/lib/content-stats";
+import {
+  MAX_CHAPTER_HTML_LENGTH,
+  MAX_RAW_CHAPTER_HTML_LENGTH,
+} from "@/lib/content-stats";
 
 /**
  * 챕터 API의 입력 검증과 저장 경로.
@@ -64,6 +67,15 @@ vi.mock("@/lib/publish-checks-loader", () => ({
 const cleanup = vi.hoisted(() => ({ removeChapterImages: vi.fn(async () => {}) }));
 vi.mock("@/lib/storage-cleanup", () => cleanup);
 
+// 원문이 너무 크면 sanitize(jsdom 파싱)까지 가지 않는지 봅니다(12-P0-2).
+const sanitizeSpy = vi.hoisted(() => ({ fn: null as null | ReturnType<typeof vi.fn> }));
+vi.mock("@/lib/sanitize", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/sanitize")>();
+  const fn = vi.fn(actual.sanitizeContent);
+  sanitizeSpy.fn = fn;
+  return { ...actual, sanitizeContent: fn };
+});
+
 const { POST } = await import("./route");
 const { PUT, DELETE } = await import("./[chapterId]/route");
 
@@ -102,6 +114,7 @@ function insertedChapter(): Record<string, unknown> | undefined {
 }
 
 beforeEach(() => {
+  sanitizeSpy.fn?.mockClear();
   sync.mockClear();
   loader.load.mockClear();
   loader.load.mockImplementation(async () => ({ ok: true, checks: [] }));
@@ -174,6 +187,36 @@ describe("POST /api/chapters", () => {
     expect(res.status).toBe(400);
     expect((await res.json()).code).toBe("CONTENT_TOO_LONG");
     expect(writes()).toEqual([]);
+  });
+});
+
+describe("원문 크기를 sanitize 전에 본다 (12-P0-2)", () => {
+  // 중첩 div 수십 MB를 jsdom으로 파싱하면 인스턴스가 몇 초씩 멈춥니다.
+  const huge = "<div>".repeat(MAX_RAW_CHAPTER_HTML_LENGTH / 5 + 1);
+
+  it("PUT — 원문 상한을 넘으면 sanitize를 부르지 않고 400 CONTENT_TOO_LONG", async () => {
+    const res = await PUT(jsonRequest({ content_html: huge }), params);
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe("CONTENT_TOO_LONG");
+    expect(sanitizeSpy.fn).not.toHaveBeenCalled();
+    expect(writes()).toHaveLength(0);
+  });
+
+  it("POST — 원문 상한을 넘으면 sanitize를 부르지 않고 400 CONTENT_TOO_LONG", async () => {
+    const res = await POST(jsonRequest({ book_id: BOOK, title: "1장", content_html: huge }));
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe("CONTENT_TOO_LONG");
+    expect(sanitizeSpy.fn).not.toHaveBeenCalled();
+    expect(writes()).toHaveLength(0);
+  });
+
+  it("원문 상한 안이면 sanitize한 결과로 저장 상한을 다시 본다", async () => {
+    const res = await PUT(jsonRequest({ content_html: "<p>가</p>" }), params);
+
+    expect(res.status).toBe(200);
+    expect(sanitizeSpy.fn).toHaveBeenCalledOnce();
   });
 });
 
