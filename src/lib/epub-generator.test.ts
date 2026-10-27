@@ -141,6 +141,9 @@ describe("loadStorageImage", () => {
     "http://169.254.169.254/latest/meta-data",
     "https://project.supabase.co/storage/v1/object/public/other-bucket/a.png",
     "https://project.supabase.co/rest/v1/books",
+    // sanitize가 남기지 않는 것은 내보내기도 담지 않습니다(12-P2-1).
+    "https://project.supabase.co/storage/v1/object/public/covers/covers/b/1.png",
+    "data:image/png;base64,iVBORw0KGgo=",
   ])("다른 곳은 받지 않는다: %s", async (src) => {
     const fetchMock = stub();
 

@@ -1,4 +1,6 @@
 import { NextRequest } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { nanoid } from "nanoid";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthUser, apiError, apiSuccess } from "@/lib/api-utils";
 import { countWords, isChapterHtmlTooLong } from "@/lib/content-stats";
@@ -18,17 +20,27 @@ import { countWorkbookBlockElements } from "@/lib/workbook/extract-blocks";
 import {
   SIZE_LIMITS,
   SOURCE_TYPE_BY_EXTENSION,
-  parseUpload,
+  UploadChapterTooLongError,
+  draftUpload,
+  finishUpload,
   resolveExtension,
   titleFromFileName,
-  type ParsedChapter,
+  type StoreUploadImage,
+  type UploadDraft,
 } from "@/lib/upload-parser";
+import { EXTENSION_BY_MIME } from "@/lib/image-upload";
+import { CHAPTER_IMAGES_BUCKET, removeChapterImages } from "@/lib/storage-cleanup";
 
 /**
  * 원고 업로드 → 책 1권 + 챕터 N개.
  *
  * 파싱은 `lib/upload-parser.ts`에 있습니다. 이 라우트가 하는 일은
  * 입력 검증과 저장입니다.
+ *
+ * 순서: 원고를 나누고 원문 크기를 본다(sanitize 전, 12-P0-2) → 책을 만든다 →
+ * DOCX 그림을 `chapter-images/{bookId}/{chapterId}/`에 올리고 sanitize한다 →
+ * 저장 상한을 본다 → 장을 넣는다. 그림을 올릴 폴더가 책·장 ID라서 책을 먼저
+ * 만들고, 장 ID는 미리 정해 둡니다. 책을 만든 뒤 실패하면 책과 올린 그림을 지웁니다.
  */
 
 export async function POST(request: NextRequest) {
@@ -86,10 +98,13 @@ export async function POST(request: NextRequest) {
     return apiError(INVALID_BODY_MESSAGE, "VALIDATION_ERROR", 400);
   }
 
-  let chapters: ParsedChapter[];
+  let draft: UploadDraft;
   try {
-    chapters = await parseUpload(file, ext);
+    draft = await draftUpload(file, ext);
   } catch (err) {
+    if (err instanceof UploadChapterTooLongError) {
+      return chapterTooLong(err.index, err.title);
+    }
     console.error("[upload] 원고를 해석하지 못했습니다", { ext, err });
     return apiError(
       "원고를 읽지 못했어요. 파일이 손상되지 않았는지 확인해 주세요.",
@@ -98,23 +113,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (chapters.length === 0) {
+  if (draft.chapters.length === 0) {
     return apiError("원고에 내용이 없어요.", "UPLOAD_ERROR", 422);
-  }
-
-  // `chapters.content_html`의 CHECK 제약에 걸리면 Postgres 원문이 담긴 500이
-  // 됩니다. 장 구분이 없는 긴 원고나 이미지가 든 docx(base64로 본문에 들어옴)가
-  // 그렇습니다. 어느 장이 넘쳤는지 알려 줍니다(5-P1-6).
-  const tooLong = chapters.findIndex((chapter) =>
-    isChapterHtmlTooLong(chapter.content_html),
-  );
-  if (tooLong !== -1) {
-    return apiError(
-      `${tooLong + 1}번째 장 "${chapters[tooLong].title}"이 너무 길어 올리지 못했어요. ` +
-        "장마다 제목(헤딩)을 넣어 나누거나, 원고 속 이미지를 빼고 올린 뒤 편집 화면에서 이미지 버튼으로 넣어 주세요.",
-      "CONTENT_TOO_LONG",
-      400,
-    );
   }
 
   const supabase = await createClient();
@@ -138,11 +138,41 @@ export async function POST(request: NextRequest) {
     return apiError(SAVE_FAILED_MESSAGE, "SERVER_ERROR", 500);
   }
 
+  // 그림 폴더(`{bookId}/{chapterId}/`)를 정하려고 장 ID를 미리 만듭니다. 장·책을
+  // 지울 때 `removeChapterImages()`가 이 폴더를 정리합니다.
+  const chapterIds = draft.chapters.map(() => crypto.randomUUID());
+  let storedImages = 0;
+  const storeImage: StoreUploadImage = async (chapterIndex, image) => {
+    const path = `${book.id}/${chapterIds[chapterIndex]}/${nanoid(16)}.${EXTENSION_BY_MIME.get(image.mime)}`;
+    const { error } = await supabase.storage
+      .from(CHAPTER_IMAGES_BUCKET)
+      .upload(path, image.bytes, { contentType: image.mime, upsert: false });
+    if (error) {
+      console.error("[upload] 원고 그림을 올리지 못했습니다", { bookId: book.id, error });
+      return null;
+    }
+    storedImages++;
+    return supabase.storage.from(CHAPTER_IMAGES_BUCKET).getPublicUrl(path).data.publicUrl;
+  };
+
+  const { chapters, droppedImages } = await finishUpload(draft, storeImage);
+
+  // `chapters.content_html`의 CHECK 제약에 걸리면 Postgres 원문이 담긴 500이
+  // 됩니다. 장 구분이 없는 긴 원고가 그렇습니다. 어느 장이 넘쳤는지 알려 줍니다(5-P1-6).
+  const tooLong = chapters.findIndex((chapter) =>
+    isChapterHtmlTooLong(chapter.content_html),
+  );
+  if (tooLong !== -1) {
+    await discardBook(supabase, book.id, storedImages > 0);
+    return chapterTooLong(tooLong, chapters[tooLong].title);
+  }
+
   // 책의 장 수·글자 수는 장을 넣을 때 DB 트리거가 셉니다(00009). 장은
   // 상태를 주지 않아 published(기본값)로 들어갑니다 — 책이 draft·private이라
   // 독자에게는 출간 전까지 보이지 않습니다.
   const uploadedAt = Date.now();
   const chapterRows = chapters.map((chapter, index) => ({
+    id: chapterIds[index],
     book_id: book.id,
     title: chapter.title,
     slug: `chapter-${index + 1}-${uploadedAt}-${index}`,
@@ -160,7 +190,7 @@ export async function POST(request: NextRequest) {
   if (chaptersError || !createdChapters) {
     console.error("[upload] 장을 만들지 못했습니다", { bookId: book.id, chaptersError });
     // 장 없는 빈 책이 남지 않게 지웁니다.
-    await supabase.from("books").delete().eq("id", book.id);
+    await discardBook(supabase, book.id, storedImages > 0);
     return apiError(SAVE_FAILED_MESSAGE, "SERVER_ERROR", 500);
   }
 
@@ -190,10 +220,39 @@ export async function POST(request: NextRequest) {
       preview: chapterPreview(chapter.content_raw, chapter.title),
     }));
 
+  // 넣지 못한 그림 수(올리지 못한 DOCX 그림, 바깥 주소 그림). 업로드 화면이 알립니다.
   return apiSuccess(
-    { book, chapters: chapterSummaries, workbook_sync: workbookSync },
+    {
+      book,
+      chapters: chapterSummaries,
+      workbook_sync: workbookSync,
+      images: { dropped: droppedImages },
+    },
     201,
   );
+}
+
+function chapterTooLong(index: number, title: string) {
+  return apiError(
+    `${index + 1}번째 장 "${title}"이 너무 길어 올리지 못했어요. ` +
+      "장마다 제목(헤딩)을 넣어 나누거나, 원고 속 이미지를 빼고 올린 뒤 편집 화면에서 이미지 버튼으로 넣어 주세요.",
+    "CONTENT_TOO_LONG",
+    400,
+  );
+}
+
+/** 장을 넣지 못한 책을 지웁니다. 올린 그림이 있으면 책 폴더도 정리합니다. */
+async function discardBook(
+  supabase: SupabaseClient,
+  bookId: string,
+  hasImages: boolean,
+): Promise<void> {
+  const { error } = await supabase.from("books").delete().eq("id", bookId);
+  if (error) {
+    console.error("[upload] 장 없는 책을 지우지 못했습니다", { bookId, error });
+    return;
+  }
+  if (hasImages) await removeChapterImages(bookId, null);
 }
 
 const SAVE_FAILED_MESSAGE = "원고를 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.";

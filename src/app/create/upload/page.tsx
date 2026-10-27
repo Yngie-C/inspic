@@ -14,7 +14,12 @@ interface DetectedChapter {
 }
 
 interface UploadResponse {
-  data?: { book: { id: string }; chapters: DetectedChapter[] };
+  data?: {
+    book: { id: string };
+    chapters: DetectedChapter[];
+    /** 넣지 못한 그림 수 — 올리지 못한 DOCX 그림, 바깥 주소 그림. */
+    images?: { dropped: number };
+  };
   error?: string;
 }
 
@@ -29,12 +34,14 @@ function UploadContent() {
   const [progress, setProgress] = useState(0);
   const [chapters, setChapters] = useState<DetectedChapter[]>([]);
   const [bookId, setBookId] = useState<string | null>(null);
+  const [droppedImages, setDroppedImages] = useState(0);
   const [error, setError] = useState("");
 
   const handleFileSelect = (f: File) => {
     setFile(f);
     setChapters([]);
     setBookId(null);
+    setDroppedImages(0);
     setError("");
   };
 
@@ -73,6 +80,7 @@ function UploadContent() {
       // bookId가 비었고, "확인" 버튼이 안 떠서 다시 올리면 책이 하나 더 생겼어요.
       setBookId(json.data.book.id);
       setChapters(json.data.chapters);
+      setDroppedImages(json.data.images?.dropped ?? 0);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "파일을 올리지 못했어요. 잠시 뒤 다시 시도해 주세요.");
     } finally {
@@ -151,6 +159,14 @@ function UploadContent() {
                   )}
                 </ul>
               </div>
+            )}
+
+            {droppedImages > 0 && (
+              <p className="rounded-lg border border-line px-4 py-3 text-sm text-muted">
+                원고의 그림 {droppedImages}개는 넣지 못했어요. 바깥 주소의 그림이거나 올릴 수
+                없는 형식이에요. 그 자리에 대체 글을 남겼으니, 편집 화면에서 이미지 버튼으로
+                다시 넣어 주세요.
+              </p>
             )}
 
             <div className="flex justify-between pt-2">

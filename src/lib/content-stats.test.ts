@@ -3,7 +3,17 @@ import {
   MAX_CHAPTER_HTML_LENGTH,
   chapterHtmlLength,
   isChapterHtmlTooLong,
+  isRawChapterHtmlTooLong,
+  MAX_RAW_CHAPTER_HTML_LENGTH,
 } from "./content-stats";
+
+describe("sanitize 전 원문 길이 (코드 리뷰 12-P0-2)", () => {
+  it("저장 상한의 두 배까지는 통과, 넘으면 거절", () => {
+    expect(MAX_RAW_CHAPTER_HTML_LENGTH).toBe(MAX_CHAPTER_HTML_LENGTH * 2);
+    expect(isRawChapterHtmlTooLong("a".repeat(MAX_RAW_CHAPTER_HTML_LENGTH))).toBe(false);
+    expect(isRawChapterHtmlTooLong("a".repeat(MAX_RAW_CHAPTER_HTML_LENGTH + 1))).toBe(true);
+  });
+});
 
 /**
  * 챕터 본문 길이는 DB CHECK 제약(`length(content_html) <= 500000`)과 같은

@@ -102,6 +102,11 @@
 
 **6. 확인** — `sanitize.test.ts`에 `class` 오버레이, `textarea` 피싱, 블록 밖 checkbox, `del`·`sub`·`colspan`, 대문자 `CHECKBOX`. 기존 본문이 바뀌지 않는지 보려고 `content/`의 원고와 테스트 픽스처를 sanitize 전후로 비교. `npm run typecheck && npm test && npm run lint`(에러 9개 이하), `npm run build`.
 
+> 2026-10-26 수정함(브랜치 `Yngie-C/code-review-12a`, 마이그레이션 없음, 10건). P0-2는 원문 상한 `MAX_RAW_CHAPTER_HTML_LENGTH`(저장 상한의 2배, `isRawChapterHtmlTooLong()`)을 장 PUT·POST와 업로드 파서(`UploadChapterTooLongError`)가 sanitize **전에** 봐요. 허용 목록에서 `textarea`·`label`과 `name`·`for`·`value`·`placeholder`·`rows`·`cols`·`readonly`·`disabled`·`min`·`max`를 빼고 `del`·`sub`·`colspan`·`rowspan`(세 자리 숫자만)을 더했어요. `class`는 `code`의 `language-[a-z0-9-]+`만, `img src`는 `chapter-images`만(`isChapterImageUrl()`, `storage-image.ts`) 남고 아니면 대체 글이 글자로 남아요. 내보내기 `loadStorageImage()`도 같은 함수를 써서 `covers`·`data:`를 더는 담지 않아요. DOCX 그림은 mammoth `convertImage`로 바이트만 모았다가 책을 만든 뒤 `chapter-images/{bookId}/{chapterId}/`에 올리고(장 ID를 미리 정해 넣음), 못 올린 그림·버킷이 받지 않는 형식·Markdown 바깥 주소 그림은 대체 글로 남기고 업로드 응답 `images.dropped`로 세어 업로드 화면이 알려요. 책을 만든 뒤 실패하면 책과 올린 그림을 지워요. PDF는 `del`·`sub`를 내용만 남겨 "CO 2"로 찍히지 않게만 했어요(모양은 13-E).
+> - **계획과 다르게 한 것 두 가지.** (1) 체크 상자: `input`을 지우기만 하면 이미 저장된 Markdown 원고의 할 일 목록 표시가 사라져서, 업로드 파서가 아니라 **sanitize가** checkbox `input`을 `[ ]`/`[x]` 글자로 바꾸고(대소문자 무시, P2-4) 나머지 `input`은 지워요. 저장본·렌더본·옛 장 모두 한 규칙이에요. (2) 전용 DOMPurify 인스턴스: isomorphic-dompurify 2.26.0은 서버에서 jsdom window를 내주지 않고, jsdom을 직접 부르면 Vercel require(esm) 문제(PR #18)를 다시 밟아요. 그래서 **훅을 아예 쓰지 않고** `RETURN_DOM`으로 받은 DOM에서 값을 좁혀요(지우거나 줄이기만 함). `sanitizeForRender`는 `sanitizeContent`의 별칭이에요.
+> - 테스트: `sanitize.test.ts`(입력란·`class`·업로드 서식·이미지 주소), `sanitize.server.test.ts`(node 경로), `chapters-route.test.ts`(원문 상한 초과 시 sanitize를 부르지 않고 400 — spy), `upload-parser.test.ts`(원문 상한, 할 일 목록, 취소선, DOCX 그림 업로드·실패·바깥 주소), `upload-route.test.ts`(새로 — 책 생성 전 거절, 그림 경로가 장 ID와 같음, 실패 시 책·그림 정리), `storage-image`·`content-stats`·`epub-generator`·`pdf-generator` 테스트. 새 sanitize·장 라우트 회귀 테스트는 고치기 전 코드에서 실패하는 것을 확인했어요. `content/`의 Markdown 원고 25개를 옛·새 sanitize로 비교해 달라진 것은 할 일 목록의 체크 상자 → `[ ]`뿐이에요.
+> - 확인하지 않은 것: 앱 화면(DOCX 그림이 든 원고 업로드, 업로드 화면 안내 문구), 실제 Storage 업로드. 운영 DB에 `<input type="checkbox">`가 든 장이 있으면 리더에서 `[ ]` 글자로 보이게 바뀌어요(의도).
+
 ### 묶음 12-B 계획 — 블록 입구와 키 처리
 
 **1. 선택 범위 (P0-1)** — `insertWorkbookBlock`이 선택이 비어 있지 않으면(NodeSelection·AllSelection·범위 TextSelection 모두) 선택을 지우지 않고 `selection.to` 뒤에 넣음. 슬래시 경로(`range`)는 `/검색어`만 지우므로 그대로. 테스트: 전체 선택·블록에 걸친 텍스트 선택에서 넣은 뒤 기존 블록 ID가 모두 남는지.
@@ -115,6 +120,10 @@
 **5. 툴바 상태 (P2-2)** — `useEditorState`로 툴바가 쓰는 `isActive` 값만 구독(`shouldRerenderOnTransaction: true`는 에디터 전체를 키마다 다시 그려 P2-5를 키움).
 
 **6. 확인** — 확장 단위 테스트(Tiptap `Editor`를 jsdom에서 띄워 Enter·삽입 시나리오). 개발 서버에서 제목에서 `/체크` + Enter, 전체 선택 후 블록 삽입, 스크린샷 붙여넣기.
+
+> 2026-10-26 수정함(브랜치 `Yngie-C/code-review-12b`, 12-A 위에 쌓음, 마이그레이션 없음, 6건). P0-1은 `insertWorkbookBlock`이 선택이 비어 있지 않으면(블록·전체·범위 선택 모두) 선택을 지우지 않고 **선택이 끝나는 최상위 블록 뒤**(`$to.after(1)`, 깊이 0이면 `selection.to`)에 넣어요 — 계획의 "`selection.to` 뒤"를 글 가운데에 넣으면 문단이 갈라져서 블록 경계로 옮겼어요. P1-6은 결정 3대로 `SlashCommandPluginKey`(`SlashCommand.ts`)를 export하고 `BlockExitOnEnter`가 메뉴가 열려 있으면 `false`(우선순위 150 유지). P1-8은 결과가 0개면 슬래시 메뉴가 모든 키를 넘겨요. P1-7은 비어 있지 않은 제목 맨 앞 Enter가 위에 빈 문단만 넣고 커서·제목을 그대로 둬요. P1-9는 `allowBase64: false`, 붙여넣기·끌어 넣기 이미지는 `chapter-image-upload.ts`(`imageFilesFrom`·`uploadChapterImage`, 이미지 버튼과 같은 경로)로 `/api/books/[bookId]/images`에 올린 뒤에만 넣고 실패하면 상태 줄에 띄워요. 글(HTML·텍스트)이 함께 오는 붙여넣기는 그림을 올리지 않아요(Word가 함께 싣는 미리보기 그림 때문). P2-2는 툴바가 `useEditorState`로 켜짐 값만 구독해요. `TemplateNodeIds`·ID 규칙은 건드리지 않았어요.
+> - 테스트: `workbook-blocks.test.ts`(전체 선택·블록에 걸친 글 선택에서 기존 ID와 글이 남음), `editor-enter.test.tsx`(새로 — `EditorContent`까지 띄워 제목 `/체크` + Enter, 결과 0개에서 화살표·Enter, 제목 맨 앞·가운데 Enter, 빈 코드 블록 탈출), `EditorToolbar.test.tsx`(새로 — 커서 이동으로 굵게 버튼 켜짐), `chapter-image-upload.test.ts`(새로 — 파일 고르기, 업로드, `data:` 이미지 거부). 삽입 2건, Enter 3건(코드 블록 탈출·제목 가운데는 원래 통과), 툴바 1건은 고치기 전 코드에서 실패하는 것을 확인했어요.
+> - 확인하지 않은 것: 개발 서버 화면(제목에서 `/체크` + Enter, 전체 선택 후 블록 삽입, 스크린샷 붙여넣기·끌어 넣기, 툴바 켜짐). 붙여 넣은 HTML 속 바깥 주소 이미지는 에디터에는 보이다가 저장 때 sanitize가 대체 글로 바꿔요(12-A 결정 2) — 편집 중 안내는 넣지 않았어요.
 
 ### 묶음 12-C 계획 — 에디터 성능·정리
 
