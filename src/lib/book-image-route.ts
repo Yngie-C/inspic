@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthUser, apiError, apiSuccess } from "@/lib/api-utils";
 import { isUuid } from "@/lib/template-node-id";
 import { readImageUpload } from "@/lib/image-upload";
-import { COVERS_BUCKET, coverStoragePath } from "@/lib/storage-cleanup";
+import { COVERS_BUCKET, coverStoragePath, type BookImageKind } from "@/lib/storage-cleanup";
 import {
   clearStoredImage,
   replaceStoredImage,
@@ -54,6 +54,7 @@ export function bookImageHandlers({
 }: BookImageConfig) {
   const uploadFailed = `${objectLabel} 올리지 못했어요. 잠시 뒤 다시 시도해 주세요.`;
   const removeFailed = `${objectLabel} 지우지 못했어요. 잠시 뒤 다시 시도해 주세요.`;
+  const kind: BookImageKind = column === "detail_image_url" ? "detail" : "cover";
 
   type OwnedBook =
     | { ok: true; imageUrl: string | null }
@@ -92,7 +93,7 @@ export function bookImageHandlers({
     column,
     resetColumns,
     bucket: COVERS_BUCKET,
-    pathOf: (url) => coverStoragePath(url, bookId),
+    pathOf: (url) => coverStoragePath(url, bookId, kind),
     notFound: BOOK_NOT_FOUND,
     logTag,
   });

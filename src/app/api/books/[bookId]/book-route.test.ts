@@ -53,6 +53,14 @@ vi.mock("@/lib/api-utils", async (importOriginal) => ({
   getAuthUser: async () => ({ id: USER }),
 }));
 
+// `after()`는 요청 밖에서 부르면 던집니다. 응답 뒤 작업을 그 자리에서 돌립니다.
+vi.mock("next/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/server")>()),
+  after: (task: () => unknown) => {
+    void task();
+  },
+}));
+
 const cleanup = vi.hoisted(() => ({ removeBookFiles: vi.fn(async () => {}) }));
 vi.mock("@/lib/storage-cleanup", () => cleanup);
 
@@ -172,10 +180,7 @@ describe("DELETE /api/books/[bookId]", () => {
 
     expect(res.status).toBe(200);
     expect(deletes().map((q) => q.table)).toEqual(["books"]);
-    expect(cleanup.removeBookFiles).toHaveBeenCalledExactlyOnceWith(BOOK, [
-      "https://x/cover.png",
-      undefined,
-    ]);
+    expect(cleanup.removeBookFiles).toHaveBeenCalledExactlyOnceWith(BOOK);
   });
 
   it("다른 실패는 500이고 DB 원문을 싣지 않는다", async () => {

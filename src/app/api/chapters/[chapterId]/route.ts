@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { after, NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import {
   getAuthUser,
@@ -263,8 +263,9 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
   }
 
   // 공개 버킷이라 남겨 두면 유료 책의 이미지가 URL로 계속 열립니다. 다른 장이
-  // 아직 쓰는 파일은 남깁니다.
-  await removeChapterImages(chapter.book_id, chapterId);
+  // 아직 쓰는 파일은 남깁니다. 응답 뒤에 돌려, 그 이미지를 막 붙여 넣은 장의
+  // 자동 저장이 먼저 끝날 틈을 둡니다(코드 리뷰 10-P1-17, 결정 3).
+  after(() => removeChapterImages(chapter.book_id, chapterId));
 
   return apiSuccess({ deleted: true });
 }
