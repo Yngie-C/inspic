@@ -55,6 +55,20 @@ async function run(
   }
 }
 
+let initializeStarted = false;
+
+/**
+ * 이 사용자로 store를 맞춥니다. 이미 같은 사람이고 프로필도 있으면 아무것도
+ * 바꾸지 않고 false — 호출자는 프로필을 다시 읽지 않습니다.
+ */
+function adoptUser(user: User): boolean {
+  const { user: current, profile } = useAuthStore.getState();
+  if (current?.id === user.id) return profile === null;
+  // 계정이 바뀌면 이전 사람의 프로필을 먼저 비웁니다.
+  useAuthStore.setState({ user, profile: null });
+  return true;
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   profile: null,
@@ -62,19 +76,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isInitialized: false,
 
   initialize: async () => {
+    // 한 번만 돕니다. StrictMode·리마운트로 다시 불려도 리스너가 겹치지 않게
+    // 합니다 — 겹치면 SIGNED_IN마다 store를 두 번 쓰고 프로필도 두 번 읽습니다
+    // (코드 리뷰 13-P2-6). 앱이 사는 동안 구독을 유지하므로 풀지 않습니다.
+    if (initializeStarted) return;
+    initializeStarted = true;
+
     try {
       const supabase = createClient();
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (session?.user) {
-        set({ user: session.user });
-        await get().fetchProfile();
-      }
-
-      // auth 상태 변경 리스너
+      // 리스너를 먼저 겁니다. 세션 조회가 던져도 이후의 로그인은 받아야
+      // 하고(그러지 않으면 새로고침 전까지 store가 로그아웃 상태입니다),
+      // 조회를 기다리는 사이 들어온 이벤트도 놓치지 않습니다 (코드 리뷰 13-P1-2).
+      //
       // 프로필 행은 auth.users INSERT 트리거가 만듭니다. 여기서는 읽기만 합니다.
       //
       // 콜백 안에서 Supabase 호출을 await하지 않습니다. supabase-js가 auth 잠금을
@@ -82,14 +96,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // 조회가 잠금을 기다리며 그 클라이언트의 모든 호출이 멈춥니다.
       supabase.auth.onAuthStateChange((event, session) => {
         if (event === "SIGNED_IN" && session?.user) {
-          const switched = get().user?.id !== session.user.id;
-          // 계정이 바뀌면 이전 사람의 프로필을 먼저 비웁니다.
-          set(switched ? { user: session.user, profile: null } : { user: session.user });
+          // 탭 복귀마다 같은 사람의 SIGNED_IN이 옵니다. 그때 user 참조를 바꾸면
+          // user에 묶인 이펙트가 다시 돌므로 그대로 둡니다 (코드 리뷰 13-P2-7).
+          if (!adoptUser(session.user)) return;
           setTimeout(() => void get().fetchProfile(), 0);
         } else if (event === "SIGNED_OUT") {
           set({ user: null, profile: null });
         }
       });
+
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (session?.user && adoptUser(session.user)) {
+          await get().fetchProfile();
+        }
+      } catch (error) {
+        console.error("[auth] 세션을 불러오지 못했어요", error);
+      }
     } finally {
       set({ isLoading: false, isInitialized: true });
     }
