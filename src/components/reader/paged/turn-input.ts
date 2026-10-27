@@ -36,26 +36,63 @@ export function startsOnControl(target: EventTarget | null): boolean {
   return target instanceof Element && target.closest(NO_TURN_SELECTOR) !== null;
 }
 
+/**
+ * 그 축으로 스크롤할 수 있는 영역(목차, 넓은 표, `pre`) 안인가. 그 안의 키는
+ * 브라우저가 영역을 스크롤하는 데 씁니다.
+ */
+export function insideScrollable(
+  target: EventTarget | null,
+  axis: "x" | "y",
+): boolean {
+  let node = target instanceof Element ? target : null;
+  while (node && node !== document.body && node !== document.documentElement) {
+    const overflow = getComputedStyle(node)[axis === "x" ? "overflowX" : "overflowY"];
+    if (overflow === "auto" || overflow === "scroll") {
+      const overflows =
+        axis === "x"
+          ? node.scrollWidth > node.clientWidth
+          : node.scrollHeight > node.clientHeight;
+      if (overflows) return true;
+    }
+    node = node.parentElement;
+  }
+  return false;
+}
+
 type KeyInput = Pick<
   KeyboardEvent,
-  "key" | "isComposing" | "altKey" | "metaKey" | "ctrlKey" | "target"
+  "key" | "isComposing" | "altKey" | "metaKey" | "ctrlKey" | "target" | "defaultPrevented"
 >;
 
 /**
  * 화살표·PageUp/PageDown. 입력 중이거나 한글 조합 중이거나, 시트·목차가
- * 떠 있으면(`blocked`) 넘기지 않습니다.
+ * 떠 있으면(`blocked`) 넘기지 않습니다. 다른 곳이 이미 처리한 키와 스크롤
+ * 영역 안의 키도 넘기지 않습니다.
  */
 export function keyTurn(event: KeyInput, blocked: boolean): TurnDirection | null {
-  if (blocked || event.isComposing || event.altKey || event.metaKey || event.ctrlKey) {
+  if (
+    blocked ||
+    event.defaultPrevented ||
+    event.isComposing ||
+    event.altKey ||
+    event.metaKey ||
+    event.ctrlKey
+  ) {
     return null;
   }
   if (isEditableTarget(event.target)) return null;
-  if (event.key === "ArrowRight" || event.key === "PageDown") return "forward";
-  if (event.key === "ArrowLeft" || event.key === "PageUp") return "back";
-  return null;
+  const direction =
+    event.key === "ArrowRight" || event.key === "PageDown"
+      ? "forward"
+      : event.key === "ArrowLeft" || event.key === "PageUp"
+        ? "back"
+        : null;
+  if (!direction) return null;
+  const axis = event.key.startsWith("Arrow") ? "x" : "y";
+  return insideScrollable(event.target, axis) ? null : direction;
 }
 
-/** 본문 폭에서 누른 위치의 비율(0~1). 좌우 20%만 넘깁니다. */
+/** 본문 폭에서 누른 위치의 비율(본문 밖이면 0 미만·1 초과). 좌우 20%만 넘깁니다. */
 export function tapTurn(ratio: number): TurnDirection | null {
   if (ratio < 0.2) return "back";
   if (ratio > 0.8) return "forward";

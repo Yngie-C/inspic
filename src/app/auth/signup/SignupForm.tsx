@@ -4,7 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { useAuthStore } from "@/stores/auth-store";
 import { withRedirect } from "@/lib/safe-redirect";
-import { checkPassword, PASSWORD_HINT, type AuthFailure } from "@/lib/auth-errors";
+import {
+  checkPassword,
+  checkPasswordConfirm,
+  PASSWORD_HINT,
+  type AuthFailure,
+} from "@/lib/auth-errors";
 import { FormAlert } from "@/components/auth/FormAlert";
 import { ResendConfirmation } from "@/components/auth/ResendConfirmation";
 import { Button } from "@/components/ui/button";
@@ -48,8 +53,8 @@ export default function SignupForm({
     if (!email.trim()) errors.email = "이메일을 입력해 주세요.";
     const passwordProblem = checkPassword(password);
     if (passwordProblem) errors.password = passwordProblem;
-    else if (password !== confirmPassword)
-      errors.confirmPassword = "비밀번호가 서로 달라요. 다시 확인해 주세요.";
+    const confirmProblem = checkPasswordConfirm(password, confirmPassword);
+    if (confirmProblem) errors.confirmPassword = confirmProblem;
     return errors;
   };
 

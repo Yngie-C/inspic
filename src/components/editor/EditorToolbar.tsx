@@ -1,6 +1,6 @@
 "use client";
 
-import type { Editor } from "@tiptap/react";
+import { useEditorState, type Editor } from "@tiptap/react";
 import {
   Bold,
   Italic,
@@ -135,7 +135,42 @@ interface EditorToolbarProps {
   className?: string;
 }
 
+/**
+ * 툴바 버튼의 켜짐 상태. Tiptap 3의 `useEditor`는 트랜잭션마다 다시 그리지 않아서,
+ * 렌더 중에 `editor.isActive()`를 읽으면 커서를 굵은 글씨·링크·제목으로 옮겨도
+ * 버튼이 켜지지 않습니다(코드 리뷰 12-P2-2). 이 값들만 구독해, 바뀔 때만 툴바를
+ * 다시 그립니다 — 에디터 전체를 키마다 다시 그리는 `shouldRerenderOnTransaction`은
+ * 쓰지 않습니다.
+ */
+function useToolbarState(editor: Editor) {
+  return useEditorState({
+    editor,
+    selector: ({ editor: ed }) => ({
+      bold: ed.isActive("bold"),
+      italic: ed.isActive("italic"),
+      underline: ed.isActive("underline"),
+      code: ed.isActive("code"),
+      superscript: ed.isActive("superscript"),
+      strike: ed.isActive("strike"),
+      highlight: ed.isActive("highlight"),
+      heading1: ed.isActive("heading", { level: 1 }),
+      heading2: ed.isActive("heading", { level: 2 }),
+      heading3: ed.isActive("heading", { level: 3 }),
+      bulletList: ed.isActive("bulletList"),
+      orderedList: ed.isActive("orderedList"),
+      blockquote: ed.isActive("blockquote"),
+      codeBlock: ed.isActive("codeBlock"),
+      link: ed.isActive("link"),
+      alignLeft: ed.isActive({ textAlign: "left" }),
+      alignCenter: ed.isActive({ textAlign: "center" }),
+      alignRight: ed.isActive({ textAlign: "right" }),
+    }),
+  });
+}
+
 export function EditorToolbar({ editor, onImageUpload, className }: EditorToolbarProps) {
+  const active = useToolbarState(editor);
+
   const addLink = () => {
     const previousUrl = editor.getAttributes("link").href as string | undefined;
     const url = window.prompt("URL을 입력하세요:", previousUrl ?? "https://");
@@ -158,7 +193,7 @@ export function EditorToolbar({ editor, onImageUpload, className }: EditorToolba
       <Tooltip label="굵게" shortcut={SHORTCUTS.bold}>
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBold().run()}
-          isActive={editor.isActive("bold")}
+          isActive={active.bold}
           title="굵게 (Ctrl+B)"
         >
           <Bold className="h-4 w-4" />
@@ -167,7 +202,7 @@ export function EditorToolbar({ editor, onImageUpload, className }: EditorToolba
       <Tooltip label="기울임" shortcut={SHORTCUTS.italic}>
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleItalic().run()}
-          isActive={editor.isActive("italic")}
+          isActive={active.italic}
           title="기울임 (Ctrl+I)"
         >
           <Italic className="h-4 w-4" />
@@ -176,7 +211,7 @@ export function EditorToolbar({ editor, onImageUpload, className }: EditorToolba
       <Tooltip label="밑줄" shortcut={SHORTCUTS.underline}>
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleUnderline().run()}
-          isActive={editor.isActive("underline")}
+          isActive={active.underline}
           title="밑줄 (Ctrl+U)"
         >
           <Underline className="h-4 w-4" />
@@ -185,7 +220,7 @@ export function EditorToolbar({ editor, onImageUpload, className }: EditorToolba
       <Tooltip label="인라인 코드" shortcut={SHORTCUTS.code}>
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleCode().run()}
-          isActive={editor.isActive("code")}
+          isActive={active.code}
           title="인라인 코드 (Ctrl+E)"
         >
           <Code2 className="h-4 w-4" />
@@ -194,7 +229,7 @@ export function EditorToolbar({ editor, onImageUpload, className }: EditorToolba
       <Tooltip label="위 첨자" shortcut={SHORTCUTS.superscript}>
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleSuperscript().run()}
-          isActive={editor.isActive("superscript")}
+          isActive={active.superscript}
           title="위 첨자 (Ctrl+.)"
         >
           <Superscript className="h-4 w-4" />
@@ -202,14 +237,14 @@ export function EditorToolbar({ editor, onImageUpload, className }: EditorToolba
       </Tooltip>
       {/* <ToolbarButton
         onClick={() => editor.chain().focus().toggleStrike().run()}
-        isActive={editor.isActive("strike")}
+        isActive={active.strike}
         title="취소선"
       >
         <Strikethrough className="h-4 w-4" />
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleHighlight().run()}
-        isActive={editor.isActive("highlight")}
+        isActive={active.highlight}
         title="형광펜"
       >
         <Highlighter className="h-4 w-4" />
@@ -221,7 +256,7 @@ export function EditorToolbar({ editor, onImageUpload, className }: EditorToolba
       <Tooltip label="제목 1" shortcut={SHORTCUTS.heading1}>
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-          isActive={editor.isActive("heading", { level: 1 })}
+          isActive={active.heading1}
           title="제목 1"
         >
           <Heading1 className="h-4 w-4" />
@@ -230,7 +265,7 @@ export function EditorToolbar({ editor, onImageUpload, className }: EditorToolba
       <Tooltip label="제목 2" shortcut={SHORTCUTS.heading2}>
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          isActive={editor.isActive("heading", { level: 2 })}
+          isActive={active.heading2}
           title="제목 2"
         >
           <Heading2 className="h-4 w-4" />
@@ -239,7 +274,7 @@ export function EditorToolbar({ editor, onImageUpload, className }: EditorToolba
       <Tooltip label="제목 3" shortcut={SHORTCUTS.heading3}>
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-          isActive={editor.isActive("heading", { level: 3 })}
+          isActive={active.heading3}
           title="제목 3"
         >
           <Heading3 className="h-4 w-4" />
@@ -252,7 +287,7 @@ export function EditorToolbar({ editor, onImageUpload, className }: EditorToolba
       <Tooltip label="글머리 기호 목록" shortcut={SHORTCUTS.bulletList}>
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBulletList().run()}
-          isActive={editor.isActive("bulletList")}
+          isActive={active.bulletList}
           title="글머리 기호 목록"
         >
           <List className="h-4 w-4" />
@@ -261,7 +296,7 @@ export function EditorToolbar({ editor, onImageUpload, className }: EditorToolba
       <Tooltip label="번호 목록" shortcut={SHORTCUTS.orderedList}>
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          isActive={editor.isActive("orderedList")}
+          isActive={active.orderedList}
           title="번호 목록"
         >
           <ListOrdered className="h-4 w-4" />
@@ -274,7 +309,7 @@ export function EditorToolbar({ editor, onImageUpload, className }: EditorToolba
       <Tooltip label="인용구" shortcut={SHORTCUTS.blockquote}>
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBlockquote().run()}
-          isActive={editor.isActive("blockquote")}
+          isActive={active.blockquote}
           title="인용구"
         >
           <Quote className="h-4 w-4" />
@@ -283,7 +318,7 @@ export function EditorToolbar({ editor, onImageUpload, className }: EditorToolba
       <Tooltip label="코드 블록" shortcut={SHORTCUTS.codeBlock}>
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-          isActive={editor.isActive("codeBlock")}
+          isActive={active.codeBlock}
           title="코드 블록"
         >
           <Code className="h-4 w-4" />
@@ -303,7 +338,7 @@ export function EditorToolbar({ editor, onImageUpload, className }: EditorToolba
       <Tooltip label="링크 삽입" shortcut={SHORTCUTS.link}>
         <ToolbarButton
           onClick={addLink}
-          isActive={editor.isActive("link")}
+          isActive={active.link}
           title="링크 삽입"
         >
           <Link className="h-4 w-4" />
@@ -316,7 +351,7 @@ export function EditorToolbar({ editor, onImageUpload, className }: EditorToolba
       <Tooltip label="왼쪽 정렬">
         <ToolbarButton
           onClick={() => editor.chain().focus().setTextAlign("left").run()}
-          isActive={editor.isActive({ textAlign: "left" })}
+          isActive={active.alignLeft}
           title="왼쪽 정렬"
         >
           <AlignLeft className="h-4 w-4" />
@@ -325,7 +360,7 @@ export function EditorToolbar({ editor, onImageUpload, className }: EditorToolba
       <Tooltip label="가운데 정렬">
         <ToolbarButton
           onClick={() => editor.chain().focus().setTextAlign("center").run()}
-          isActive={editor.isActive({ textAlign: "center" })}
+          isActive={active.alignCenter}
           title="가운데 정렬"
         >
           <AlignCenter className="h-4 w-4" />
@@ -334,7 +369,7 @@ export function EditorToolbar({ editor, onImageUpload, className }: EditorToolba
       <Tooltip label="오른쪽 정렬">
         <ToolbarButton
           onClick={() => editor.chain().focus().setTextAlign("right").run()}
-          isActive={editor.isActive({ textAlign: "right" })}
+          isActive={active.alignRight}
           title="오른쪽 정렬"
         >
           <AlignRight className="h-4 w-4" />

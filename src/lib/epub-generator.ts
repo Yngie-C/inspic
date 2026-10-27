@@ -6,7 +6,7 @@ import {
   sniffImageType,
   type ImageMime,
 } from "./image-upload";
-import { CHAPTER_IMAGES_BUCKET, COVERS_BUCKET } from "./storage-cleanup";
+import { isChapterImageUrl } from "./storage-image";
 
 // ── Minimal ZIP builder (no external dependency) ──────────────────────────
 
@@ -167,7 +167,7 @@ function stripHtml(html: string): string {
  * 그 장을 열지 못하는데, 깨진 채로도 내려받기는 200으로 끝나서 아무도
  * 모릅니다. 여기서 맞추는 것은 세 가지입니다.
  *
- * - 빈 요소(`<br>`, `<img>`, sanitize가 남기는 체크박스 `<input>` …)를 닫습니다.
+ * - 빈 요소(`<br>`, `<img>`, `<hr>` …)를 닫습니다.
  * - 속성값의 `<`·`>`를 이스케이프하고, 값 없는 속성에 값을 붙입니다.
  * - 이름 엔티티는 XML의 다섯 개만 남기고 숫자로 바꿉니다. DTD 없는
  *   XHTML에서 `&nbsp;`는 정의되지 않은 엔티티(치명적 오류)입니다.
@@ -240,28 +240,14 @@ const IMAGE_FETCH_TIMEOUT_MS = 10_000;
 /**
  * 우리 Storage의 공개 이미지만 받아 옵니다. 본문의 `src`는 저자가 정하는
  * 값이라, 아무 주소나 서버에서 받아 오면 내부망을 찌르는 통로가 됩니다.
+ *
+ * 판정은 sanitize와 같은 `isChapterImageUrl()`입니다 — 리더에 보이는 그림과
+ * EPUB에 담기는 그림이 같게(코드 리뷰 12-P2-1). sanitize가 `data:`·외부 주소를
+ * 지우므로 여기서도 받지 않습니다.
  */
 export async function loadStorageImage(src: string): Promise<EpubImage | null> {
-  const dataUri = src.match(/^data:image\/[a-z+.-]+;base64,([a-z0-9+/=\s]+)$/i);
-  if (dataUri) return checkedImage(Buffer.from(dataUri[1], "base64"));
-
-  const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!base) return null;
-  let url: URL;
-  try {
-    url = new URL(src);
-  } catch {
-    return null;
-  }
-  const allowedPrefixes = [CHAPTER_IMAGES_BUCKET, COVERS_BUCKET].map(
-    (bucket) => `/storage/v1/object/public/${bucket}/`,
-  );
-  if (
-    url.origin !== new URL(base).origin ||
-    !allowedPrefixes.some((prefix) => url.pathname.startsWith(prefix))
-  ) {
-    return null;
-  }
+  if (!isChapterImageUrl(src)) return null;
+  const url = new URL(src);
 
   try {
     const response = await fetch(url, {

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { isStorageImageUrl } from "./storage-image";
+import { isChapterImageUrl, isStorageImageUrl } from "./storage-image";
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -16,5 +16,22 @@ describe("isStorageImageUrl", () => {
   it("환경변수가 없으면 늘 거짓 — 최적화 없이 그린다", () => {
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
     expect(isStorageImageUrl("https://abc.supabase.co/storage/v1/object/public/covers/1.png")).toBe(false);
+  });
+});
+
+describe("isChapterImageUrl — 본문 이미지 (코드 리뷰 12-P2-1)", () => {
+  it("우리 chapter-images 공개 버킷의 파일만 참", () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://abc.supabase.co");
+    expect(isChapterImageUrl("https://abc.supabase.co/storage/v1/object/public/chapter-images/b/c/1.png")).toBe(true);
+    expect(isChapterImageUrl("https://abc.supabase.co/storage/v1/object/public/chapter-images/")).toBe(false);
+    expect(isChapterImageUrl("https://abc.supabase.co/storage/v1/object/public/covers/covers/b/1.png")).toBe(false);
+    expect(isChapterImageUrl("https://evil.supabase.co/storage/v1/object/public/chapter-images/b/c/1.png")).toBe(false);
+    expect(isChapterImageUrl("data:image/png;base64,AAAA")).toBe(false);
+    expect(isChapterImageUrl("")).toBe(false);
+  });
+
+  it("환경변수가 없으면 늘 거짓", () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
+    expect(isChapterImageUrl("https://abc.supabase.co/storage/v1/object/public/chapter-images/b/c/1.png")).toBe(false);
   });
 });

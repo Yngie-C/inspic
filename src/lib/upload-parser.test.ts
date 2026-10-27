@@ -1,6 +1,10 @@
 import JSZip from "jszip";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { MAX_RAW_CHAPTER_HTML_LENGTH } from "./content-stats";
 import {
+  UploadChapterTooLongError,
+  draftUpload,
+  finishUpload,
   parseUpload,
   extractTitleFromHtml,
   parseMdToChapters,
@@ -8,6 +12,7 @@ import {
   resolveExtension,
   splitHtmlIntoChapters,
   titleFromFileName,
+  type StoreUploadImage,
 } from "./upload-parser";
 
 /**
@@ -290,22 +295,40 @@ describe("parseMdToChapters", () => {
  * 최소한의 .docx — 문단마다 스타일(Heading1 등)을 붙일 수 있습니다.
  * mammoth가 실제로 읽는 경로를 지나가게 하려고 손으로 만든 파일입니다.
  */
-async function makeDocx(paragraphs: Array<{ text: string; style?: string }>) {
+async function makeDocx(
+  paragraphs: Array<{ text: string; style?: string; image?: { bytes: Uint8Array; alt: string } }>,
+) {
   const escape = (text: string) =>
     text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const body = paragraphs
-    .map(
-      ({ text, style }) =>
-        `<w:p>${style ? `<w:pPr><w:pStyle w:val="${style}"/></w:pPr>` : ""}` +
-        `<w:r><w:t xml:space="preserve">${escape(text)}</w:t></w:r></w:p>`,
-    )
-    .join("");
   const zip = new JSZip();
+  const relationships: string[] = [];
+  const body = paragraphs
+    .map(({ text, style, image }, index) => {
+      let drawing = "";
+      if (image) {
+        const id = `rIdImg${index}`;
+        zip.file(`word/media/image${index}.bin`, image.bytes);
+        relationships.push(
+          `<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image${index}.bin"/>`,
+        );
+        drawing =
+          `<w:r><w:drawing><wp:inline><wp:docPr id="${index + 1}" name="그림" descr="${escape(image.alt)}"/>` +
+          `<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic>` +
+          `<pic:blipFill><a:blip r:embed="${id}"/></pic:blipFill></pic:pic></a:graphicData></a:graphic>` +
+          `</wp:inline></w:drawing></w:r>`;
+      }
+      return (
+        `<w:p>${style ? `<w:pPr><w:pStyle w:val="${style}"/></w:pPr>` : ""}` +
+        `<w:r><w:t xml:space="preserve">${escape(text)}</w:t></w:r>${drawing}</w:p>`
+      );
+    })
+    .join("");
   zip.file(
     "[Content_Types].xml",
     '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
       '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
       '<Default Extension="xml" ContentType="application/xml"/>' +
+      '<Default Extension="bin" ContentType="image/png"/>' +
       '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
       "</Types>",
   );
@@ -316,8 +339,18 @@ async function makeDocx(paragraphs: Array<{ text: string; style?: string }>) {
       "</Relationships>",
   );
   zip.file(
+    "word/_rels/document.xml.rels",
+    '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      relationships.join("") +
+      "</Relationships>",
+  );
+  zip.file(
     "word/document.xml",
-    '<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+    '<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"' +
+      ' xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"' +
+      ' xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"' +
+      ' xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"' +
+      ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
       `<w:body>${body}</w:body></w:document>`,
   );
   const buffer = await zip.generateAsync({ type: "uint8array" });
@@ -367,5 +400,101 @@ describe("parseUpload — 실제 파일 경로", () => {
 
     expect(chapters.map((chapter) => chapter.title)).toEqual(["하나", "둘"]);
     expect(chapters[0].content_raw).not.toContain("\r");
+  });
+});
+
+describe("업로드 원고의 서식 (코드 리뷰 12-P1-3·12-P1-4)", () => {
+  it("Markdown 할 일 목록은 체크 상자가 아니라 [ ]/[x] 글자로 남긴다", async () => {
+    const [chapter] = await parseMdToChapters("- [ ] 할 일\n- [x] 끝낸 일");
+
+    expect(chapter.content_html).not.toContain("<input");
+    expect(chapter.content_html).toContain("[ ] 할 일");
+    expect(chapter.content_html).toContain("[x] 끝낸 일");
+  });
+
+  it("Markdown 취소선을 남긴다 — 옛 가격이 지금 가격처럼 읽히지 않게", async () => {
+    const [chapter] = await parseMdToChapters("~~3만 원~~ 2만 원");
+
+    expect(chapter.content_html).toContain("<del>3만 원</del>");
+  });
+});
+
+describe("원문 크기를 sanitize 전에 본다 (12-P0-2)", () => {
+  it("원문 상한을 넘는 장이 있으면 어느 장인지 담아 던진다", async () => {
+    const huge = "<div>".repeat(MAX_RAW_CHAPTER_HTML_LENGTH / 5 + 1);
+    const file = new Blob([`# 짧은 장\n\n가\n\n# 긴 장\n\n${huge}`]);
+
+    const error = await draftUpload(file, "md").catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(UploadChapterTooLongError);
+    expect(error).toMatchObject({ index: 1, title: "긴 장" });
+  });
+});
+
+describe("업로드 원고의 그림 (코드 리뷰 12-P2-1, 결정 2)", () => {
+  const STORAGE = "https://project.supabase.co";
+  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("DOCX 그림을 장마다 올리고 그 주소를 넣는다 — data: URI로 넣지 않는다", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", STORAGE);
+    const file = await makeDocx([
+      { text: "1장", style: "Heading1" },
+      { text: "도표 앞", image: { bytes: PNG, alt: "매출 도표" } },
+      { text: "2장", style: "Heading1" },
+      { text: "사진 앞", image: { bytes: PNG, alt: "현장 사진" } },
+    ]);
+    const store = vi.fn<StoreUploadImage>(async (chapterIndex) =>
+      `${STORAGE}/storage/v1/object/public/chapter-images/book/ch${chapterIndex}/a.png`,
+    );
+
+    const draft = await draftUpload(file, "docx");
+    const { chapters, droppedImages } = await finishUpload(draft, store);
+
+    expect(store.mock.calls.map(([index, image]) => [index, image.mime])).toEqual([
+      [0, "image/png"],
+      [1, "image/png"],
+    ]);
+    expect(chapters[0].content_html).toContain(
+      `<img alt="매출 도표" src="${STORAGE}/storage/v1/object/public/chapter-images/book/ch0/a.png">`,
+    );
+    expect(chapters[1].content_html).toContain("/ch1/a.png");
+    expect(chapters.map((c) => c.content_html).join("")).not.toContain("data:");
+    expect(droppedImages).toBe(0);
+  });
+
+  it("올리지 못한 그림과 버킷이 받지 않는 형식은 대체 글로 남기고 개수를 센다", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", STORAGE);
+    const file = await makeDocx([
+      { text: "본문", image: { bytes: PNG, alt: "올리다 실패" } },
+      { text: "EMF", image: { bytes: new Uint8Array([1, 2, 3, 4]), alt: "벡터 그림" } },
+    ]);
+
+    const { chapters, droppedImages } = await finishUpload(
+      await draftUpload(file, "docx"),
+      async () => null,
+    );
+
+    expect(chapters[0].content_html).not.toContain("<img");
+    expect(chapters[0].content_html).toContain("올리다 실패");
+    expect(chapters[0].content_html).toContain("벡터 그림");
+    expect(droppedImages).toBe(2);
+  });
+
+  it("Markdown의 바깥 주소 그림은 받아 오지 않고 대체 글로 남긴다", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", STORAGE);
+    const ours = `${STORAGE}/storage/v1/object/public/chapter-images/b/c/a.png`;
+    const file = new Blob([`![바깥 그림](https://elsewhere.example/a.png)\n\n![우리 그림](${ours})`]);
+    const store = vi.fn(async () => null);
+
+    const { chapters, droppedImages } = await finishUpload(await draftUpload(file, "md"), store);
+
+    expect(store).not.toHaveBeenCalled();
+    expect(chapters[0].content_html).toContain("<p>바깥 그림</p>");
+    expect(chapters[0].content_html).toContain(`<img src="${ours}" alt="우리 그림">`);
+    expect(droppedImages).toBe(1);
   });
 });

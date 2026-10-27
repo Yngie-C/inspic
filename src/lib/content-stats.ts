@@ -37,6 +37,22 @@ export function isChapterHtmlTooLong(html: string): boolean {
   return chapterHtmlLength(html) > MAX_CHAPTER_HTML_LENGTH;
 }
 
+/**
+ * sanitize **전에** 보는 원문 상한(코드 리뷰 12-P0-2). sanitize는 입력 전체를
+ * jsdom으로 동기 파싱해서, 수십 MB짜리 중첩 `<div>` 하나가 서버 인스턴스를 몇
+ * 초씩 붙잡습니다. sanitize가 지우는 속성·태그 몫을 두고 저장 상한의 두 배로
+ * 넉넉히 잡습니다. 저장 상한(`isChapterHtmlTooLong`)은 sanitize 뒤에 그대로 봅니다.
+ */
+export const MAX_RAW_CHAPTER_HTML_LENGTH = MAX_CHAPTER_HTML_LENGTH * 2;
+
+/**
+ * UTF-16 길이로 봅니다. 한 글자는 많아야 두 단위라, 이 상한을 넘는 원문은 코드
+ * 포인트로도 저장 상한을 넘습니다 — 이모지만 가득한 글도 거짓으로 막지 않습니다.
+ */
+export function isRawChapterHtmlTooLong(html: string): boolean {
+  return html.length > MAX_RAW_CHAPTER_HTML_LENGTH;
+}
+
 /** 크리에이터에게 보여 줄 거절 사유. 에디터가 그대로 띄웁니다. */
 export const CHAPTER_TOO_LONG_MESSAGE =
   "본문이 너무 길어 저장하지 못했어요. 붙여 넣은 이미지가 있다면 지우고 이미지 버튼으로 다시 올리거나, 장을 나눠 주세요.";

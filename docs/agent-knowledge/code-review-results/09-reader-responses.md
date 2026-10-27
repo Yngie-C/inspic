@@ -114,6 +114,30 @@
 
 **8. 확인** — `npm run typecheck && npm test && npm run lint`(에러 9개 이하), `npm run build`.
 
+### 묶음 9-B 계획
+
+> 2026-10-27 수정함. 지적 12건을 모두 코드와 대조했고 오판은 없었어요. 12건 모두 `usePagedColumns.ts`·`ReaderView.tsx`·`turn-input.ts`·`paged.css`에서 고쳤어요. 쪽 계산은 jsdom에 레이아웃이 없어 순수 함수(`firstStartingOn`, `keyTurn`)만 테스트했고, 나머지는 브라우저에서 확인해야 해요.
+
+**1. 재기 전 넘김 막기 (P1-4, P1-5)** — `next`/`prev`는 새 장을 재기 전(`pendingRef`가 남아 있는 동안)이면 넘기지 않고 `true`(처리함)를 돌려줘요. 예전의 `pageRef=0`·`totalRef=1` 임시값은 뺐어요 — 그 값 때문에 → 두 번이 다음 장으로 갔어요. 목차에서 지금 장을 다시 고르면 `contentKey`가 그대로라 재지 않으므로 `startAt` 대신 새 `first()`로 첫 쪽에 가요.
+
+**2. 기준 요소 (P1-6, P1-7)** — `anchorOn`은 그 쪽에서 **시작하는** 요소만 고르고, 앞 쪽에서 시작한 요소가 쪽 전체를 차지하면 null(`firstStartingOn`). 본문에 장별 `key`를 두고, `contentKey`가 바뀌면 옛 기준 요소가 붙어 있어도 버리고 첫 쪽에서 시작해요.
+
+**3. 소수 폭 (P1-8)** — 쪽 폭·이동 거리·`columnWidth`를 `getBoundingClientRect().width`로.
+
+**4. 넘긴 뒤 포커스 (P1-9)** — 키·버튼으로 넘길 때 포커스가 본문 안 다른 쪽에 있으면 새 쪽의 첫 버튼·링크로 옮기고, 없으면 놓아요(`turnTo`). `focusin`이 부르는 `goTo`는 그대로예요.
+
+**5. 넓은 표 (P1-10)** — `.paged-columns table`을 `display: block; max-width: 100%; overflow-x: auto`로.
+
+**6. 탭 영역 (P1-21)** — 좌우 20%를 `<main>`이 아니라 본문(`clipRef`) 폭 기준으로. 본문 밖 여백은 그쪽 방향으로 넘겨요.
+
+**7. 목차 상태 (P1-22)** — `(min-width: 601px)`가 되면 `tocOpen`을 닫아요(`matchMedia` change 리스너).
+
+**8. 키 정리 (P2-8~10)** — `keyTurn`이 `defaultPrevented`와 그 축으로 넘치는 스크롤 영역(`insideScrollable`: 화살표는 가로, PageUp/Down은 세로) 안의 키를 넘기지 않아요. 미리보기는 `isFirst`도 막아요. keydown 리스너는 `useEffectEvent`로 한 번만 붙여요.
+
+**9. 테스트** — `usePagedColumns.test.ts`(기준 요소 3개), `turn-input.test.ts`(이미 처리된 키, 가로·세로 스크롤 영역 3개). `ReaderSheet.test.tsx`에 `matchMedia` 스텁.
+
+**10. 브라우저에서 확인할 것** — 5/12쪽에서 목차로 지금 장 다시 고르기, 장 끝에서 → 빠르게 두 번, 긴 목록이 쪽을 채운 상태에서 주소창 접기·창 크기 바꾸기, 브라우저 확대 125%·소수 폭에서 50쪽 넘기기, 카드 버튼에 포커스를 둔 채 →·Tab·Enter, DOCX 넓은 표, 데스크톱 본문 앞 클릭, 모바일 목차 연 채 창 넓히기.
+
 ### 결정이 필요한 것
 
 1. **P1-14 로그인 뒤 돌아올 위치.** 장을 URL(`/reader/{id}?chapter={chapterId}`)에 싣는 방안을 권장해요. 서버에 읽던 위치를 저장하는 것이 아니라 돌아올 주소일 뿐이라 범위 밖 기능("읽던 쪽 저장")에 해당하지 않는다고 봐요. 쪽 번호는 싣지 않아요(쪽은 화면마다 다름).

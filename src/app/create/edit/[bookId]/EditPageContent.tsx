@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -36,6 +36,7 @@ import {
 import { MAX_CHAPTER_TITLE_LENGTH } from "@/lib/authoring-input";
 import type { PublishCheck } from "@/lib/publish-checks";
 import type { Book, Chapter } from "@/types";
+import { useChapterSaver } from "./useChapterSaver";
 
 async function fetchBook(id: string): Promise<Book> {
   const res = await fetch(`/api/books/${id}`);
@@ -100,8 +101,6 @@ export function EditPageContent() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
-  const [saved, setSaved] = useState(true);
-  const [saveError, setSaveError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   // 책 공개·내리기 실패(차단 제외 — 차단은 배너가 보여 줍니다).
@@ -111,11 +110,39 @@ export function EditPageContent() {
   // 그쪽의 "다시 시도"는 본문을 다시 저장합니다.
   const [chapterError, setChapterError] = useState<string | null>(null);
   const [statusChanging, setStatusChanging] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [leaving, setLeaving] = useState(false);
+
+  // 장 저장은 장마다 한 번에 하나이고, 결과는 그 장에만 붙습니다(11-B).
+  // "저장됨"·"저장 안 됨"은 지금 연 장의 상태에서 옵니다.
+  const saver = useChapterSaver(bookId);
+  const selectedStatus = saver.statusOf(selectedId);
+  const saved = !selectedStatus.dirty;
+  const saveError = selectedStatus.failure;
+  // 입력 핸들러가 읽는 지금 장과 편집 값. 에디터가 처음 받은 콜백을 들고
+  // 있어도 옛 장·옛 제목으로 저장하지 않게 렌더 밖에 둡니다.
+  const draftRef = useRef<{ chapterId: string | null; title: string; contentHtml: string }>({
+    chapterId: null,
+    title: "",
+    contentHtml: "",
+  });
+
+  const openChapter = (ch: Chapter | null) => {
+    const title = ch?.title ?? "";
+    const contentHtml = ch ? ch.content_html || ch.content_raw || "" : "";
+    draftRef.current = { chapterId: ch?.id ?? null, title, contentHtml };
+    setSelectedId(ch?.id ?? null);
+    setEditTitle(title);
+    setEditContent(contentHtml);
+  };
 
   useEffect(() => {
     if (chapters.length > 0 && !selectedId) {
       const first = chapters[0];
+      draftRef.current = {
+        chapterId: first.id,
+        title: first.title,
+        contentHtml: first.content_html || first.content_raw || "",
+      };
       setSelectedId(first.id);
       setEditTitle(first.title);
       setEditContent(first.content_html || first.content_raw || "");
@@ -125,49 +152,8 @@ export function EditPageContent() {
   const selectedChapter = chapters.find((c) => c.id === selectedId);
 
   /**
-   * 실패하면 "저장됨"을 띄우지 않습니다. 저장된 줄 알고 다른 장으로
-   * 넘어가거나 창을 닫으면 그동안 쓴 글이 사라집니다.
-   */
-  const saveChapter = useCallback(
-    async (id: string, title: string, contentHtml: string): Promise<boolean> => {
-      try {
-        // 제목을 지우고 다시 쓰는 사이에도 본문은 저장돼야 합니다. 빈
-        // 제목은 서버가 거절하므로 보내지 않고, 이전 제목을 그대로 둡니다.
-        const res = await fetch(`/api/chapters/${id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(
-            title.trim()
-              ? { title, content_html: contentHtml }
-              : { content_html: contentHtml },
-          ),
-        });
-        if (!res.ok) {
-          const json = await res.json().catch(() => ({}));
-          // 서버 문구는 크리에이터가 풀 수 있는 거절일 때만 띄웁니다.
-          setSaveError(
-            (json.code === "CONTENT_TOO_LONG" || json.code === "VALIDATION_ERROR") &&
-              typeof json.error === "string"
-              ? json.error
-              : "저장하지 못했어요. 연결을 확인한 뒤 다시 시도하세요.",
-          );
-          return false;
-        }
-      } catch {
-        setSaveError("저장하지 못했어요. 연결을 확인한 뒤 다시 시도하세요.");
-        return false;
-      }
-      setSaved(true);
-      setSaveError(null);
-      qc.invalidateQueries({ queryKey: ["chapters", bookId] });
-      qc.invalidateQueries({ queryKey: ["publish-blockers", bookId] });
-      return true;
-    },
-    [bookId, qc],
-  );
-
-  /**
-   * 장을 바꾸기 전에 대기 중인 저장을 먼저 끝냅니다.
+   * 장을 바꾸기 전에 그 장의 저장을 먼저 끝냅니다 — 대기 타이머와 도는
+   * 저장을 둘 다 기다립니다.
    *
    * 저장이 3초 디바운스라, 예전에는 입력 직후 다른 장을 누르면 타이머만
    * 지우고 그 입력을 버렸습니다. 잘라낸 블록이 원래 장에 그대로 남아,
@@ -175,34 +161,37 @@ export function EditPageContent() {
    * 저장에 실패하면 장을 바꾸지 않고 "저장 안 됨"을 그대로 둡니다.
    */
   const selectChapter = async (ch: Chapter) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (selectedId && selectedId !== ch.id && !saved) {
-      const ok = await saveChapter(selectedId, editTitle, editContent);
+    const current = draftRef.current.chapterId;
+    // 지금 장을 다시 누르면 아무것도 하지 않습니다. 캐시 값으로 다시 열면
+    // 아직 저장 중인 입력이 편집 값에서 사라집니다.
+    if (current === ch.id) return;
+    if (current) {
+      const ok = await saver.queue.flush(current);
       if (!ok) return;
     }
-    setSelectedId(ch.id);
-    setEditTitle(ch.title);
-    setEditContent(ch.content_html || ch.content_raw || "");
-    setSaved(true);
-    setSaveError(null);
+    openChapter(ch);
+  };
+
+  /** 입력마다 그 장의 저장 줄에 마지막 값을 넣고 디바운스를 다시 겁니다. */
+  const queueEdit = (patch: { title?: string; contentHtml?: string }, delayMs: number) => {
+    const draft = { ...draftRef.current, ...patch };
+    draftRef.current = draft;
+    if (!draft.chapterId) return;
+    saver.queue.edit(
+      draft.chapterId,
+      { title: draft.title, contentHtml: draft.contentHtml },
+      delayMs,
+    );
   };
 
   const handleContentChange = (html: string) => {
     setEditContent(html);
-    setSaved(false);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      if (selectedId) saveChapter(selectedId, editTitle, html);
-    }, 3000);
+    queueEdit({ contentHtml: html }, 3000);
   };
 
   const handleTitleChange = (val: string) => {
     setEditTitle(val);
-    setSaved(false);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      if (selectedId) saveChapter(selectedId, val, editContent);
-    }, 1500);
+    queueEdit({ title: val }, 1500);
   };
 
   /**
@@ -232,23 +221,36 @@ export function EditPageContent() {
     }
   };
 
+  /**
+   * 지우기 전에 그 장의 대기 타이머를 지우고 도는 저장을 기다립니다 —
+   * 3초 뒤 지운 장에 저장이 가서 없는 장의 "저장 안 됨"이 뜨지 않게(P1-6).
+   * 지운 뒤에는 캐시에서 그 장을 먼저 빼고 다음 장을 엽니다. 다시
+   * 불러오기를 기다리면 지운 장이 든 옛 목록에서 고르게 됩니다(P1-7).
+   */
   const deleteChapter = async (id: string) => {
     if (!confirm("이 장을 삭제할까요? 되돌릴 수 없어요.")) return;
     setChapterError(null);
+    await saver.queue.hold(id);
     try {
       const res = await fetch(`/api/chapters/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
     } catch {
+      saver.queue.release(id);
       setChapterError("장을 삭제하지 못했어요. 잠시 뒤 다시 시도해 주세요.");
       return;
     }
+    saver.queue.discard(id);
+    const remaining = (qc.getQueryData<Chapter[]>(["chapters", bookId]) ?? []).filter(
+      (c) => c.id !== id,
+    );
+    qc.setQueryData<Chapter[]>(["chapters", bookId], remaining);
+    if (draftRef.current.chapterId === id) {
+      const index = chapters.findIndex((c) => c.id === id);
+      const next = remaining[Math.min(Math.max(index, 0), remaining.length - 1)] ?? null;
+      openChapter(next);
+    }
     qc.invalidateQueries({ queryKey: ["chapters", bookId] });
     qc.invalidateQueries({ queryKey: ["book", bookId] });
-    if (selectedId === id) {
-      setSelectedId(null);
-      setEditTitle("");
-      setEditContent("");
-    }
   };
 
   const bookPublished = book?.status === "published";
@@ -270,6 +272,9 @@ export function EditPageContent() {
     setChapterError(null);
     setStatusChanging(true);
     try {
+      // 검수가 방금 고친 본문을 보도록 저장을 먼저 끝냅니다. 실패하면
+      // 전환하지 않고 "저장 안 됨"을 그대로 둡니다(P1-8).
+      if (!(await flushPendingSave())) return;
       const res = await fetch(`/api/chapters/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -300,12 +305,17 @@ export function EditPageContent() {
    * 디바운스라, 그냥 넘어가면 검수는 옛 본문을 보고 크리에이터는 방금 쓴
    * 글이 반영된 줄 압니다. 저장에 실패하면 false — 진행하지 않습니다.
    */
-  const flushPendingSave = async (): Promise<boolean> => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (selectedId && !saved) {
-      return saveChapter(selectedId, editTitle, editContent);
+  const flushPendingSave = (): Promise<boolean> => saver.queue.flushAll();
+
+  /** 저장을 끝낸 뒤 스튜디오로 갑니다. 실패하면 머뭅니다(P1-11). */
+  const leaveToStudio = async () => {
+    setLeaving(true);
+    try {
+      if (!(await flushPendingSave())) return;
+      router.push("/creator");
+    } finally {
+      setLeaving(false);
     }
-    return true;
   };
 
   const openPreview = async () => {
@@ -408,7 +418,12 @@ export function EditPageContent() {
       {/* Top bar */}
       <div className="flex items-center justify-between border-b border-line bg-paper px-4 py-3 sm:px-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => router.push("/creator")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void leaveToStudio()}
+            isLoading={leaving}
+          >
             <ArrowLeft className="h-4 w-4 mr-1" />
             스튜디오
           </Button>
@@ -422,10 +437,7 @@ export function EditPageContent() {
               {selectedId && (
                 <button
                   type="button"
-                  onClick={() => {
-                    if (debounceRef.current) clearTimeout(debounceRef.current);
-                    void saveChapter(selectedId, editTitle, editContent);
-                  }}
+                  onClick={() => void saver.queue.flush(selectedId)}
                   className="font-medium text-primary underline underline-offset-2"
                 >
                   다시 시도
@@ -562,6 +574,11 @@ export function EditPageContent() {
               >
                 <GripVertical className="h-4 w-4 shrink-0 opacity-40" />
                 <span className="flex-1 truncate">{ch.title}</span>
+                {/* 다른 장의 저장 실패는 그 장 옆에 남깁니다. 지금 연 장은
+                    위 막대가 이유와 [다시 시도]를 보여 줍니다(P1-9). */}
+                {selectedId !== ch.id && saver.statusOf(ch.id).failure && (
+                  <span className="shrink-0 text-xs font-semibold text-danger">저장 안 됨</span>
+                )}
                 {ch.status === "draft" && (
                   <span className="shrink-0 text-xs font-normal text-muted">비공개</span>
                 )}
