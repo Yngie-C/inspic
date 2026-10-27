@@ -56,6 +56,7 @@ export function createFakeSupabase(
       "upsert",
       "delete",
       "eq",
+      "is",
       "in",
       "like",
       "or",

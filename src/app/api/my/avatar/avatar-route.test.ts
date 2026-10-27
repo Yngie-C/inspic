@@ -42,6 +42,9 @@ vi.mock("@/lib/supabase/admin", () => ({
       mocks.adminQueries.add(mocks.queries.at(-1)!);
       return builder;
     },
+    get storage() {
+      return (mocks.client as unknown as { storage: unknown }).storage;
+    },
   }),
 }));
 
@@ -63,10 +66,15 @@ function upload(bytes: Uint8Array = PNG): NextRequest {
 
 function respondWith(rest: (query: RecordedQuery) => QueryResult = () => OK_EMPTY) {
   mocks.respond = (query) => {
+    const result = rest(query);
+    if (result !== OK_EMPTY) return result;
+    if (query.table === "user_profiles" && query.ops.includes("update")) {
+      return { data: { user_id: USER }, error: null };
+    }
     if (query.table === "user_profiles" && query.ops.includes("maybeSingle")) {
       return { data: { avatar_url: mocks.avatarUrl }, error: null };
     }
-    return rest(query);
+    return OK_EMPTY;
   };
 }
 
@@ -91,7 +99,7 @@ describe("POST /api/my/avatar", () => {
     expect(res.status).toBe(200);
 
     const order = steps();
-    expect(order[0]).toMatch(new RegExp(`^upload:"${USER}/\\d+\\.png"$`));
+    expect(order[0]).toMatch(new RegExp(`^upload:"${USER}/[0-9a-f-]{36}\\.png"$`));
     expect(order[1]).toBe("update");
     expect(order[2]).toBe(`remove:${JSON.stringify([OLD_PATH])}`);
   });
@@ -104,7 +112,9 @@ describe("POST /api/my/avatar", () => {
 
   it("프로필 갱신이 실패하면 옛 파일은 두고 방금 올린 파일을 지운다", async () => {
     respondWith((query) =>
-      query.table === "user_profiles" ? { data: null, error: { message: "db down" } } : OK_EMPTY,
+      query.table === "user_profiles" && query.ops.includes("update")
+        ? { data: null, error: { message: "db down" } }
+        : OK_EMPTY,
     );
 
     const res = await POST(upload());
@@ -136,15 +146,59 @@ describe("DELETE /api/my/avatar", () => {
   it("프로필을 먼저 비우고 파일을 지운다", async () => {
     const res = await DELETE();
     expect(res.status).toBe(200);
-    expect(steps()).toEqual(["update", `remove:${JSON.stringify([OLD_PATH])}`]);
+    // 마지막은 본인 폴더의 옛 사진 정리(10-P1-10)입니다.
+    expect(steps()).toEqual([
+      "update",
+      `remove:${JSON.stringify([OLD_PATH])}`,
+      `list:${JSON.stringify(USER)}`,
+    ]);
   });
 
   it("비우기가 실패하면 파일을 지우지 않는다", async () => {
     respondWith((query) =>
-      query.table === "user_profiles" ? { data: null, error: { message: "db down" } } : OK_EMPTY,
+      query.table === "user_profiles" && query.ops.includes("update")
+        ? { data: null, error: { message: "db down" } }
+        : OK_EMPTY,
     );
     const res = await DELETE();
     expect(res.status).toBe(500);
     expect(steps().some((s) => s.startsWith("remove"))).toBe(false);
+  });
+});
+
+describe("겹친 요청과 옛 사진 정리 (코드 리뷰 10-B)", () => {
+  it("그 사이 사진이 바뀌었으면 409, 방금 올린 파일만 지운다", async () => {
+    respondWith((query) =>
+      query.table === "user_profiles" && query.ops.includes("update")
+        ? { data: null, error: null }
+        : OK_EMPTY,
+    );
+    // 다시 읽으면 다른 요청이 올린 사진을 가리킵니다.
+    mocks.avatarUrl = `https://project.supabase.co/storage/v1/object/public/avatars/${USER}/other.png`;
+    const res = await POST(upload());
+    expect(res.status).toBe(409);
+    const uploaded = mocks.queries.find((q) => q.ops.includes("upload"))!.args.upload;
+    const removes = mocks.queries.filter((q) => q.ops.includes("remove"));
+    expect(removes.map((q) => q.args.remove)).toEqual([[uploaded]]);
+  });
+
+  it("성공하면 본인 폴더에서 10분 넘은, 행이 가리키지 않는 사진을 지운다", async () => {
+    const old = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const fresh = new Date().toISOString();
+    respondWith((query) =>
+      query.ops.includes("list")
+        ? {
+            data: [
+              { id: "1", name: "orphan.png", created_at: old },
+              { id: "2", name: "just-uploaded.png", created_at: fresh },
+            ],
+            error: null,
+          }
+        : OK_EMPTY,
+    );
+    const res = await DELETE();
+    expect(res.status).toBe(200);
+    const removes = mocks.queries.filter((q) => q.ops.includes("remove"));
+    expect(removes.map((q) => q.args.remove)).toEqual([[OLD_PATH], [`${USER}/orphan.png`]]);
   });
 });

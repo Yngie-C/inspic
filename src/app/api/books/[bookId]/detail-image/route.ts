@@ -7,6 +7,7 @@ import { bookImageHandlers } from "@/lib/book-image-route";
 export const { POST, DELETE } = bookImageHandlers({
   column: "detail_image_url",
   filePrefix: "detail-",
+  resetColumns: ["detail_image_alt"],
   objectLabel: "소개 이미지를",
   logTag: "detail-image",
 });
