@@ -1,4 +1,5 @@
 import { bookImageHandlers } from "@/lib/book-image-route";
+import { DETAIL_IMAGE_PREFIX } from "@/lib/storage-cleanup";
 
 /**
  * 책 소개 이미지(책 상세의 "책 소개" 아래 한 장) 교체·삭제. 선택사항입니다.
@@ -6,7 +7,7 @@ import { bookImageHandlers } from "@/lib/book-image-route";
  */
 export const { POST, DELETE } = bookImageHandlers({
   column: "detail_image_url",
-  filePrefix: "detail-",
+  filePrefix: DETAIL_IMAGE_PREFIX,
   resetColumns: ["detail_image_alt"],
   objectLabel: "소개 이미지를",
   logTag: "detail-image",

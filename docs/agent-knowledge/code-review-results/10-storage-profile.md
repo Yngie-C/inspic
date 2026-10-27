@@ -143,6 +143,8 @@
 
 ### 묶음 10-C 계획 — Storage 정리
 
+> 2026-10-27 수정함. 지적 11건(P1-13~19, P2-9~12)과 11-P2-3(= P1-18)을 고쳤어요. 계획과 다른 점: 판정 기준은 `storageImageBase()`에 더해 `storagePublicPath()`(우리 origin의 공개 경로 뒤를 꺼냄)를 두고 `publicObjectPath`·`isStorageImageUrl`·`isChapterImageUrl`이 함께 써요 — 이제 환경변수가 없으면 지울 파일 경로도 null이에요(아무것도 지우지 않음). `coverStoragePath(url, bookId, kind)`의 kind는 `bookImageHandlers()`가 컬럼으로 정하고, 앞머리 `detail-`은 상수 `DETAIL_IMAGE_PREFIX`를 소개 이미지 라우트와 함께 써요. `removeBookFiles(bookId)`는 행 URL 인자를 없앴어요(폴더를 통째로 비우므로). 본문 이미지 참조는 `%/chapter-images/{bookId}/%`로 **모든 책의** 장을 한 번 읽어요 — 다른 책에 복사해 붙인 이미지도 원래 책 폴더를 가리키기 때문에 "그 책 안만"으로 좁히지 않았어요. `remove()` 결과는 `removeObjects()` 한 곳에서 대조해 지워지지 않은 경로를 로그로 남겨요(아바타 옛 사진 정리도 같은 함수). 장·책 DELETE는 정리를 `after()`로 응답 뒤에 돌려요(결정 3). P1-19는 [storage-operations.md](../storage-operations.md)의 운영 절차로 두었어요(결정 4) — 정리하다 보니 사용자를 지우면 `books`도 CASCADE로 사라지는데 그 경로는 책 파일도 남기므로, 절차에 "책을 앱에서 먼저 지운다"를 넣었어요. 테스트: `storage-cleanup.test.ts`(18), `storage-image.test.ts`(+3), 표지·소개 이미지·아바타 라우트 테스트에 Storage origin 환경변수를 넣었어요. 새 테스트 11개가 고치기 전 코드에서 실패하는 것을 확인했어요. 배포본과 로컬 Supabase에서의 확인은 아직이에요.
+
 **1. "우리 Storage URL인가" 한 벌 (P1-14·P2-9·P2-11)** — `lib/storage-image.ts`에 `storageImageBase()`(환경변수 → origin·경로 접두사)를 두고 `publicObjectPath`·`isStorageImageUrl`·`next.config.ts`가 함께 씀. `publicObjectPath`는 origin이 다르면 null. 로컬 호스트(127.0.0.1·localhost)면 `isStorageImageUrl`이 false를 돌려 `unoptimized`로.
 
 **2. 파일명 앞머리 (P1-13)** — `coverStoragePath(url, bookId, kind)`에서 `kind: "cover"`면 `detail-`로 시작하는 파일을 거절, `"detail"`이면 `detail-`만 받음.

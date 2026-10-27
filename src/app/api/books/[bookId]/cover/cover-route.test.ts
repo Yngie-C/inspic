@@ -1,7 +1,11 @@
 // @vitest-environment node
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi, afterEach } from "vitest";
 import type { NextRequest } from "next/server";
 import { OK_EMPTY, type QueryResult, type RecordedQuery } from "@/test/fake-supabase";
+
+// 지울 파일 경로는 우리 Storage origin의 URL에서만 꺼냅니다(코드 리뷰 10-P1-14).
+beforeEach(() => vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://project.supabase.co"));
+afterEach(() => vi.unstubAllEnvs());
 
 /**
  * 표지 교체·삭제 순서와 오류 안내 (코드 리뷰 5-P1-7, 5-P1-9).

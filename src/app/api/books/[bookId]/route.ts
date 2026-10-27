@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { after, NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import {
   getAuthUser,
@@ -241,7 +241,7 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
 
   const { data: existing, error: fetchError } = await supabase
     .from("books")
-    .select("owner_id, cover_image_url, detail_image_url")
+    .select("owner_id")
     .eq("id", bookId)
     .single();
 
@@ -268,8 +268,8 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
   }
 
   // 파일은 책이 지워진 뒤에 지웁니다. 먼저 지우면 삭제가 거절됐을 때(판매된
-  // 책) 산 독자의 표지·본문 이미지가 깨집니다.
-  await removeBookFiles(bookId, [existing.cover_image_url, existing.detail_image_url]);
+  // 책) 산 독자의 표지·본문 이미지가 깨집니다. 정리는 응답 뒤에 돕니다.
+  after(() => removeBookFiles(bookId));
 
   return apiSuccess({ deleted: true });
 }

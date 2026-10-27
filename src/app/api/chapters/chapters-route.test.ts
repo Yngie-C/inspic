@@ -64,6 +64,14 @@ vi.mock("@/lib/publish-checks-loader", () => ({
   loadPublishChecks: loader.load,
 }));
 
+// `after()`는 요청 밖에서 부르면 던집니다. 응답 뒤 작업을 그 자리에서 돌립니다.
+vi.mock("next/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/server")>()),
+  after: (task: () => unknown) => {
+    void task();
+  },
+}));
+
 const cleanup = vi.hoisted(() => ({ removeChapterImages: vi.fn(async () => {}) }));
 vi.mock("@/lib/storage-cleanup", () => cleanup);
 
