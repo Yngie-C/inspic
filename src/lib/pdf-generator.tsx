@@ -395,7 +395,10 @@ export function stripHtmlForPdf(html: string): TextBlock[] {
     .replace(/<br\s*\/?>/gi, "\n")
     // 인라인 태그는 내용만 남깁니다. 이름 뒤에 경계를 두지 않으면 `<b`가
     // `<blockquote>`, `<u`가 `<ul>`, `<s`가 `<section>`까지 먹습니다.
-    .replace(/<\/?(?:strong|b|em|i|u|s|mark|span|a)(?:\s[^>]*)?>/gi, "")
+    // 업로드가 내는 `del`·`sub`(12-P1-4)도 여기서 내용만 남깁니다 — 빠지면 태그
+    // 자리가 공백이 되어 `CO<sub>2</sub>`가 "CO 2"로 찍힙니다. 취소선·아래 첨자
+    // 모양은 PDF 서식 재작업(13-E)에서 다룹니다.
+    .replace(/<\/?(?:strong|b|em|i|u|s|del|sub|mark|span|a)(?:\s[^>]*)?>/gi, "")
     // 위 첨자는 표시로 바꿔 둡니다. 내용만 남기면 각주 번호가 본문 숫자처럼 붙습니다.
     .replace(/<sup(?:\s[^>]*)?>/gi, SUP_OPEN)
     .replace(/<\/sup>/gi, SUP_CLOSE);

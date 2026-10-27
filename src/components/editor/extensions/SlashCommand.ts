@@ -1,4 +1,5 @@
 import { Extension } from "@tiptap/core";
+import { PluginKey } from "@tiptap/pm/state";
 import { ReactRenderer } from "@tiptap/react";
 import Suggestion from "@tiptap/suggestion";
 import {
@@ -113,6 +114,13 @@ const SLASH_ITEMS: SlashMenuItem[] = [
   ...BASIC_ITEMS.map((item) => ({ ...item, category: "기본 블록" })),
 ];
 
+/**
+ * 슬래시 메뉴(Suggestion 플러그인)의 키. 메뉴가 열려 있는지(`getState(state)?.active`)를
+ * 다른 확장이 봅니다 — `BlockExitOnEnter`는 우선순위가 더 높아 Enter를 먼저 받으므로,
+ * 메뉴가 열려 있으면 양보합니다(코드 리뷰 12-P1-6, 결정 3).
+ */
+export const SlashCommandPluginKey = new PluginKey("slashCommand");
+
 export interface SlashCommandOptions {
   imageUploadRef: React.RefObject<(() => void) | null>;
 }
@@ -129,6 +137,7 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
   addProseMirrorPlugins() {
     return [
       Suggestion({
+        pluginKey: SlashCommandPluginKey,
         editor: this.editor,
         char: "/",
         startOfLine: true,

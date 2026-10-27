@@ -44,6 +44,10 @@ export const SlashCommandMenu = forwardRef<SlashCommandMenuHandle, SlashCommandM
     // Expose onKeyDown to parent (suggestion renderer)
     useImperativeHandle(ref, () => ({
       onKeyDown: ({ event }: { event: KeyboardEvent }) => {
+        // 결과가 없으면 키를 삼키지 않습니다. 삼키면 `/usr/local`·`/2`처럼 `/`로
+        // 시작하는 줄에서 Esc 전까지 줄을 바꿀 수 없고, 화살표는 `% 0`으로 선택이
+        // NaN이 됩니다(12-P1-8).
+        if (items.length === 0) return false;
         if (event.key === "ArrowUp") {
           setSelectedIndex((prev) => (prev + items.length - 1) % items.length);
           return true;

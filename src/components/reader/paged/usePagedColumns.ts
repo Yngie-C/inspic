@@ -26,6 +26,34 @@ import { useCallback, useEffect, useRef, useState } from "react";
 const ANCHOR_SELECTOR =
   ":scope > :not(.reader-content), :scope > .reader-content > *";
 
+/** 쪽을 넘긴 뒤 포커스를 옮길 곳. */
+const FOCUSABLE_SELECTOR = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "textarea:not([disabled])",
+  "select:not([disabled])",
+  "[tabindex]:not([tabindex='-1'])",
+].join(", ");
+
+/**
+ * 문서 순서로 늘어선 요소 중 `target` 쪽에서 **시작하는** 첫 요소. 그 쪽에서
+ * 시작하는 요소가 없으면(앞 쪽에서 시작한 긴 문단·목록이 쪽 전체를 차지) null
+ * 입니다. 뒤 쪽 요소를 기준으로 삼으면 다시 잴 때 그 쪽으로 건너뜁니다.
+ */
+export function firstStartingOn<T>(
+  nodes: Iterable<T>,
+  pageOf: (node: T) => number,
+  target: number,
+): T | null {
+  for (const node of nodes) {
+    const page = pageOf(node);
+    if (page === target) return node;
+    if (page > target) return null;
+  }
+  return null;
+}
+
 interface Options {
   /** 바뀌면 처음부터 다시 나눕니다(장 이동). */
   contentKey: string;
@@ -46,10 +74,17 @@ export function usePagedColumns({ contentKey, gap = 48 }: Options) {
   const pendingRef = useRef<"first" | "last" | null>("first");
   const rafRef = useRef<number | null>(null);
 
-  const step = useCallback(() => {
+  // 쪽 폭은 소수까지 씁니다. 정수로 반올림된 `clientWidth`로 이동 거리를 정하면
+  // 확대·소수 폭에서 쪽마다 오차가 쌓여 뒤쪽 쪽의 본문이 잘리고 앞 단이 비칩니다.
+  const width = useCallback(() => {
     const clip = clipRef.current;
-    return clip ? clip.clientWidth + gap : 0;
-  }, [gap]);
+    return clip ? clip.getBoundingClientRect().width : 0;
+  }, []);
+
+  const step = useCallback(() => {
+    const clipWidth = width();
+    return clipWidth > 0 ? clipWidth + gap : 0;
+  }, [gap, width]);
 
   const pageOf = useCallback(
     (node: Element) => {
@@ -72,10 +107,7 @@ export function usePagedColumns({ contentKey, gap = 48 }: Options) {
     (target: number) => {
       const columns = columnsRef.current;
       if (!columns) return null;
-      for (const node of columns.querySelectorAll(ANCHOR_SELECTOR)) {
-        if (pageOf(node) >= target) return node;
-      }
-      return null;
+      return firstStartingOn(columns.querySelectorAll(ANCHOR_SELECTOR), pageOf, target);
     },
     [pageOf],
   );
@@ -96,9 +128,10 @@ export function usePagedColumns({ contentKey, gap = 48 }: Options) {
   const measure = useCallback(() => {
     const columns = columnsRef.current;
     const clip = clipRef.current;
-    if (!columns || !clip || clip.clientWidth === 0) return;
+    const clipWidth = width();
+    if (!columns || !clip || clipWidth === 0) return;
 
-    columns.style.columnWidth = `${clip.clientWidth}px`;
+    columns.style.columnWidth = `${clipWidth}px`;
     columns.style.columnGap = `${gap}px`;
     columns.style.setProperty("--page-height", `${clip.clientHeight}px`);
     // 강제 reflow. 없으면 scrollWidth가 이전 값이라 쪽 수가 1로 굳습니다.
@@ -120,7 +153,7 @@ export function usePagedColumns({ contentKey, gap = 48 }: Options) {
     if (pending || !anchorRef.current?.isConnected) {
       anchorRef.current = anchorOn(pageRef.current);
     }
-  }, [anchorOn, apply, gap, pageOf, step]);
+  }, [anchorOn, apply, gap, pageOf, step, width]);
 
   const schedule = useCallback(() => {
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
@@ -139,36 +172,68 @@ export function usePagedColumns({ contentKey, gap = 48 }: Options) {
     [anchorOn, apply],
   );
 
-  /** 다음 쪽으로. 마지막 쪽이면 false. */
+  /**
+   * 키·버튼으로 쪽을 넘길 때. 포커스가 이전 쪽 버튼에 남아 있으면 다음 Tab이
+   * `focusin`으로 그 쪽에 되돌아가고, Enter는 보이지 않는 카드를 엽니다. 새 쪽의
+   * 첫 버튼·링크로 옮기고, 없으면 포커스를 놓습니다.
+   */
+  const turnTo = useCallback(
+    (target: number) => {
+      goTo(target);
+      const columns = columnsRef.current;
+      const active = document.activeElement;
+      if (!columns || !(active instanceof HTMLElement) || !columns.contains(active)) {
+        return;
+      }
+      if (pageOf(active) === pageRef.current) return;
+      const control = [...columns.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)].find(
+        (node) => pageOf(node) === pageRef.current,
+      );
+      if (control) control.focus({ preventScroll: true });
+      else active.blur();
+    },
+    [goTo, pageOf],
+  );
+
+  /** 다음 쪽으로. 마지막 쪽이면 false. 새 장을 재는 중이면 넘기지 않고 true. */
   const next = useCallback(() => {
+    // 장을 바꾼 뒤 재기 전에 또 넘기면 새 장을 한 쪽짜리로 보고 다음 장으로
+    // 갑니다. 재기 전 넘김은 삼킵니다.
+    if (pendingRef.current !== null) return true;
     if (pageRef.current >= totalRef.current - 1) return false;
-    goTo(pageRef.current + 1);
+    turnTo(pageRef.current + 1);
     return true;
-  }, [goTo]);
+  }, [turnTo]);
 
-  /** 이전 쪽으로. 첫 쪽이면 false. */
+  /** 이전 쪽으로. 첫 쪽이면 false. 새 장을 재는 중이면 넘기지 않고 true. */
   const prev = useCallback(() => {
+    if (pendingRef.current !== null) return true;
     if (pageRef.current <= 0) return false;
-    goTo(pageRef.current - 1);
+    turnTo(pageRef.current - 1);
     return true;
-  }, [goTo]);
+  }, [turnTo]);
 
-  /** 장을 바꾸기 직전에 부릅니다. 새 본문을 그린 뒤 어디서 시작할지. */
+  /** 지금 장의 첫 쪽으로. 목차에서 지금 장을 다시 골랐을 때. */
+  const first = useCallback(() => {
+    if (pendingRef.current !== null) return;
+    turnTo(0);
+  }, [turnTo]);
+
+  /**
+   * 다른 장으로 바꾸기 직전에 부릅니다. 새 본문을 그린 뒤 어디서 시작할지.
+   * 장이 그대로면 `contentKey`가 바뀌지 않아 재지 않으니 `first()`를 쓰세요.
+   */
   const startAt = useCallback((where: "first" | "last") => {
     pendingRef.current = where;
     anchorRef.current = null;
-    // 새 장을 재기 전 한 프레임 사이에 또 넘기면, 앞 장의 쪽 번호로 새 장을
-    // 넘기게 됩니다. 재기 전까지는 한 쪽짜리로 봅니다.
-    pageRef.current = 0;
-    totalRef.current = 1;
   }, []);
 
   // 장이 바뀌면 다시 나눕니다. `startAt` 없이 바뀌었으면(보던 장이 목록에서
-  // 사라짐) 첫 쪽에서 시작합니다.
+  // 사라짐) 첫 쪽에서 시작합니다. 옛 기준 요소는 DOM이 재사용돼 아직 붙어
+  // 있을 수 있으니 보지 않습니다.
   useEffect(() => {
-    if (pendingRef.current === null && !anchorRef.current?.isConnected) {
-      pendingRef.current = "first";
-    }
+    if (pendingRef.current === null) pendingRef.current = "first";
+    anchorRef.current = null;
     schedule();
   }, [contentKey, schedule]);
 
@@ -225,5 +290,5 @@ export function usePagedColumns({ contentKey, gap = 48 }: Options) {
     };
   }, [goTo, pageOf, schedule]);
 
-  return { clipRef, columnsRef, page, total, next, prev, startAt };
+  return { clipRef, columnsRef, page, total, next, prev, first, startAt };
 }

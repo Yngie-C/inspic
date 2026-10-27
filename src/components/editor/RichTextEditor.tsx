@@ -19,6 +19,11 @@ import {
   TemplateNodeIds,
 } from "./extensions/templates";
 import { cn } from "@/lib/utils";
+import {
+  EDITOR_IMAGE_TYPES,
+  imageFilesFrom,
+  uploadChapterImage,
+} from "./chapter-image-upload";
 
 const EMPTY_LINE_PLACEHOLDER = "/를 입력하면 워크북 블록을 넣을 수 있어요";
 
@@ -45,6 +50,9 @@ export function RichTextEditor({
   // Track the chapterId to detect chapter switches
   const prevChapterRef = useRef<string>(chapterId);
   const imageUploadRef = useRef<(() => void) | null>(null);
+  // 붙여넣기·끌어 넣기는 에디터를 만들 때 정한 editorProps에서 받으므로, 최신
+  // bookId·chapterId를 쓰는 함수를 ref로 건넵니다.
+  const insertImageFilesRef = useRef<((files: File[], at?: number) => void) | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
 
@@ -65,7 +73,9 @@ export function RichTextEditor({
       Underline,
       Superscript,
       Highlight.configure({ multicolor: false }),
-      Image.configure({ inline: false, allowBase64: true }),
+      // base64 이미지는 받지 않습니다 — 붙여넣기·끌어 넣기는 아래 handlePaste·
+      // handleDrop이 Storage에 올린 뒤 URL로 넣습니다(12-P1-9).
+      Image.configure({ inline: false, allowBase64: false }),
       Link.configure({
         openOnClick: false,
         HTMLAttributes: {
@@ -96,6 +106,22 @@ export function RichTextEditor({
         class:
           "prose prose-gray max-w-none focus:outline-none min-h-[60vh] text-primary leading-relaxed",
       },
+      handlePaste: (_view, event) => {
+        const files = imageFilesFrom(event.clipboardData);
+        if (files.length === 0) return false;
+        event.preventDefault();
+        insertImageFilesRef.current?.(files);
+        return true;
+      },
+      handleDrop: (view, event, _slice, moved) => {
+        if (moved) return false;
+        const files = imageFilesFrom(event.dataTransfer);
+        if (files.length === 0) return false;
+        event.preventDefault();
+        const at = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
+        insertImageFilesRef.current?.(files, at);
+        return true;
+      },
     },
     onUpdate: ({ editor: ed }) => {
       const html = ed.getHTML();
@@ -125,41 +151,31 @@ export function RichTextEditor({
   }, [content, editor]);
 
   /**
-   * 본문 이미지는 Storage에 올리고 URL만 문서에 넣습니다.
+   * 본문 이미지는 Storage에 올리고 URL만 문서에 넣습니다. 올리기 전에는 넣지
+   * 않습니다 — 실패한 이미지가 문서에 남으면 저장되지 않는 칸이 됩니다.
    *
    * base64로 인라인하면 이미지 한 장이 본문 HTML을 수십 KB씩 부풀려
    * `content_html`의 500,000자 제한에 금방 닿고, 저장할 때마다 그 크기를
    * 통째로 다시 올리게 됩니다.
+   *
+   * `at`이 있으면(끌어 넣기) 그 자리에, 없으면 커서 자리에 넣습니다.
    */
-  const handleImageUpload = useCallback(async () => {
-    if (!editor) return;
-
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "image/jpeg,image/png,image/webp,image/gif";
-    input.onchange = async () => {
-      const file = input.files?.[0];
-      if (!file) return;
-
+  const insertImageFiles = useCallback(
+    async (files: File[], at?: number) => {
+      if (!editor || files.length === 0) return;
       setImageError(null);
       setUploadingImage(true);
-
       try {
-        const formData = new FormData();
-        formData.append("image", file);
-        formData.append("chapterId", chapterId);
-
-        const res = await fetch(`/api/books/${bookId}/images`, {
-          method: "POST",
-          body: formData,
-        });
-
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          throw new Error(json.error ?? "이미지를 올리지 못했어요.");
+        let pos = at;
+        for (const file of files) {
+          const src = await uploadChapterImage(bookId, chapterId, file);
+          if (pos === undefined) {
+            editor.chain().focus().setImage({ src }).run();
+          } else {
+            editor.chain().focus().insertContentAt(pos, { type: "image", attrs: { src } }).run();
+            pos = editor.state.selection.to;
+          }
         }
-
-        editor.chain().focus().setImage({ src: json.data.url }).run();
       } catch (err) {
         // 조용히 실패하면 크리에이터는 이미지가 사라진 이유를 알 수 없습니다.
         setImageError(
@@ -168,13 +184,25 @@ export function RichTextEditor({
       } finally {
         setUploadingImage(false);
       }
+    },
+    [editor, bookId, chapterId],
+  );
+
+  const handleImageUpload = useCallback(() => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = EDITOR_IMAGE_TYPES.join(",");
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (file) void insertImageFiles([file]);
     };
     input.click();
-  }, [editor, bookId, chapterId]);
+  }, [insertImageFiles]);
 
   useEffect(() => {
     imageUploadRef.current = handleImageUpload;
-  }, [handleImageUpload]);
+    insertImageFilesRef.current = (files, at) => void insertImageFiles(files, at);
+  }, [handleImageUpload, insertImageFiles]);
 
   const wordCount = editor
     ? editor.getText().trim().split(/\s+/).filter(Boolean).length

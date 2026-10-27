@@ -91,6 +91,55 @@ describe("insertWorkbookBlock", () => {
     expect(blockIds(editor)).toHaveLength(2);
   });
 
+  /**
+   * 코드 리뷰 12-P0-1. 블록 하나를 고른 경우만이 아니라 전체 선택(Cmd+A)·여러
+   * 블록에 걸친 드래그 선택에서도 선택한 내용을 지우지 않아야 합니다. 지우면 자동
+   * 저장 뒤 그 블록 ID들이 장에서 빠지고 독자 답이 전부 고아가 됩니다.
+   */
+  const SECOND_ID = "22222222-2222-4222-8222-222222222222";
+  const twoBlocks =
+    `<p>앞 문단</p><section data-template-type="reflection" data-node-id="${EXISTING_ID}"></section>` +
+    `<p>가운데</p><section data-template-type="checklist" data-node-id="${SECOND_ID}"></section><p>뒤 문단</p>`;
+
+  it("전체 선택에서 넣어도 기존 블록·글을 지우지 않고 맨 뒤에 붙인다", () => {
+    editor = new Editor({ extensions, content: twoBlocks });
+    editor.commands.selectAll();
+
+    insertWorkbookBlock(editor, "scale");
+
+    expect(blockIds(editor).slice(0, 2)).toEqual([EXISTING_ID, SECOND_ID]);
+    expect(blockIds(editor)).toHaveLength(3);
+    expect(editor.getText()).toContain("앞 문단");
+    expect(editor.getText()).toContain("뒤 문단");
+    const names: string[] = [];
+    editor.state.doc.forEach((node) => names.push(node.type.name));
+    expect(names.slice(0, 6)).toEqual([
+      "paragraph", "reflection", "paragraph", "checklist", "paragraph", "scale",
+    ]);
+  });
+
+  it("블록에 걸친 글 선택에서 넣어도 걸친 블록을 지키고 선택이 끝나는 문단 뒤에 붙인다", () => {
+    editor = new Editor({ extensions, content: twoBlocks });
+    // "앞 문단"의 가운데부터 "가운데" 문단의 가운데까지 — 첫 블록을 품습니다.
+    let from = -1;
+    let to = -1;
+    editor.state.doc.descendants((node, pos) => {
+      if (node.isText && node.text === "앞 문단") from = pos + 1;
+      if (node.isText && node.text === "가운데") to = pos + 2;
+    });
+    editor.commands.setTextSelection({ from, to });
+
+    insertWorkbookBlock(editor, "scale");
+
+    expect(blockIds(editor)).toContain(EXISTING_ID);
+    expect(blockIds(editor)).toContain(SECOND_ID);
+    const names: string[] = [];
+    editor.state.doc.forEach((node) => names.push(node.type.name));
+    expect(names).toEqual(["paragraph", "reflection", "paragraph", "scale", "checklist", "paragraph"]);
+    expect(editor.getText()).toContain("앞 문단");
+    expect(editor.getText()).toContain("가운데");
+  });
+
   it("슬래시 명령의 /검색어 자리를 지우고 넣는다", () => {
     editor = new Editor({ extensions, content: "<p>/척도</p>" });
 

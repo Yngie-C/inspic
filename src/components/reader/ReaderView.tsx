@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Element } from "html-react-parser";
@@ -78,15 +78,15 @@ export function ReaderView({
       ? foundIndex
       : Math.max(0, Math.min(position.index, chapters.length - 1));
   const currentChapter = chapters[currentIndex];
-  const isFirst = currentIndex === 0;
-  // 미리보기는 그 장에서 끝납니다. 끝에 구매 안내(PreviewEnd)가 있습니다.
+  // 미리보기는 그 장 하나입니다. 끝에 구매 안내(PreviewEnd)가 있습니다.
   const isPreview = access.reason === "preview";
+  const isFirst = isPreview || currentIndex === 0;
   const isLast = isPreview || currentIndex >= chapters.length - 1;
   const backHref = isLoggedIn ? "/my/library" : "/explore";
   const progress = ((currentIndex + 1) / chapters.length) * 100;
 
   // 돌려받은 객체를 그대로 들고 다니면 React Compiler가 ref 접근으로 봅니다.
-  const { clipRef, columnsRef, page, total, next, prev, startAt } =
+  const { clipRef, columnsRef, page, total, next, prev, first, startAt } =
     usePagedColumns({ contentKey: currentChapter?.id ?? "" });
 
   const openChapter = useCallback(
@@ -112,27 +112,46 @@ export function ReaderView({
   );
 
   const selectChapter = (index: number) => {
-    openChapter(index, "first");
+    // 지금 장을 다시 고르면 본문이 그대로라 다시 재지 않습니다. 첫 쪽으로만.
+    if (index === currentIndex) first();
+    else openChapter(index, "first");
     setTocOpen(false);
   };
 
   // 화살표 키. 입력 중·한글 조합 중이거나 시트·목차가 떠 있으면 넘기지 않습니다.
+  // 리스너는 한 번만 붙이고 최신 상태는 effect event로 읽습니다.
+  const onKey = useEffectEvent((event: KeyboardEvent) => {
+    const direction = keyTurn(event, sheet !== null || tocOpen);
+    if (!direction) return;
+    event.preventDefault();
+    turn(direction);
+  });
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      const direction = keyTurn(event, sheet !== null || tocOpen);
-      if (!direction) return;
-      event.preventDefault();
-      turn(direction);
-    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [sheet, tocOpen, turn]);
+  }, []);
 
-  // 좌우 20% 탭. 카드·버튼·링크 위와 글을 고르는 중에는 넘기지 않습니다.
+  // 모바일 목차를 연 채 넓히면 오버레이는 CSS로 숨지만 `tocOpen`이 남아 쪽
+  // 넘김 키가 전부 막힙니다. 데스크톱 폭이 되면 닫습니다.
+  useEffect(() => {
+    const wide = window.matchMedia("(min-width: 601px)");
+    const onChange = () => {
+      if (wide.matches) setTocOpen(false);
+    };
+    wide.addEventListener("change", onChange);
+    return () => wide.removeEventListener("change", onChange);
+  }, []);
+
+  // 본문 좌우 20% 탭. 카드·버튼·링크 위와 글을 고르는 중에는 넘기지 않습니다.
+  // 비율은 `<main>`이 아니라 본문 폭 기준입니다 — 데스크톱의 `<main>`은 본문보다
+  // 넓어 본문 앞부분 클릭이 이전 쪽이 됩니다. 본문 밖 여백은 그쪽 방향입니다.
   const onClick = (event: React.MouseEvent<HTMLElement>) => {
     if (startsOnControl(event.target)) return;
     if (window.getSelection()?.toString().trim()) return;
-    const rect = event.currentTarget.getBoundingClientRect();
+    const clip = clipRef.current;
+    if (!clip) return;
+    const rect = clip.getBoundingClientRect();
+    if (rect.width === 0) return;
     const direction = tapTurn((event.clientX - rect.left) / rect.width);
     if (direction) turn(direction);
   };
@@ -249,8 +268,10 @@ export function ReaderView({
                   />
                 )}
 
+                {/* 장마다 key를 둡니다. 없으면 html-react-parser의 순번 key로 DOM이 재사용돼
+                    옛 장의 기준 요소가 새 장에 붙은 채 남습니다. */}
                 {currentChapter && (
-                  <>
+                  <Fragment key={currentChapter.id}>
                     <header>
                       <p className="mb-2 text-caption font-semibold text-muted">
                         {currentIndex + 1}장
@@ -266,7 +287,7 @@ export function ReaderView({
                       html={currentChapter.content_html}
                       onOpenBlock={setSheet}
                     />
-                  </>
+                  </Fragment>
                 )}
 
                 {isPreview && (
