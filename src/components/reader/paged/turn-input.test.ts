@@ -36,6 +36,39 @@ describe("쪽 넘김 키", () => {
     expect(keyTurn(key("ArrowLeft", { altKey: true }), false)).toBeNull();
     expect(keyTurn(key("ArrowRight"), true)).toBeNull();
   });
+
+  it("이미 처리된 키는 넘기지 않는다", () => {
+    expect(keyTurn(key("ArrowRight", { defaultPrevented: true }), false)).toBeNull();
+  });
+
+  // 9-P2-8: 목차·넓은 표·pre 안의 키는 그 영역을 스크롤한다.
+  function scrollable(axis: "x" | "y") {
+    const box = document.createElement("div");
+    box.style[axis === "x" ? "overflowX" : "overflowY"] = "auto";
+    Object.defineProperties(box, {
+      scrollWidth: { value: axis === "x" ? 800 : 100 },
+      clientWidth: { value: 100 },
+      scrollHeight: { value: axis === "y" ? 800 : 100 },
+      clientHeight: { value: 100 },
+    });
+    const inner = document.createElement("span");
+    box.append(inner);
+    document.body.replaceChildren(box);
+    return inner;
+  }
+
+  it("가로로 넘치는 표·pre 안의 화살표는 넘기지 않는다", () => {
+    const inner = scrollable("x");
+    expect(keyTurn(key("ArrowRight", { target: inner }), false)).toBeNull();
+    // 세로로는 넘치지 않으니 PageDown은 쪽을 넘긴다.
+    expect(keyTurn(key("PageDown", { target: inner }), false)).toBe("forward");
+  });
+
+  it("세로로 넘치는 목차 안의 PageDown은 넘기지 않는다", () => {
+    const inner = scrollable("y");
+    expect(keyTurn(key("PageDown", { target: inner }), false)).toBeNull();
+    expect(keyTurn(key("ArrowRight", { target: inner }), false)).toBe("forward");
+  });
 });
 
 describe("탭과 스와이프", () => {
