@@ -117,6 +117,8 @@
 
 ### 묶음 13-C 계획 — 인증 흐름
 
+> 2026-10-27 수정함. 지적 9건(P1-1~5, P2-6~8, P2-9의 비밀번호 확인)을 계획대로 고쳤어요. P1-1은 결정 1대로 `reauthentication_needed`를 재설정 안내로 바꾸는 것만 더했어요. P1-4는 Supabase가 링크를 열 때 이메일을 먼저 인증한다는 전제라 문구를 "끝났을 수 있으니 로그인해 보세요"로 두었고, 로그인 화면이 바로 그 폼이라 따로 동작 버튼은 두지 않았어요. 가입·재설정 링크를 다른 브라우저에서 여는 실제 확인은 개발 프로젝트에서 아직 하지 않았어요. 재설정 링크를 다른 브라우저에서 연 경우도 `reset_link_invalid`(재설정 다시 요청)로 보내요 — 같은 링크는 다시 열리지 않아서요. 테스트: `auth-store.test.ts`(4), `callback-route.test.ts`(6), `auth-errors.test.ts`에 3건. 새 테스트 중 6개가 고치기 전 코드에서 실패하는 것을 확인했어요.
+
 - **P1-2·P2-6·P2-7** — `initialize`: 구독을 맨 먼저 걸고(이벤트 유실 방지), 한 번만 돌게 플래그, `getSession`·`fetchProfile`은 catch로 로그 후 진행. `SIGNED_IN`이 같은 id면 `user` 참조를 바꾸지 않고 조회를 건너뜀.
 - **P1-3·P2-8** — `fail()`이 `next`를 `redirect`로 실어 로그인 화면에 넘김(`withRedirect`). 재설정 경로의 `link_invalid`도 재설정 문구(`reset_link_invalid` 추가, `authFailureFromQuery` 허용 목록에도).
 - **P1-4** — 가입 확인(`next`가 재설정이 아님)에서 `flow_state_not_found`면 "인증은 끝났을 수 있어요. 로그인해 보세요" + 로그인 동작. Supabase가 실제로 이 순서로 동작하는지(인증 후 교환 실패) 개발 프로젝트에서 한 번 확인.

@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   authFailureFromQuery,
   checkPassword,
+  checkPasswordConfirm,
   linkErrorCase,
   linkErrorFromParams,
   toAuthFailure,
@@ -25,6 +26,7 @@ describe("toAuthFailure", () => {
     ["user_already_exists", "user_already_exists", "email", "login"],
     ["email_exists", "user_already_exists", "email", "login"],
     ["same_password", "same_password", "password", undefined],
+    ["reauthentication_needed", "reauthentication_needed", undefined, "reset"],
     ["email_address_invalid", "email_invalid", "email", undefined],
     ["validation_failed", "email_invalid", "email", undefined],
     ["over_request_rate_limit", "rate_limited", undefined, undefined],
@@ -111,6 +113,8 @@ describe("authFailureFromQuery", () => {
     expect(authFailureFromQuery("link_expired")?.action).toBe("resend");
     expect(authFailureFromQuery("reset_link_expired")?.action).toBe("reset");
     expect(authFailureFromQuery("auth_failed")?.case).toBe("link_invalid");
+    // 재설정 링크가 이미 쓰였으면 로그인이 아니라 재설정을 다시 요청하게 한다 (13-P2-8)
+    expect(authFailureFromQuery("reset_link_invalid")?.action).toBe("reset");
   });
 
   it("그 밖의 값은 띄우지 않는다", () => {
@@ -144,5 +148,16 @@ describe("checkPassword", () => {
     expect(checkPassword("a1".repeat(36))).toBeNull();
     expect(checkPassword("a1".repeat(36) + "x")).toContain("너무 길어요");
     expect(checkPassword("a1" + "가".repeat(24))).toContain("너무 길어요");
+  });
+});
+
+describe("checkPasswordConfirm", () => {
+  it("같으면 null, 다르면 문구", () => {
+    expect(checkPasswordConfirm("abc123", "abc123")).toBeNull();
+    expect(checkPasswordConfirm("abc123", "abc124")).toMatch(/서로 달라요/);
+  });
+
+  it("비밀번호 자체가 틀리면 확인 칸은 묻지 않는다", () => {
+    expect(checkPasswordConfirm("abc", "abd")).toBeNull();
   });
 });

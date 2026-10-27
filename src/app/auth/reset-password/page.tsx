@@ -6,6 +6,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import {
   authFailure,
   checkPassword,
+  checkPasswordConfirm,
   PASSWORD_HINT,
   type AuthFailure,
 } from "@/lib/auth-errors";
@@ -46,10 +47,7 @@ export default function ResetPasswordPage() {
     e.preventDefault();
     setFailure(null);
     const passwordProblem = checkPassword(password);
-    const mismatch =
-      !passwordProblem && password !== confirmPassword
-        ? "비밀번호가 서로 달라요. 다시 확인해 주세요."
-        : "";
+    const mismatch = checkPasswordConfirm(password, confirmPassword) ?? "";
     setPasswordError(passwordProblem ?? "");
     setConfirmError(mismatch);
     if (passwordProblem || mismatch) return;

@@ -33,16 +33,16 @@ export default function LoginForm({
     setFailure(null);
     setIsLoading(true);
 
-    try {
-      const result = await signIn(email, password);
-      if (result.error) {
-        setFailure(result.error);
-      } else {
-        router.push(redirect ?? "/");
-      }
-    } finally {
+    const result = await signIn(email, password);
+    if (result.error) {
+      setFailure(result.error);
       setIsLoading(false);
+      return;
     }
+    // 성공하면 버튼을 다시 켜지 않습니다 — 이동하는 사이 두 번 제출됩니다.
+    // refresh는 로그인 전에 받아 둔 서버 화면(잠긴 리더 등)을 버립니다 (코드 리뷰 13-P1-5).
+    router.replace(redirect ?? "/");
+    router.refresh();
   };
 
   return (

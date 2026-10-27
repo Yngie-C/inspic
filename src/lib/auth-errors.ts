@@ -20,6 +20,7 @@ export type AuthErrorCase =
   | "weak_password"
   | "password_too_long"
   | "same_password"
+  | "reauthentication_needed"
   | "email_invalid"
   | "rate_limited"
   | "email_rate_limited"
@@ -29,6 +30,7 @@ export type AuthErrorCase =
   | "link_expired"
   | "link_other_browser"
   | "link_invalid"
+  | "reset_link_invalid"
   | "unknown";
 
 export type AuthErrorContext = "signin" | "signup" | "resend" | "reset" | "update";
@@ -55,6 +57,9 @@ const CODE_TO_CASE: Record<string, AuthErrorCase> = {
   email_exists: "user_already_exists",
   weak_password: "weak_password",
   same_password: "same_password",
+  // 대시보드 "Secure password change"(2026-10-26 켬): 마지막 로그인이 24시간을
+  // 넘은 세션은 비밀번호를 바로 바꾸지 못합니다 (코드 리뷰 13-P1-1).
+  reauthentication_needed: "reauthentication_needed",
   email_address_invalid: "email_invalid",
   over_request_rate_limit: "rate_limited",
   over_email_send_rate_limit: "email_rate_limited",
@@ -123,6 +128,15 @@ export function checkPassword(password: string): string | null {
   return reasons.length > 0 ? weakPasswordMessage(reasons) : null;
 }
 
+/**
+ * 비밀번호 확인 칸 검사. 가입과 재설정 화면이 같은 판정·문구를 씁니다.
+ * 비밀번호 자체가 규칙에 어긋나면 그쪽을 먼저 고치게 하려고 여기서는 묻지 않습니다.
+ */
+export function checkPasswordConfirm(password: string, confirm: string): string | null {
+  if (checkPassword(password)) return null;
+  return password === confirm ? null : "비밀번호가 서로 달라요. 다시 확인해 주세요.";
+}
+
 function failure(
   kind: AuthErrorCase,
   ctx: AuthErrorContext,
@@ -163,6 +177,13 @@ function failure(
         message: "지금 쓰는 비밀번호와 같아요. 다른 비밀번호를 정해 주세요.",
         field: "password",
       };
+    case "reauthentication_needed":
+      return {
+        case: kind,
+        message:
+          "로그인한 지 오래돼서 바로 바꿀 수 없어요. 비밀번호 찾기로 받은 메일의 링크에서 바꿔 주세요.",
+        action: "reset",
+      };
     case "email_invalid":
       return {
         case: kind,
@@ -201,16 +222,29 @@ function failure(
         message: "인증 링크가 만료됐어요. 인증 메일을 다시 받아 주세요.",
         action: "resend",
       };
+    // 가입 확인 링크만 이 안내로 옵니다(재설정은 reset_link_invalid). Supabase는
+    // 링크를 여는 순간 이메일을 인증하고, 그 뒤 세션 교환만 이 브라우저에서
+    // 실패합니다. 같은 링크를 다시 열면 이미 쓴 링크라 실패하므로 로그인으로
+    // 안내합니다 (코드 리뷰 13-P1-4).
     case "link_other_browser":
       return {
         case: kind,
         message:
-          "링크를 요청한 브라우저와 다른 곳에서 열었어요. 같은 브라우저에서 다시 열어 주세요.",
+          "링크를 요청한 브라우저와 다른 곳에서 열었어요. 이메일 인증은 끝났을 수 있으니 로그인해 보세요.",
       };
     case "link_invalid":
       return {
         case: kind,
         message: "링크가 올바르지 않거나 이미 사용됐어요. 다시 로그인해 주세요.",
+      };
+    // 재설정 링크는 한 번만 열립니다. 메일 스캐너가 먼저 열었거나 다른 브라우저에서
+    // 열었으면, 요청한 브라우저에서 재설정을 다시 받아야 합니다 (코드 리뷰 13-P2-8).
+    case "reset_link_invalid":
+      return {
+        case: kind,
+        message:
+          "재설정 링크가 올바르지 않거나 이미 사용됐어요. 이 브라우저에서 비밀번호 찾기를 다시 요청해 주세요.",
+        action: "reset",
       };
     case "unknown":
       return { case: kind, message: "잠시 문제가 생겼어요. 잠시 후 다시 시도해 주세요." };
@@ -270,6 +304,7 @@ const QUERY_FAILURES: Record<string, () => AuthFailure> = {
   link_invalid: () => failure("link_invalid", "signin"),
   // 비밀번호 재설정 링크가 만료됐을 때. 인증 메일이 아니라 재설정을 다시 요청해야 합니다.
   reset_link_expired: () => failure("session_missing", "update"),
+  reset_link_invalid: () => failure("reset_link_invalid", "signin"),
   // 예전 콜백이 보내던 값입니다. 이미 나간 메일의 링크를 위해 남깁니다.
   auth_failed: () => failure("link_invalid", "signin"),
 };

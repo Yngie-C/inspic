@@ -264,6 +264,7 @@ M4(2026-08-05)에서 확정했습니다. 여기서 지키는 규칙은 하나입
 - **중복 가입은 에러로 오지 않습니다.** 이미 인증을 마친 이메일이면 Supabase가 `identities`가 빈 사용자를 돌려주고 메일은 보내지 않습니다. `signUp`이 이것을 `user_already_exists`로 바꿉니다. 이메일 가입 여부가 드러나는 것은 알고 고른 것입니다.
 - **메일 링크는 `/auth/callback`으로 돌아오게 하세요** (`emailRedirectTo` / `redirectTo`). 콜백을 거쳐야 만료·다른 브라우저·잘못된 링크를 구분해 로그인 화면의 `?error=`로 안내할 수 있습니다.
 - **로그인 화면의 `?error=`는 정해 둔 값만 받습니다** (`authFailureFromQuery`). 쿼리 문자열을 그대로 띄우면 누구나 링크로 아무 문구나 보여 줄 수 있습니다.
+- **콜백이 실패해도 돌아갈 곳을 잃지 않게 하세요.** 가입 링크 실패는 `next`를 로그인 화면의 `?redirect=`로 싣고, 재설정 링크 실패는 무엇이든 재설정 안내(`reset_link_expired`/`reset_link_invalid`)로 보냅니다 — 재설정 링크는 한 번만 열리므로 "다시 열어 주세요"나 "다시 로그인해 주세요"는 풀리지 않는 안내입니다(코드 리뷰 13-C).
 - **비밀번호 규칙은 `auth-errors.ts`의 `PASSWORD_MIN_LENGTH` / `checkPassword()`가 Supabase 대시보드 설정(최소 6자, Letters and digits)을 그대로 옮긴 것입니다.** 대시보드를 바꾸면 여기도 바꾸세요. 72바이트를 넘는 비밀번호는 서버가 `weak_password`가 아니라 `validation_failed`로 거절하므로 화면에서 먼저 막습니다.
 - `/auth/callback`과 `/auth/reset-password`는 로그인 상태여도 미들웨어가 `/creator`로 보내지 않습니다. 재설정 링크로 세션이 생긴 직후 거쳐 가는 곳이기 때문입니다.
 
