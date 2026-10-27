@@ -65,24 +65,42 @@ export function avatarStoragePath(url: string, userId: string): string | null {
   return publicObjectPath(url, AVATARS_BUCKET, `${userId}/`);
 }
 
-/** 프로필 사진 파일 하나를 지웁니다. 본인 사진이 아니면 아무것도 하지 않습니다. */
-export async function removeAvatarFile(
-  supabase: SupabaseClient,
-  url: string | null | undefined,
-  userId: string,
-): Promise<void> {
-  if (!url) return;
-  const path = avatarStoragePath(url, userId);
-  if (!path) return;
+/** 막 올라와 아직 행에 기록되기 전일 수 있는 파일은 남깁니다. */
+const STALE_AVATAR_MS = 10 * 60 * 1000;
 
-  const { error } = await supabase.storage.from(AVATARS_BUCKET).remove([path]);
+/**
+ * 본인 폴더에서 행이 가리키지 않는 옛 사진을 지웁니다. 교체·삭제가 성공한 뒤에
+ * 부릅니다. 반영 여부를 몰라 남긴 파일(코드 리뷰 10-P1-10)은 아바타에서 거둘
+ * 경로가 따로 없어, 다음 교체·삭제 때 함께 지웁니다 — 지웠다고 믿는 사진이 공개
+ * URL로 남지 않게. 다른 요청이 방금 올린 파일을 지우지 않도록 10분 지난 것만 봅니다.
+ */
+export async function removeStaleAvatarFiles(
+  admin: SupabaseClient,
+  userId: string,
+  keepPath: string | null,
+): Promise<void> {
+  const { data, error } = await admin.storage
+    .from(AVATARS_BUCKET)
+    .list(userId, { limit: LIST_PAGE });
   if (error) {
-    console.error("[storage] 프로필 사진을 지우지 못했습니다", { userId, path, error });
+    console.error("[storage] 프로필 사진 폴더를 읽지 못했습니다", { userId, error });
+    return;
+  }
+  const cutoff = Date.now() - STALE_AVATAR_MS;
+  const stale = (data ?? [])
+    .filter((entry) => entry.id && Date.parse(entry.created_at) < cutoff)
+    .map((entry) => `${userId}/${entry.name}`)
+    .filter((path) => path !== keepPath);
+  if (stale.length === 0) return;
+
+  const { error: removeError } = await admin.storage.from(AVATARS_BUCKET).remove(stale);
+  if (removeError) {
+    console.error("[storage] 옛 프로필 사진을 지우지 못했습니다", { userId, stale, removeError });
   }
 }
 
 /** 표지 파일 하나를 지웁니다. 이 책의 표지가 아니면 아무것도 하지 않습니다. */
-export async function removeCoverFile(
+async function removeCoverFile(
   supabase: SupabaseClient,
   url: string | null | undefined,
   bookId: string,

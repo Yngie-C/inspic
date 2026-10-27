@@ -49,6 +49,17 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
 
   const [detailImageAlt, setDetailImageAlt] = useState(book.detail_image_alt ?? "");
   const [hasDetailImage, setHasDetailImage] = useState(!!book.detail_image_url);
+  // 이미지를 바꾸거나 지우면 서버가 대체 글을 비웁니다(옛 이미지의 설명이라서).
+  // 폼도 비워야 다음 저장이 옛 설명을 다시 싣지 않습니다 (코드 리뷰 10-P1-7).
+  const [altCleared, setAltCleared] = useState(false);
+  const onDetailImageChange = useCallback(
+    (url: string | null) => {
+      setAltCleared(!!url && hasDetailImage && detailImageAlt.trim() !== "");
+      setHasDetailImage(!!url);
+      setDetailImageAlt("");
+    },
+    [hasDetailImage, detailImageAlt],
+  );
 
   const handleSave = async () => {
     if (!title.trim()) {
@@ -129,13 +140,13 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
       <div className="flex flex-col gap-2">
         <ImageUploadField
           label="소개 이미지 (선택)"
-          hint="책 상세의 책 소개 아래에 그대로 보여요. 세로로 긴 이미지도 괜찮아요."
+          hint="책 상세의 책 소개 아래에 그대로 보여요. 세로로 긴 이미지도 5MB 이하면 괜찮아요."
           endpoint={`/api/books/${book.id}/detail-image`}
           column="detail_image_url"
           noun="소개 이미지"
           initialUrl={book.detail_image_url}
           previewClassName="object-top"
-          onChange={(url) => setHasDetailImage(!!url)}
+          onChange={onDetailImageChange}
         />
         {hasDetailImage && (
           <div>
@@ -144,12 +155,20 @@ export function BookMetadataForm({ book, onSave }: BookMetadataFormProps) {
             </label>
             <textarea
               value={detailImageAlt}
-              onChange={(e) => setDetailImageAlt(e.target.value)}
+              onChange={(e) => {
+                setDetailImageAlt(e.target.value);
+                setAltCleared(false);
+              }}
               placeholder="이미지 속 글을 옮겨 적어 주세요. 화면 낭독기를 쓰는 독자에게 읽혀요."
               rows={3}
               maxLength={MAX_DETAIL_IMAGE_ALT_LENGTH}
               className="w-full resize-none rounded-lg border border-line-strong px-3 py-2 text-sm text-primary placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
+            {altCleared && (
+              <p className="mt-1 text-xs text-muted">
+                이미지를 바꿔서 설명을 비웠어요. 새 이미지에 맞게 다시 적어 주세요.
+              </p>
+            )}
           </div>
         )}
       </div>

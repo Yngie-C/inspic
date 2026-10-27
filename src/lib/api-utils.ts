@@ -11,6 +11,7 @@ export type ErrorCode =
   | "UPLOAD_ERROR"
   | "PUBLISH_BLOCKED"
   | "HAS_SALES"
+  | "STATE_CHANGED"
   | "SERVER_ERROR";
 
 export async function getAuthUser(): Promise<User | null> {

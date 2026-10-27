@@ -44,6 +44,9 @@ vi.mock("@/lib/supabase/admin", () => ({
       mocks.adminQueries.add(mocks.queries.at(-1)!);
       return builder;
     },
+    get storage() {
+      return (mocks.client as unknown as { storage: unknown }).storage;
+    },
   }),
 }));
 
@@ -70,10 +73,15 @@ const remove = () => new Request("http://localhost", { method: "DELETE" }) as un
 /** 책 조회는 옛 표지를 가진 내 책으로, 나머지는 `rest`가 정합니다. */
 function respondWith(rest: (query: RecordedQuery) => QueryResult = () => OK_EMPTY) {
   mocks.respond = (query) => {
+    const result = rest(query);
+    if (result !== OK_EMPTY) return result;
+    if (query.table === "books" && query.ops.includes("update")) {
+      return { data: { id: BOOK }, error: null };
+    }
     if (query.table === "books" && query.ops.includes("maybeSingle")) {
       return { data: { owner_id: USER, cover_image_url: OLD_URL }, error: null };
     }
-    return rest(query);
+    return OK_EMPTY;
   };
 }
 
@@ -118,7 +126,9 @@ describe("POST /api/books/[bookId]/cover", () => {
 
   it("책 갱신이 실패하면 옛 파일은 두고 방금 올린 파일을 지운다", async () => {
     respondWith((query) =>
-      query.table === "books" ? { data: null, error: { message: "db down" } } : OK_EMPTY,
+      query.table === "books" && query.ops.includes("update")
+        ? { data: null, error: { message: "db down" } }
+        : OK_EMPTY,
     );
 
     const res = await POST(upload(), params);
@@ -128,6 +138,24 @@ describe("POST /api/books/[bookId]/cover", () => {
     const uploaded = mocks.queries.find((q) => q.ops.includes("upload"))!.args.upload;
     const removes = mocks.queries.filter((q) => q.ops.includes("remove"));
     expect(removes.map((q) => q.args.remove)).toEqual([[uploaded]]);
+  });
+
+  it("그 사이 다른 요청이 표지를 바꿨으면 409, 방금 올린 파일만 지운다 (10-P1-5)", async () => {
+    respondWith((query) =>
+      query.table === "books" && query.ops.includes("update") ? { data: null, error: null } : OK_EMPTY,
+    );
+    const res = await POST(upload(), params);
+    expect(res.status).toBe(409);
+    const update = mocks.queries.find((q) => q.table === "books" && q.ops.includes("update"))!;
+    expect(update.calls).toContainEqual({ method: "eq", args: ["cover_image_url", OLD_URL] });
+    const uploaded = mocks.queries.find((q) => q.ops.includes("upload"))!.args.upload;
+    const removes = mocks.queries.filter((q) => q.ops.includes("remove"));
+    expect(removes.map((q) => q.args.remove)).toEqual([[uploaded]]);
+  });
+
+  it("응답에는 새 URL만 싣는다 (10-P2-6)", async () => {
+    const json = await (await POST(upload(), params)).json();
+    expect(Object.keys(json.data)).toEqual(["cover_image_url"]);
   });
 
   it("URL 컬럼 갱신만 admin 클라이언트로 보낸다 (00015)", async () => {
@@ -168,7 +196,9 @@ describe("DELETE /api/books/[bookId]/cover", () => {
 
   it("책 행을 비우지 못하면 파일을 지우지 않는다", async () => {
     respondWith((query) =>
-      query.table === "books" ? { data: null, error: { message: "db down" } } : OK_EMPTY,
+      query.table === "books" && query.ops.includes("update")
+        ? { data: null, error: { message: "db down" } }
+        : OK_EMPTY,
     );
     const res = await DELETE(remove(), params);
     expect(res.status).toBe(500);
