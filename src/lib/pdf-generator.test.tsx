@@ -107,6 +107,14 @@ describe("BookPDF 폰트", () => {
   });
 });
 
+describe("stripHtmlForPdf 업로드 서식 (12-P1-4)", () => {
+  it("del·sub는 내용만 남기고 태그 자리에 공백을 넣지 않는다", () => {
+    expect(stripHtmlForPdf("<p><del>3만 원</del> 2만 원, CO<sub>2</sub></p>")).toEqual([
+      { type: "paragraph", text: "3만 원 2만 원, CO2" },
+    ]);
+  });
+});
+
 describe("stripHtmlForPdf 표", () => {
   /**
    * SMART 목표가 표로 나옵니다. `<tr>`을 따로 다루지 않으면 표 전체가

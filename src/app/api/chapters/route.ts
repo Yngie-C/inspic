@@ -11,6 +11,7 @@ import {
   CHAPTER_TOO_LONG_MESSAGE,
   countWords,
   isChapterHtmlTooLong,
+  isRawChapterHtmlTooLong,
 } from "@/lib/content-stats";
 import {
   INVALID_BODY_MESSAGE,
@@ -106,6 +107,10 @@ export async function POST(request: NextRequest) {
     return apiError(INVALID_BODY_MESSAGE, "VALIDATION_ERROR", 400);
   }
 
+  // sanitize(jsdom 파싱) 전에 원문 크기부터 봅니다(12-P0-2).
+  if (isRawChapterHtmlTooLong(content_html)) {
+    return apiError(CHAPTER_TOO_LONG_MESSAGE, "CONTENT_TOO_LONG", 400);
+  }
   const sanitized = sanitizeContent(content_html);
   if (isChapterHtmlTooLong(sanitized)) {
     return apiError(CHAPTER_TOO_LONG_MESSAGE, "CONTENT_TOO_LONG", 400);

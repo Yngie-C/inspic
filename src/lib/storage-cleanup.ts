@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { CHAPTER_IMAGES_BUCKET } from "@/lib/storage-image";
 
 /**
  * Storage 파일 정리. 표지·프로필 사진 교체·삭제, 장·책 삭제 뒤에 부릅니다.
@@ -11,7 +12,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
  */
 
 export const COVERS_BUCKET = "covers";
-export const CHAPTER_IMAGES_BUCKET = "chapter-images";
+// 버킷 이름은 sanitize(브라우저에서도 돕니다)와 함께 쓰므로 `storage-image.ts`에 둡니다.
+export { CHAPTER_IMAGES_BUCKET };
 export const AVATARS_BUCKET = "avatars";
 
 const LIST_PAGE = 1000;
