@@ -21,6 +21,9 @@ const BOOK = "book-1";
 const mocks = vi.hoisted(() => ({
   respond: (() => ({ data: null, error: null })) as (query: RecordedQuery) => QueryResult,
   queries: [] as RecordedQuery[],
+  client: null as unknown as { from: (table: string) => unknown },
+  /** admin 클라이언트로 보낸 쿼리. 공개 상태는 이쪽으로만 바뀝니다(00017). */
+  adminQueries: new Set<RecordedQuery>(),
 }));
 
 vi.mock("@/lib/supabase/server", async () => {
@@ -29,10 +32,24 @@ vi.mock("@/lib/supabase/server", async () => {
     createClient: async () => {
       const fake = createFakeSupabase((query) => mocks.respond(query));
       mocks.queries = fake.queries;
+      mocks.client = fake.client;
       return fake.client;
     },
   };
 });
+
+// admin 쿼리도 같은 기록에 순서대로 남기고, admin으로 보냈다는 표시만 더합니다.
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: () => ({
+    from: (table: string) => {
+      const builder = mocks.client.from(table);
+      mocks.adminQueries.add(mocks.queries.at(-1)!);
+      return builder;
+    },
+  }),
+}));
+
+const auth = vi.hoisted(() => ({ calls: 0 }));
 
 // 검수 판정은 `publish-checks.test.ts`·`publish-checks-loader.test.ts`가
 // 봅니다. 여기서는 라우트가 언제 검수를 부르고 결과를 어떻게 다루는지만.
@@ -50,7 +67,10 @@ vi.mock("@/lib/publish-checks-loader", () => ({
 
 vi.mock("@/lib/api-utils", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api-utils")>()),
-  getAuthUser: async () => ({ id: USER }),
+  getAuthUser: async () => {
+    auth.calls += 1;
+    return { id: USER };
+  },
 }));
 
 // `after()`는 요청 밖에서 부르면 던집니다. 응답 뒤 작업을 그 자리에서 돌립니다.
@@ -82,7 +102,7 @@ function respondWith(
   book: Record<string, unknown> = {},
 ) {
   mocks.respond = (query) => {
-    if (query.table === "books" && query.ops.includes("single") && !query.ops.includes("update")) {
+    if (query.table === "books" && query.ops.includes("maybeSingle") && !query.ops.includes("update")) {
       return {
         data: { owner_id: USER, status: "published", visibility: "public", published_at: null, language: "ko", ...book },
         error: null,
@@ -97,6 +117,7 @@ function deletes() {
 }
 
 beforeEach(() => {
+  auth.calls = 0;
   loader.load.mockClear();
   loader.load.mockImplementation(async () => ({ ok: true, checks: [] }));
   // 입력 검증에서 돌아가면 클라이언트를 만들지 않아, 이전 테스트의 기록이
@@ -421,5 +442,171 @@ describe("PUT /api/books/[bookId] — 공개 전환 검수 (4-P1-16)", () => {
 
     expect(res.status).toBe(500);
     expect(updates()).toHaveLength(0);
+  });
+});
+
+describe("PUT /api/books/[bookId] — 공개 상태는 admin으로, 읽은 상태 그대로일 때만 (11-P1-1·P1-2)", () => {
+  function updates() {
+    return mocks.queries.filter((q) => q.ops.includes("update"));
+  }
+
+  const DRAFT_BOOK = { status: "draft", visibility: "private", published_at: null };
+
+  it("공개는 admin으로 쓰고, 소유자·읽은 상태를 조건으로 건다", async () => {
+    respondWith(() => ({ data: { id: BOOK }, error: null }), DRAFT_BOOK);
+
+    const res = await PUT(request("PUT", { status: "published" }), params);
+
+    expect(res.status).toBe(200);
+    const [write] = updates();
+    expect(mocks.adminQueries.has(write)).toBe(true);
+    expect(write.calls).toEqual(
+      expect.arrayContaining([
+        { method: "eq", args: ["owner_id", USER] },
+        { method: "eq", args: ["status", "draft"] },
+        { method: "eq", args: ["visibility", "private"] },
+      ]),
+    );
+  });
+
+  it("내리기도 같은 경로다", async () => {
+    respondWith(() => ({ data: { id: BOOK }, error: null }));
+
+    await PUT(request("PUT", { visibility: "private" }), params);
+
+    expect(mocks.adminQueries.has(updates()[0])).toBe(true);
+  });
+
+  it("상태를 바꾸지 않는 저장은 사용자 권한으로 쓴다 — 같은 값을 실어 와도", async () => {
+    respondWith(() => ({ data: { id: BOOK }, error: null }));
+
+    const res = await PUT(
+      request("PUT", { title: "고친 제목", visibility: "public" }),
+      params,
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.adminQueries.has(updates()[0])).toBe(false);
+  });
+
+  it("그 사이 상태가 바뀌었으면(0행) 409 STATE_CHANGED이고 다시 판정하지 않는다", async () => {
+    respondWith(
+      (query) =>
+        query.ops.includes("update")
+          ? OK_EMPTY
+          : { data: { id: BOOK }, error: null },
+      DRAFT_BOOK,
+    );
+
+    const res = await PUT(request("PUT", { status: "published" }), params);
+    const json = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(json.code).toBe("STATE_CHANGED");
+    expect(json.error).toContain("새로고침");
+    expect(updates()).toHaveLength(1);
+    expect(loader.load).toHaveBeenCalledTimes(1);
+  });
+
+  it("0행인데 책이 사라졌으면 404", async () => {
+    respondWith(() => OK_EMPTY, DRAFT_BOOK);
+    const base = mocks.respond;
+    let reads = 0;
+    mocks.respond = (query) => {
+      if (query.table === "books" && !query.ops.includes("update")) {
+        reads += 1;
+        // 처음 읽을 때는 있고, 0행 뒤 다시 읽을 때는 없습니다.
+        if (reads > 1) return OK_EMPTY;
+      }
+      return base(query);
+    };
+
+    const res = await PUT(request("PUT", { status: "published" }), params);
+
+    expect(res.status).toBe(404);
+  });
+
+  it("제목과 공개를 함께 보내면 새 제목으로 검수한다 (11-P1-5)", async () => {
+    respondWith(() => ({ data: { id: BOOK }, error: null }), { ...DRAFT_BOOK });
+
+    const res = await PUT(request("PUT", { title: "새 제목", status: "published" }), params);
+
+    expect(res.status).toBe(200);
+    expect(loader.load).toHaveBeenCalledWith(expect.anything(), BOOK, {
+      assumeBookTitle: "새 제목",
+    });
+    // 제목과 상태가 한 번에 저장됩니다 — 한쪽만 남지 않게.
+    expect(updates()).toHaveLength(1);
+    expect(updates()[0].args.update).toMatchObject({ title: "새 제목", status: "published" });
+  });
+});
+
+describe("조회 실패는 404가 아니라 500 (11-P1-3·P1-4)", () => {
+  const DB_DOWN = { data: null, error: { message: 'relation "books" does not exist' } };
+
+  it("GET: 책을 읽지 못하면 500이고 원문을 싣지 않는다", async () => {
+    mocks.respond = () => DB_DOWN;
+
+    const res = await GET(new NextRequest(`http://localhost/api/books/${BOOK}`), params);
+
+    expect(res.status).toBe(500);
+    expect(JSON.stringify(await res.json())).not.toMatch(/relation/);
+  });
+
+  it("GET: 장을 읽지 못하면 500이고 원문을 싣지 않는다", async () => {
+    respondWith((query) => (query.table === "chapters" ? DB_DOWN : OK_EMPTY));
+
+    const res = await GET(new NextRequest(`http://localhost/api/books/${BOOK}`), params);
+
+    expect(res.status).toBe(500);
+    expect(JSON.stringify(await res.json())).not.toMatch(/relation/);
+  });
+
+  it("GET: 행이 없을 때만 404", async () => {
+    mocks.respond = () => OK_EMPTY;
+
+    const res = await GET(new NextRequest(`http://localhost/api/books/${BOOK}`), params);
+
+    expect(res.status).toBe(404);
+  });
+
+  it("PUT: 책을 읽지 못하면 500이고 저장하지 않는다", async () => {
+    mocks.respond = () => DB_DOWN;
+
+    const res = await PUT(request("PUT", { title: "제목" }), params);
+
+    expect(res.status).toBe(500);
+    expect(mocks.queries.filter((q) => q.ops.includes("update"))).toHaveLength(0);
+  });
+
+  it("DELETE: 책을 읽지 못하면 500이고 지우지 않는다", async () => {
+    mocks.respond = () => DB_DOWN;
+
+    const res = await DELETE(request("DELETE"), params);
+
+    expect(res.status).toBe(500);
+    expect(deletes()).toHaveLength(0);
+  });
+});
+
+describe("GET /api/books/[bookId] — 필요한 것만 (11-P2-1·P2-2)", () => {
+  it("?fields=book이면 책 행만 — 장을 읽지 않는다", async () => {
+    const res = await GET(
+      new NextRequest(`http://localhost/api/books/${BOOK}?fields=book`),
+      params,
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.data.chapters).toBeUndefined();
+    expect(mocks.queries.some((q) => q.table === "chapters")).toBe(false);
+  });
+
+  it("draft를 달라고 하지 않으면 사용자를 확인하지 않는다", async () => {
+    await GET(new NextRequest(`http://localhost/api/books/${BOOK}`), params);
+    expect(auth.calls).toBe(0);
+
+    await GET(new NextRequest(`http://localhost/api/books/${BOOK}?drafts=1`), params);
+    expect(auth.calls).toBe(1);
   });
 });

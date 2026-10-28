@@ -147,6 +147,8 @@
 
 **6. 확인** — DB 테스트: `asUser`로 세 컬럼 UPDATE 차단, 같은 행 `title` UPDATE 통과, 소유자 연결 통과. `book-route.test.ts`: 상태가 바뀐 뒤의 공개 409, 제목과 함께 공개, 조회 에러 500. 운영 적용 순서는 10-A와 같이 **라우트 배포 → 마이그레이션**.
 
+> 2026-10-27 수정함(브랜치 `Yngie-C/code-review-11c`, 마이그레이션 `00017_publish_state_guards.sql`). 결정 1·4는 권장안(트리거 + admin 쓰기, 겹치면 409). 결정 2·3은 운영 DB를 본 결과(책 제목 최대 17자, 장 제목 17자, 소개글 87자, 80자 넘는 bio 0건)로 `NOT VALID` 없이 처음부터 VALID로 걸었어요 — 책·장 제목 200자, 소개글 2000자, `user_profiles_bio_length`는 `VALIDATE CONSTRAINT`. P1-1은 `guard_book_publish_state()`(새 책은 `draft`·`private`·출간일 없음만, 그 뒤 세 컬럼은 바꾸지 못함)와 `guard_chapter_publish_state()`(출간한 적 있는 책의 장만, 라우트 검수와 같은 범위 — 출간 전 책의 장은 그대로 오가고 draft 장 추가는 막지 않음). 책 PUT은 상태가 실제로 바뀔 때만 같은 요청의 다른 필드까지 admin으로 한 번에 쓰고(제목과 공개가 한쪽만 저장되지 않게 — 계획의 "세 컬럼만 admin"에서 바꾼 점), 장 PUT은 검수를 거친 전환만 admin으로 써요. P1-2는 읽은 `status`·`visibility`(장은 `status`)를 UPDATE 조건으로 걸고 0행이면 다시 읽어 404/409 `STATE_CHANGED`. P1-5는 계획과 달리 라우트에서 항목을 덮지 않고 로더에 `assumeBookTitle`을 더했어요(`assumeChapterStatus`와 같은 방식이라 판정은 `runPublishChecks` 한 곳). P1-3·P1-4는 GET·PUT·DELETE를 `maybeSingle()`로, 에러는 로그 + 500, 장 조회 실패도 원문 없이 500. P2-1은 `?fields=book`(편집 화면 `fetchBook`), P2-2는 `?drafts=1`일 때만 `getAuthUser()`. DB 테스트 8개 중 차단 5개는 00017 없이 실패함을 확인(나머지 3개는 허용 케이스). 운영 적용은 **라우트 배포 → 00017**이고, 그 전에 `SUPABASE_SECRET_KEY`가 배포 환경에 있어야 해요(이미 업로드 라우트가 씀).
+
 ### 묶음 11-D 계획 — 공개 흐름 화면 한 벌
 
 **1. 검수 조회 한 벌 (P2-18·P1-13)** — `lib/publish-checks-query.ts`에 `publishChecksQuery(bookId)`(키 `["publish-checks", bookId]`, 응답 형태 검사 포함 — P2-16) 하나. 편집 배너는 `select`로 blockers만, 공개 뒤 경고 수는 `qc.fetchQuery`로 같은 캐시. 장 저장·메타 저장·장 공개 전환·공개 뒤에 그 키 하나만 비움. 미리보기 패널은 마운트할 때 늘 새로 불러옴(`refetchOnMount: "always"`).

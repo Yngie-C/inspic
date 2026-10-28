@@ -1,5 +1,6 @@
 import { after, NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   getAuthUser,
   apiError,
@@ -154,11 +155,11 @@ export async function PUT(request: NextRequest, { params }: Params) {
   // 한 번이라도 출간한 책에서는 장의 공개 전환이 곧 독자 화면의 변화입니다
   // — 공개를 거둔 뒤에도 산 독자는 published 장을 계속 읽습니다(00006).
   // 그래서 책을 공개할 때와 같은 검수를 거칩니다(WP7).
-  if (
+  const guardedStatusChange =
     updates.status !== undefined &&
     updates.status !== chapter.status &&
-    book.published_at
-  ) {
+    !!book.published_at;
+  if (guardedStatusChange) {
     const blocked = await chapterStatusBlockers(
       supabase,
       chapter.book_id,
@@ -183,16 +184,37 @@ export async function PUT(request: NextRequest, { params }: Params) {
   // 책의 장 수·글자 수는 DB 트리거가 published 장 기준으로 다시 셉니다
   // (00009). 여기서 읽은 값에 차이를 더해 덮으면 동시 저장에서 갱신을
   // 잃습니다.
-  const { data, error } = await supabase
-    .from("chapters")
-    .update(updates)
-    .eq("id", chapterId)
-    .select()
-    .single();
+  //
+  // 검수를 거친 상태 전환은 사용자 권한으로 쓸 수 없어(00017) admin으로
+  // 씁니다. 검수한 상태 그대로일 때만 쓰고, 그 사이 다른 곳에서 바뀌었으면
+  // 409입니다 — 책 공개와 같은 규칙입니다(11-P1-2).
+  const { data, error } = guardedStatusChange
+    ? await createAdminClient()
+        .from("chapters")
+        .update(updates)
+        .eq("id", chapterId)
+        .eq("status", chapter.status)
+        .select()
+        .maybeSingle()
+    : await supabase
+        .from("chapters")
+        .update(updates)
+        .eq("id", chapterId)
+        .select()
+        .maybeSingle();
 
-  if (error || !data) {
+  if (error) {
     console.error("[chapters] 장을 저장하지 못했습니다", { chapterId, error });
     return apiError("저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.", "SERVER_ERROR", 500);
+  }
+  if (!data) {
+    return guardedStatusChange
+      ? apiError(
+          "다른 곳에서 장의 공개 상태가 바뀌었어요. 새로고침한 뒤 다시 시도해 주세요.",
+          "STATE_CHANGED",
+          409,
+        )
+      : apiError(CHAPTER_NOT_FOUND, "NOT_FOUND", 404);
   }
 
   // 본문이 바뀌었으면 블록 정의를 다시 맞춥니다. 방금 쓴 본문 그대로
