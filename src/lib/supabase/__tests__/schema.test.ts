@@ -106,7 +106,7 @@ describe("초기 스키마", () => {
     ).rejects.toThrow();
   });
 
-  it("user_profiles.bio는 새로 쓸 때 80자까지, 이전의 긴 bio는 남긴다 (00015)", async () => {
+  it("user_profiles.bio는 80자까지 (00015, 00017에서 VALIDATE)", async () => {
     const user = await db.query<{ id: string }>(
       `INSERT INTO auth.users (email) VALUES ('bio@example.com') RETURNING id`,
     );
@@ -123,11 +123,51 @@ describe("초기 스키마", () => {
       ]),
     ).rejects.toThrow();
 
-    // NOT VALID — 00014 이전에 쓴 긴 bio가 있어도 적용이 실패하지 않습니다.
+    // 00015는 NOT VALID로 걸었고, 운영 DB에 80자 넘는 bio가 없음을 확인한 뒤
+    // 00017이 굳혔습니다.
     const constraint = await db.query<{ convalidated: boolean }>(
       `SELECT convalidated FROM pg_constraint WHERE conname = 'user_profiles_bio_length'`,
     );
-    expect(constraint.rows).toEqual([{ convalidated: false }]);
+    expect(constraint.rows).toEqual([{ convalidated: true }]);
+  });
+
+  it("책·장 제목은 200자, 소개글은 2000자까지 받는다 (00017)", async () => {
+    const owner = await db.query<{ id: string }>(
+      `INSERT INTO auth.users (email) VALUES ('length@example.com') RETURNING id`,
+    );
+    const ownerId = owner.rows[0].id;
+
+    const book = await db.query<{ id: string }>(
+      `INSERT INTO books (owner_id, title, description) VALUES ($1, $2, $3) RETURNING id`,
+      [ownerId, "가".repeat(200), "가".repeat(2000)],
+    );
+    await expect(
+      db.query(`INSERT INTO books (owner_id, title) VALUES ($1, $2)`, [
+        ownerId,
+        "가".repeat(201),
+      ]),
+    ).rejects.toThrow();
+    await expect(
+      db.query(`INSERT INTO books (owner_id, title, description) VALUES ($1, '책', $2)`, [
+        ownerId,
+        "가".repeat(2001),
+      ]),
+    ).rejects.toThrow();
+
+    const bookId = book.rows[0].id;
+    await db.query(
+      `INSERT INTO chapters (book_id, title, slug, content_html, order_index) VALUES ($1, $2, 'len-1', '', 0)`,
+      [bookId, "가".repeat(200)],
+    );
+    await expect(
+      db.query(
+        `INSERT INTO chapters (book_id, title, slug, content_html, order_index) VALUES ($1, $2, 'len-2', '', 1)`,
+        [bookId, "가".repeat(201)],
+      ),
+    ).rejects.toThrow();
+
+    // 라우트(textLength)와 같이 코드포인트로 셉니다 — 이모지 하나는 한 글자.
+    await db.query(`UPDATE books SET title = $2 WHERE id = $1`, [bookId, "😀".repeat(200)]);
   });
 
   it("avatars 버킷은 공개이고 라우트와 같은 크기·형식만 받는다", async () => {

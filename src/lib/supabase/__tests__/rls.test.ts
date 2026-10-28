@@ -1386,6 +1386,154 @@ describe("이미지 URL 컬럼은 업로드 경로만 바꾼다", () => {
 });
 
 /**
+ * 공개 상태 컬럼 (마이그레이션 00017).
+ *
+ * 책 공개·내리기와 출간한 책의 장 공개 전환은 검수를 거친 라우트만 admin
+ * 클라이언트로 씁니다. 소유자 UPDATE 정책이 행 전체에 열려 있으므로,
+ * 사용자 권한으로 이 컬럼을 바꾸는 것은 트리거가 막습니다. 같은 행의 다른
+ * 컬럼은 그대로 고칠 수 있어야 합니다 — 막히면 저자 저장이 깨집니다.
+ */
+describe("공개 상태는 검수를 거친 경로만 바꾼다 (00017)", () => {
+  async function seedStateBook(publishedAt: string | null): Promise<string> {
+    const result = await db.query<{ id: string }>(
+      `INSERT INTO books (owner_id, title, status, visibility, published_at)
+       VALUES ($1, '상태 책', 'draft', 'private', $2) RETURNING id`,
+      [creator, publishedAt],
+    );
+    return result.rows[0].id;
+  }
+
+  it("소유자도 책의 status·visibility·published_at을 바꾸지 못한다", async () => {
+    const bookId = await seedStateBook(null);
+    for (const change of [
+      "status = 'published', visibility = 'public'",
+      "status = 'processing'",
+      "visibility = 'unlisted'",
+      "published_at = now()",
+    ]) {
+      await expect(
+        asUser(creator, () => db.query(`UPDATE books SET ${change} WHERE id = $1`, [bookId])),
+      ).rejects.toThrow(/공개 경로로만/);
+    }
+
+    const row = await db.query(
+      `SELECT status, visibility, published_at FROM books WHERE id = $1`,
+      [bookId],
+    );
+    expect(row.rows).toEqual([{ status: "draft", visibility: "private", published_at: null }]);
+  });
+
+  it("같은 책의 다른 컬럼은 고칠 수 있다 — 같은 상태 값을 실어 와도", async () => {
+    const bookId = await seedStateBook(null);
+    const affected = await asUser(creator, async () => {
+      const result = await db.query(
+        `UPDATE books SET title = '새 제목', visibility = 'private' WHERE id = $1`,
+        [bookId],
+      );
+      return result.affectedRows;
+    });
+    expect(affected).toBe(1);
+  });
+
+  it("새 책은 초안·비공개로만 만들어진다", async () => {
+    for (const columns of [
+      ["status", "'published'"],
+      ["visibility", "'public'"],
+      ["published_at", "now()"],
+    ]) {
+      await expect(
+        asUser(creator, () =>
+          db.query(
+            `INSERT INTO books (owner_id, title, ${columns[0]}) VALUES ($1, '책', ${columns[1]})`,
+            [creator],
+          ),
+        ),
+      ).rejects.toThrow(/초안·비공개/);
+    }
+
+    // POST /api/books와 업로드가 보내는 모양.
+    const created = await asUser(creator, async () => {
+      const result = await db.query(
+        `INSERT INTO books (owner_id, title, status, visibility)
+         VALUES ($1, '책', 'draft', 'private') RETURNING id`,
+        [creator],
+      );
+      return result.rows.length;
+    });
+    expect(created).toBe(1);
+  });
+
+  it("출간한 적 있는 책의 장은 공개 상태를 바꾸지 못하고, draft 장은 더한다", async () => {
+    const bookId = await seedStateBook("2026-01-01T00:00:00Z");
+    const chapterId = await seedChapter(bookId, "guarded-1", "draft", 0);
+
+    await expect(
+      asUser(creator, () =>
+        db.query(`UPDATE chapters SET status = 'published' WHERE id = $1`, [chapterId]),
+      ),
+    ).rejects.toThrow(/공개 경로로만/);
+    await expect(
+      asUser(creator, () =>
+        db.query(
+          `INSERT INTO chapters (book_id, title, slug, content_html, status, order_index)
+           VALUES ($1, '새 장', 'guarded-2', '', 'published', 1)`,
+          [bookId],
+        ),
+      ),
+    ).rejects.toThrow(/공개 경로로만/);
+
+    // 장 추가(기본 draft)와 본문 저장은 그대로입니다.
+    const affected = await asUser(creator, async () => {
+      await db.query(
+        `INSERT INTO chapters (book_id, title, slug, content_html, status, order_index)
+         VALUES ($1, '새 장', 'guarded-3', '', 'draft', 2)`,
+        [bookId],
+      );
+      const result = await db.query(
+        `UPDATE chapters SET title = '고친 장', status = 'draft' WHERE id = $1`,
+        [chapterId],
+      );
+      return result.affectedRows;
+    });
+    expect(affected).toBe(1);
+  });
+
+  it("출간 전 책의 장은 검수 없이 오간다 — 책을 처음 공개할 때 검수한다", async () => {
+    const bookId = await seedStateBook(null);
+    const chapterId = await seedChapter(bookId, "free-1", "draft", 0);
+
+    const affected = await asUser(creator, async () => {
+      await db.query(
+        `INSERT INTO chapters (book_id, title, slug, content_html, status, order_index)
+         VALUES ($1, '새 장', 'free-2', '', 'published', 1)`,
+        [bookId],
+      );
+      const result = await db.query(
+        `UPDATE chapters SET status = 'published' WHERE id = $1`,
+        [chapterId],
+      );
+      return result.affectedRows;
+    });
+    expect(affected).toBe(1);
+  });
+
+  it("라우트의 admin 경로(역할 전환 없음)는 바꾼다", async () => {
+    // 하네스에는 service_role이 없어서, 같은 판정을 받는 테이블 소유자 연결로 대신합니다.
+    const bookId = await seedStateBook(null);
+    await db.query(
+      `UPDATE books SET status = 'published', visibility = 'public', published_at = now()
+       WHERE id = $1`,
+      [bookId],
+    );
+    const chapterId = await seedChapter(bookId, "admin-1", "draft", 0);
+    await db.query(`UPDATE chapters SET status = 'published' WHERE id = $1`, [chapterId]);
+
+    const row = await db.query(`SELECT status, visibility FROM books WHERE id = $1`, [bookId]);
+    expect(row.rows).toEqual([{ status: "published", visibility: "public" }]);
+  });
+});
+
+/**
  * 00008: 응답 행은 지금의 정의를 가리켜야 하고, 공개 전 장의 문항은
  * 소유자만 봅니다. 라우트(PUT /responses)가 먼저 같은 판정을 하지만,
  * PostgREST로 직접 쓰면 라우트를 건너뛰므로 정책이 마지막 방어선입니다.

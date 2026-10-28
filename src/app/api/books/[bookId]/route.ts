@@ -1,5 +1,6 @@
 import { after, NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   getAuthUser,
   apiError,
@@ -27,6 +28,17 @@ type Params = { params: Promise<{ bookId: string }> };
 /** Postgres foreign_key_violation. */
 const FOREIGN_KEY_VIOLATION = "23503";
 
+const SAVE_FAILED_MESSAGE = "저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.";
+const STATE_CHANGED_MESSAGE =
+  "다른 곳에서 공개 상태가 바뀌었어요. 새로고침한 뒤 다시 시도해 주세요.";
+const LOAD_FAILED_MESSAGE = "책을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.";
+
+/**
+ * 공개 상태 컬럼. 사용자 권한으로는 바꿀 수 없고(00017 트리거), 검수를
+ * 마친 이 라우트가 admin 클라이언트로 씁니다.
+ */
+const PUBLISH_STATE_COLUMNS = ["status", "visibility", "published_at"] as const;
+
 /**
  * 리더와 편집 화면이 함께 쓰는 조회.
  *
@@ -40,23 +52,35 @@ const FOREIGN_KEY_VIOLATION = "23503";
  *
  * 저자도 기본은 독자와 같은 published 챕터만 받습니다. draft까지 받는 것은
  * 소유자가 `?drafts=1`을 붙였을 때뿐이고, 편집 화면의 미리보기가 그렇게 부릅니다.
+ *
+ * 편집 화면은 장을 `/api/chapters`로 따로 읽으므로 `?fields=book`으로 책
+ * 행만 받습니다. 붙이지 않으면 공개 장 본문 전부를 읽고 버립니다(11-P2-1).
  */
 export async function GET(request: NextRequest, { params }: Params) {
-  const user = await getAuthUser();
-
   const { bookId } = await params;
+  const { searchParams } = request.nextUrl;
   const supabase = await createClient();
 
   const { data: book, error: bookError } = await supabase
     .from("books")
     .select("*")
     .eq("id", bookId)
-    .single();
+    .maybeSingle();
 
-  if (bookError || !book) return apiError("Book not found", "NOT_FOUND", 404);
+  // DB가 잠깐 실패한 것을 "책 없음"으로 내면 산 독자의 리더가 책이
+  // 사라진 것처럼 보입니다(11-P1-3).
+  if (bookError) {
+    console.error("[books] 책을 읽지 못했습니다", { bookId, bookError });
+    return apiError(LOAD_FAILED_MESSAGE, "SERVER_ERROR", 500);
+  }
+  if (!book) return apiError("Book not found", "NOT_FOUND", 404);
 
-  const withDrafts =
-    !!user && book.owner_id === user.id && request.nextUrl.searchParams.get("drafts") === "1";
+  if (searchParams.get("fields") === "book") return apiSuccess(book);
+
+  // 사용자 확인(Auth 서버 왕복)은 draft를 달라고 했을 때만 합니다 — 익명
+  // 독자의 리더 로딩에 직렬 왕복을 하나 더 얹지 않게(11-P2-2).
+  const user = searchParams.get("drafts") === "1" ? await getAuthUser() : null;
+  const withDrafts = !!user && book.owner_id === user.id;
   let chaptersQuery = supabase
     .from("chapters")
     .select("*")
@@ -71,7 +95,11 @@ export async function GET(request: NextRequest, { params }: Params) {
 
   const { data: chapters, error: chaptersError } = await chaptersQuery;
 
-  if (chaptersError) return apiError(chaptersError.message, "SERVER_ERROR", 500);
+  // Postgres 원문에는 함수·테이블 이름이 들어 있습니다(11-P1-4).
+  if (chaptersError) {
+    console.error("[books] 장을 읽지 못했습니다", { bookId, chaptersError });
+    return apiError(LOAD_FAILED_MESSAGE, "SERVER_ERROR", 500);
+  }
 
   return apiSuccess({ ...book, chapters: chapters ?? [] });
 }
@@ -87,9 +115,13 @@ export async function PUT(request: NextRequest, { params }: Params) {
     .from("books")
     .select("owner_id, status, visibility, published_at, language")
     .eq("id", bookId)
-    .single();
+    .maybeSingle();
 
-  if (fetchError || !existing) return apiError("Book not found", "NOT_FOUND", 404);
+  if (fetchError) {
+    console.error("[books] 책을 읽지 못했습니다", { bookId, fetchError });
+    return apiError(SAVE_FAILED_MESSAGE, "SERVER_ERROR", 500);
+  }
+  if (!existing) return apiError("Book not found", "NOT_FOUND", 404);
   if (existing.owner_id !== user.id) return apiError("Access denied", "FORBIDDEN", 403);
 
   const body = await readJsonObject(request);
@@ -193,7 +225,12 @@ export async function PUT(request: NextRequest, { params }: Params) {
   if (becomesPublic) {
     // 검수는 UPDATE 바로 앞에서 돌립니다. 그 사이에 끼는 자동 저장은 공개
     // 뒤의 편집과 같고, 편집 화면 배너가 계속 보여 줍니다(4-P1-12 결정).
-    const result = await loadPublishChecks(supabase, bookId);
+    // 같은 요청이 바꾸는 제목으로 판정합니다. 저장 전 행을 보면 빈 제목
+    // 책에 새 제목과 공개를 함께 보내도 "제목이 비어 있어요"로 막혔습니다
+    // (11-P1-5).
+    const result = await loadPublishChecks(supabase, bookId, {
+      assumeBookTitle: typeof updates.title === "string" ? updates.title : undefined,
+    });
     if (!result.ok) {
       return result.reason === "not-found"
         ? apiError("Book not found", "NOT_FOUND", 404)
@@ -217,16 +254,60 @@ export async function PUT(request: NextRequest, { params }: Params) {
     }
   }
 
-  const { data, error } = await supabase
+  const changesState = PUBLISH_STATE_COLUMNS.some(
+    (column) => column in updates && updates[column] !== existing[column],
+  );
+  if (!changesState) {
+    const { data, error } = await supabase
+      .from("books")
+      .update(updates)
+      .eq("id", bookId)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      console.error("[books] 책을 저장하지 못했습니다", { bookId, error });
+      return apiError(SAVE_FAILED_MESSAGE, "SERVER_ERROR", 500);
+    }
+    if (!data) return apiError("Book not found", "NOT_FOUND", 404);
+    return apiSuccess(data);
+  }
+
+  // 공개 상태는 사용자 권한으로 바꿀 수 없어(00017) admin으로 씁니다.
+  // 같은 요청의 다른 필드도 함께 써서, 제목과 공개가 한쪽만 저장되지 않게
+  // 합니다. 소유자 확인과 입력 검증은 위에서 끝났습니다.
+  //
+  // 판정은 맨 앞에 읽은 상태로 했으므로, 그 상태 그대로일 때만 씁니다.
+  // 탭 A의 내리기와 옛 화면 탭 B의 공개가 겹치면 B가 검수 없이 다시
+  // 공개했습니다(11-P1-2). 바뀌었으면 409로 알리고 다시 판정하지 않습니다
+  // — 사용자가 본 화면과 다른 결과가 나기 때문입니다(11단계 결정 4).
+  const admin = createAdminClient();
+  const { data, error } = await admin
     .from("books")
     .update(updates)
     .eq("id", bookId)
+    .eq("owner_id", user.id)
+    .eq("status", existing.status)
+    .eq("visibility", existing.visibility)
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) {
-    console.error("[books] 책을 저장하지 못했습니다", { bookId, error });
-    return apiError("저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.", "SERVER_ERROR", 500);
+    console.error("[books] 공개 상태를 저장하지 못했습니다", { bookId, error });
+    return apiError(SAVE_FAILED_MESSAGE, "SERVER_ERROR", 500);
+  }
+  if (!data) {
+    const { data: current, error: rereadError } = await supabase
+      .from("books")
+      .select("id")
+      .eq("id", bookId)
+      .maybeSingle();
+    if (rereadError) {
+      console.error("[books] 책을 다시 읽지 못했습니다", { bookId, rereadError });
+      return apiError(SAVE_FAILED_MESSAGE, "SERVER_ERROR", 500);
+    }
+    if (!current) return apiError("Book not found", "NOT_FOUND", 404);
+    return apiError(STATE_CHANGED_MESSAGE, "STATE_CHANGED", 409);
   }
 
   return apiSuccess(data);
@@ -243,9 +324,13 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
     .from("books")
     .select("owner_id")
     .eq("id", bookId)
-    .single();
+    .maybeSingle();
 
-  if (fetchError || !existing) return apiError("Book not found", "NOT_FOUND", 404);
+  if (fetchError) {
+    console.error("[books] 책을 읽지 못했습니다", { bookId, fetchError });
+    return apiError("책을 삭제하지 못했어요. 잠시 뒤 다시 시도해 주세요.", "SERVER_ERROR", 500);
+  }
+  if (!existing) return apiError("Book not found", "NOT_FOUND", 404);
   if (existing.owner_id !== user.id) return apiError("Access denied", "FORBIDDEN", 403);
 
   // 챕터·블록·독자 답은 FK CASCADE로 함께 지워집니다. 따로 먼저 지우면

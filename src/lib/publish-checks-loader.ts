@@ -28,6 +28,11 @@ export interface PublishChecksOptions {
    * 내리기 전에, 바뀐 뒤의 책이 통과하는지 봅니다.
    */
   assumeChapterStatus?: { id: string; status: PublishCheckChapter["status"] };
+  /**
+   * 책 제목이 이 값이라고 가정하고 검사합니다. 제목과 공개를 한 요청으로
+   * 보낼 때, 저장 전 제목으로 막지 않게 합니다(11-P1-5).
+   */
+  assumeBookTitle?: string;
 }
 
 export async function loadPublishChecks(
@@ -78,7 +83,11 @@ export async function loadPublishChecks(
 
   return {
     ok: true,
-    checks: runPublishChecks({ book, chapters, storedBlocks }),
+    checks: runPublishChecks({
+      book: { ...book, title: options.assumeBookTitle ?? book.title },
+      chapters,
+      storedBlocks,
+    }),
   };
 }
 

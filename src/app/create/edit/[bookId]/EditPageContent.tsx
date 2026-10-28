@@ -39,11 +39,11 @@ import type { Book, Chapter } from "@/types";
 import { useChapterSaver } from "./useChapterSaver";
 
 async function fetchBook(id: string): Promise<Book> {
-  const res = await fetch(`/api/books/${id}`);
+  // 장은 `/api/chapters`로 따로 읽습니다. 책 행만 받습니다(11-P2-1).
+  const res = await fetch(`/api/books/${id}?fields=book`);
   if (!res.ok) throw new Error("책을 불러오지 못했어요.");
   const json = await res.json();
-  const { chapters: _chapters, ...book } = json.data;
-  return book as Book;
+  return json.data as Book;
 }
 
 async function fetchPublishBlockers(bookId: string): Promise<PublishCheck[]> {

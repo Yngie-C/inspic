@@ -29,6 +29,9 @@ const CHAPTER = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const mocks = vi.hoisted(() => ({
   respond: (() => ({ data: null, error: null })) as (query: RecordedQuery) => QueryResult,
   queries: [] as RecordedQuery[],
+  client: null as unknown as { from: (table: string) => unknown },
+  /** admin 클라이언트로 보낸 쿼리. 출간한 책의 장 상태는 이쪽으로만 바뀝니다(00017). */
+  adminQueries: new Set<RecordedQuery>(),
 }));
 
 vi.mock("@/lib/supabase/server", async () => {
@@ -37,10 +40,22 @@ vi.mock("@/lib/supabase/server", async () => {
     createClient: async () => {
       const fake = createFakeSupabase((query) => mocks.respond(query));
       mocks.queries = fake.queries;
+      mocks.client = fake.client;
       return fake.client;
     },
   };
 });
+
+// admin 쿼리도 같은 기록에 순서대로 남기고, admin으로 보냈다는 표시만 더합니다.
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: () => ({
+    from: (table: string) => {
+      const builder = mocks.client.from(table);
+      mocks.adminQueries.add(mocks.queries.at(-1)!);
+      return builder;
+    },
+  }),
+}));
 
 vi.mock("@/lib/api-utils", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api-utils")>()),
@@ -130,7 +145,10 @@ beforeEach(() => {
   // 남습니다.
   mocks.queries = [];
   mocks.respond = (query) => {
-    if (query.table === "chapters" && query.ops.includes("single")) {
+    if (
+      query.table === "chapters" &&
+      (query.ops.includes("single") || query.ops.includes("update"))
+    ) {
       return {
         data: {
           id: CHAPTER,
@@ -483,6 +501,32 @@ describe("PUT /api/chapters/[chapterId] — 장 공개 전환 검수 (WP7)", () 
 
     expect(res.status).toBe(200);
     expect(loader.load).not.toHaveBeenCalled();
+    // 출간 전 책의 장 상태는 트리거가 막지 않으므로 사용자 권한으로 씁니다.
+    expect(writes().some((q) => mocks.adminQueries.has(q))).toBe(false);
+  });
+
+  it("검수를 거친 전환은 admin으로, 검수한 상태 그대로일 때만 쓴다 (11-P1-1·P1-2)", async () => {
+    respondChapter("draft", PUBLISHED_AT);
+
+    const res = await PUT(jsonRequest({ status: "published" }), params);
+
+    expect(res.status).toBe(200);
+    const [write] = writes();
+    expect(mocks.adminQueries.has(write)).toBe(true);
+    expect(write.args.update).toEqual({ status: "published" });
+    expect(write.calls).toContainEqual({ method: "eq", args: ["status", "draft"] });
+  });
+
+  it("그 사이 다른 곳에서 상태가 바뀌었으면(0행) 409 STATE_CHANGED", async () => {
+    respondChapter("draft", PUBLISHED_AT);
+    const base = mocks.respond;
+    mocks.respond = (query) =>
+      query.ops.includes("update") ? OK_EMPTY : base(query);
+
+    const res = await PUT(jsonRequest({ status: "published" }), params);
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe("STATE_CHANGED");
   });
 
   it("검수 데이터를 읽지 못하면 500이고 바꾸지 않는다", async () => {
